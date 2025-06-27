@@ -1,0 +1,32 @@
+{
+	"name": "osiris",
+	"private": true,
+	"workspaces": [
+		"apps/*",
+		"packages/*"
+	],
+	"scripts": {
+		"check": "biome check --write .",
+		"lint": "biome lint --write",
+		"format": "biome format --write .",
+		"prepare": "husky",
+		"dev": "bun run --filter '*' dev",
+		"build": "bun run --filter '*' build",
+		"check-types": "bun run --filter '*' check-types",
+		"dev:native": "bun run --filter native dev",
+		"dev:web": "bun run --filter web dev",
+		"dev:server": "bun run --filter server dev"
+	},
+	"dependencies": {},
+	"devDependencies": {
+		"@biomejs/biome": "^2.0.0",
+		"husky": "^9.1.7",
+		"lint-staged": "^15.5.0"
+	},
+	"lint-staged": {
+		"*.{js,ts,cjs,mjs,d.cts,d.mts,jsx,tsx,json,jsonc}": [
+			"biome check --write ."
+		]
+	},
+	"packageManager": "bun@1.2.13"
+}
