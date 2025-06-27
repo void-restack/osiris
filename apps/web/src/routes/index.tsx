@@ -1,3 +1,4 @@
+import { McpSearchBox } from "@/components/features/mcp-search/mcp-search-box";
 import { createFileRoute } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/")({
@@ -5,5 +6,7 @@ export const Route = createFileRoute("/")({
 });
 
 function HomeComponent() {
-	return <div />;
+	return <div>
+		<McpSearchBox />
+	</div>;
 }
