@@ -24,34 +24,37 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { MoveUpRight } from "lucide-react";
+import type { McpCardProps } from "./mcp-card";
+import { McpTag, type McpTagProps } from "@/components/tag";
 
 type actionStatus = "Pending" | "Failed" | "Success";
 
-type McpAction = {
-  name: string;
-  status: actionStatus;
-  timestamp: Date;
-  id: number;
-};
 
-const data: McpAction[] = [
+
+const data: McpCardProps[] = [
   {
-    name: "Analysing and syncing contacts",
-    id: 1,
-    status: "Pending",
-    timestamp: new Date(),
+    title: "Analysing and syncing contacts",
+    description: "Analysing and syncing contacts",
+    tags: [{tag: "Type", }],
+    icon: "https://www.google.com/images/branding/googlelogo/1x/googlelogo_color_272x92dp.png",
+    userHandle: "John Doe",
+    isVerified: true,
   },
   {
-    name: "Send an Email",
-    id: 2,
-    status: "Failed",
-    timestamp: new Date(),
+    title: "Send an Email",
+    description: "Send an Email",
+    tags: [{tag: "Type", }],
+    icon: "https://www.google.com/images/branding/googlelogo/1x/googlelogo_color_272x92dp.png",
+    userHandle: "John Doe",
+    isVerified: true,
   },
   {
-    name: "Draft an Email",
-    id: 4,
-    status: "Success",
-    timestamp: new Date(),
+    title: "Draft an Email",
+    description: "Draft an Email",
+    tags: [{tag: "Type", }],
+    icon: "https://www.google.com/images/branding/googlelogo/1x/googlelogo_color_272x92dp.png",
+    userHandle: "John Doe",
+    isVerified: true,
   },
 ];
 
@@ -62,7 +65,7 @@ export type Payment = {
   email: string;
 };
 
-export const columns: ColumnDef<McpAction>[] = [
+export const columns: ColumnDef<McpCardProps>[] = [
   {
     accessorKey: "id",
     header: () => {
@@ -71,31 +74,25 @@ export const columns: ColumnDef<McpAction>[] = [
     cell: ({ row }) => <div className="font-medium text-sm text-[#737373] text-right">{row.index + 1}</div>,
   },
   {
-    accessorKey: "name",
+    accessorKey: "title",
     header: "Name",
     cell: ({ row }) => (
-      <div className="capitalize text-sm text-[#171717]">{row.getValue("name")}</div>
+      <div className="capitalize text-sm text-[#171717]">{row.getValue("title")}</div>
     ),
   },
   {
-    accessorKey: "status",
-    cell: ({ row }) => <div className="lowercase">{row.getValue("status")}</div>,
-  },
-  {
-    accessorKey: "timestamp",
+    accessorKey: "description",
     header: "Timestamp",
-    cell: ({ row }) => <div className="lowercase">{(row.getValue("timestamp") as Date).toLocaleString()}</div>,
+    cell: ({ row }) => <div className="lowercase">{row.getValue("isVerified") ? "Verified" : "Unverified"}</div>,
   },
   {
-    accessorKey: "#",
+    accessorKey: "tags",
     header: () => {
-        <p></p>
+        <p>Type</p>
     },
-    cell: () => {
+    cell: ({ row }) => {
         return <div className="w-[56px]">
-            <Button className="bg-[#F5F5F5] hover:bg-[#F5F5F5] h-6 w-5 rounded-none" variant={"ghost"}>
-                <MoveUpRight width={14} height={14} />
-            </Button>
+            <McpTag tag={(row.getValue("tags") as McpTagProps[])[0].tag} />
         </div>
     }
   }
