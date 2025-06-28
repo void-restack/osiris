@@ -1761,7 +1761,10 @@ export const Route = createFileRoute('/packages/')({
 })
 
 function PackagesPage() {
-  const { page, search, publisherId } = Route.useSearch()
+  // const { page, search, publisherId } = Route.useSearch()
+  const publisherId = '4beb08f3-a8d7-4610-987b-67763b4b8672'
+  const page = 0
+  const search = ''
   const { data: packages } = useSuspenseQuery(
     packageQueries.listOptions({
       page,

@@ -11,25 +11,24 @@ import {
 	SidebarMenuButton,
 	SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import Logo from "../../public/logo.svg";
 import { UserPopover } from "./user-popover";
 
 const data = {
 	navMain: [
 		{
 			title: "Home",
-			url: "#",
+			url: "/",
 			icon: SquareTerminal,
 			isActive: true,
 		},
 		{
 			title: "AuthHub",
-			url: "#",
+			url: "/hub/auth",
 			icon: Bot,
 		},
 		{
 			title: "MCP Hub",
-			url: "#",
+			url: "/hub/mcp",
 			icon: BookOpen,
 		},
 		{
@@ -55,7 +54,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 							<a href="#">
 								<div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
 									<Link to="/">
-										<img src={Logo} alt="Osiris Hub" />
+										<img src="/logo.svg" alt="Osiris Hub" />
 									</Link>
 								</div>
 								<div className="grid flex-1 text-left text-sm leading-tight">

@@ -19,7 +19,11 @@
 		"dev:server": "bun run --filter server dev"
 	},
 	"dependencies": {
-		"@radix-ui/react-slot": "^1.2.3"
+		"@radix-ui/react-slot": "^1.2.3",
+		"@tanstack/react-query": "^5.81.5",
+		"@tanstack/react-query-devtools": "^5.81.5",
+		"up-fetch": "^2.1.6",
+		"zod": "^3.25.67"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.0.0",

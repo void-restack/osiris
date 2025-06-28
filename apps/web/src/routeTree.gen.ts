@@ -9,38 +9,73 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as HubRouteRouteImport } from './routes/hub/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as HubMcpRouteImport } from './routes/hub/mcp'
+import { Route as HubAuthRouteImport } from './routes/hub/auth'
 
+const HubRouteRoute = HubRouteRouteImport.update({
+  id: '/hub',
+  path: '/hub',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const HubMcpRoute = HubMcpRouteImport.update({
+  id: '/mcp',
+  path: '/mcp',
+  getParentRoute: () => HubRouteRoute,
+} as any)
+const HubAuthRoute = HubAuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => HubRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/hub': typeof HubRouteRouteWithChildren
+  '/hub/auth': typeof HubAuthRoute
+  '/hub/mcp': typeof HubMcpRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/hub': typeof HubRouteRouteWithChildren
+  '/hub/auth': typeof HubAuthRoute
+  '/hub/mcp': typeof HubMcpRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/hub': typeof HubRouteRouteWithChildren
+  '/hub/auth': typeof HubAuthRoute
+  '/hub/mcp': typeof HubMcpRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/hub' | '/hub/auth' | '/hub/mcp'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/hub' | '/hub/auth' | '/hub/mcp'
+  id: '__root__' | '/' | '/hub' | '/hub/auth' | '/hub/mcp'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  HubRouteRoute: typeof HubRouteRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/hub': {
+      id: '/hub'
+      path: '/hub'
+      fullPath: '/hub'
+      preLoaderRoute: typeof HubRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,11 +83,40 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/hub/mcp': {
+      id: '/hub/mcp'
+      path: '/mcp'
+      fullPath: '/hub/mcp'
+      preLoaderRoute: typeof HubMcpRouteImport
+      parentRoute: typeof HubRouteRoute
+    }
+    '/hub/auth': {
+      id: '/hub/auth'
+      path: '/auth'
+      fullPath: '/hub/auth'
+      preLoaderRoute: typeof HubAuthRouteImport
+      parentRoute: typeof HubRouteRoute
+    }
   }
 }
 
+interface HubRouteRouteChildren {
+  HubAuthRoute: typeof HubAuthRoute
+  HubMcpRoute: typeof HubMcpRoute
+}
+
+const HubRouteRouteChildren: HubRouteRouteChildren = {
+  HubAuthRoute: HubAuthRoute,
+  HubMcpRoute: HubMcpRoute,
+}
+
+const HubRouteRouteWithChildren = HubRouteRoute._addFileChildren(
+  HubRouteRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  HubRouteRoute: HubRouteRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

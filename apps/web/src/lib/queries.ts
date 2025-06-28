@@ -1,0 +1,859 @@
+export const utilityQueries = {
+	all: () => ["utility"] as const,
+	health: () => [...utilityQueries.all(), "health"] as const,
+
+	healthOptions: () =>
+		queryOptions({
+			queryKey: utilityQueries.health(),
+			queryFn: async () => {
+				const response = await api("/health", {
+					schema: z.object({
+						status: z.string(),
+						timestamp: z.string().datetime(),
+						environment: z.string(),
+						paymentProviders: z.object({
+							helio: z.object({
+								enabled: z.boolean(),
+								environment: z.string(),
+							}),
+							stripe: z.object({
+								enabled: z.boolean(),
+								environment: z.string(),
+							}),
+						}),
+						features: z.object({
+							web3Deposits: z.boolean(),
+							traditionalDeposits: z.boolean(),
+							cryptoPayouts: z.boolean(),
+							bankPayouts: z.boolean(),
+							paypalPayouts: z.boolean(),
+						}),
+					}),
+				});
+				return response;
+			},
+			staleTime: 5 * 60 * 1000, // 5 minutes
+			retry: false, // Don't retry health checks
+		}),
+};
+
+import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query";
+import { z } from "zod";
+import {
+	knowledgeBaseSchema,
+	packageSchema,
+	responseSchema,
+	userSchema,
+} from "@/types";
+import { api } from "./api";
+
+// ===== USER QUERIES =====
+export const userQueries = {
+	all: () => ["users"] as const,
+	me: () => [...userQueries.all(), "me"] as const,
+
+	meOptions: () =>
+		queryOptions({
+			queryKey: userQueries.me(),
+			queryFn: async () => {
+				const response = await api("/users", {
+					schema: responseSchema(userSchema),
+				});
+				if (response.status === "FAILED") {
+					throw new Error(response.error);
+				}
+				return response.data;
+			},
+			staleTime: 5 * 60 * 1000, // 5 minutes
+		}),
+};
+
+// ===== PACKAGE QUERIES =====
+export const packageQueries = {
+	all: () => ["packages"] as const,
+	lists: () => [...packageQueries.all(), "list"] as const,
+	list: (filters: {
+		publisherId?: string;
+		name?: string;
+		page?: number;
+		limit?: number;
+	}) => [...packageQueries.lists(), filters] as const,
+	details: () => [...packageQueries.all(), "detail"] as const,
+	detail: (id: string) => [...packageQueries.details(), id] as const,
+	userInstalled: () => [...packageQueries.all(), "user-installed"] as const,
+	userDeployments: () => [...packageQueries.all(), "user-deployments"] as const,
+	deployment: (id: string) =>
+		[...packageQueries.userDeployments(), id] as const,
+	deploymentAuth: (id: string) =>
+		[...packageQueries.deployment(id), "auth"] as const,
+	githubRepos: () => [...packageQueries.all(), "github-repos"] as const,
+
+	listOptions: (filters: {
+		publisherId?: string;
+		name?: string;
+		page?: number;
+		limit?: number;
+	}) =>
+		queryOptions({
+			queryKey: packageQueries.list(filters),
+			queryFn: async () => {
+				const params = new URLSearchParams();
+				if (filters.publisherId) params.set("publisherId", filters.publisherId);
+				if (filters.name) params.set("name", filters.name);
+				params.set("pagination[page]", String(filters.page || 1));
+				params.set("pagination[limit]", String(filters.limit || 10));
+
+				const response = await api(`/packages?${params}`, {
+					schema: responseSchema(
+						z.object({
+							data: z.array(packageSchema),
+							pagination: z.object({
+								total: z.number(),
+								totalPages: z.number(),
+								page: z.number(),
+								limit: z.number(),
+							}),
+						}),
+					),
+				});
+				if (response.status === "FAILED") {
+					throw new Error(response.error);
+				}
+				return response.data;
+			},
+			staleTime: 2 * 60 * 1000, // 2 minutes
+		}),
+
+	detailOptions: (id: string) =>
+		queryOptions({
+			queryKey: packageQueries.detail(id),
+			queryFn: async () => {
+				const response = await api(`/packages/${id}`, {
+					schema: responseSchema(packageSchema),
+				});
+				if (response.status === "FAILED") {
+					throw new Error(response.error);
+				}
+				return response.data;
+			},
+			staleTime: 5 * 60 * 1000,
+		}),
+
+	userInstalledOptions: () =>
+		queryOptions({
+			queryKey: packageQueries.userInstalled(),
+			queryFn: async () => {
+				const response = await api("/packages/packages/user", {
+					schema: responseSchema(
+						z.array(
+							z.object({
+								userMcpId: z.string().uuid(),
+								userId: z.string().uuid(),
+								packageId: z.string().uuid(),
+								version: z.string(),
+								installedAt: z.string().datetime(),
+								updatedAt: z.string().datetime(),
+								package: packageSchema,
+							}),
+						),
+					),
+				});
+				if (response.status === "FAILED") {
+					throw new Error(response.error);
+				}
+				return response.data;
+			},
+			staleTime: 1 * 60 * 1000,
+		}),
+
+	userDeploymentsOptions: () =>
+		queryOptions({
+			queryKey: packageQueries.userDeployments(),
+			queryFn: async () => {
+				const response = await api("/packages/packages/user/deployments", {
+					schema: responseSchema(
+						z.array(
+							z.object({
+								deployment: z.object({
+									deploymentId: z.string().uuid(),
+									userMcpId: z.string().uuid(),
+									url: z.string().url(),
+									scopes: z.array(z.string()),
+									status: z.enum(["active", "inactive", "pending"]),
+									createdAt: z.string().datetime(),
+									updatedAt: z.string().datetime(),
+								}),
+								userMcpId: z.string().uuid(),
+								package: packageSchema,
+							}),
+						),
+					),
+				});
+				if (response.status === "FAILED") {
+					throw new Error(response.error);
+				}
+				return response.data;
+			},
+			staleTime: 1 * 60 * 1000,
+		}),
+
+	deploymentOptions: (id: string) =>
+		queryOptions({
+			queryKey: packageQueries.deployment(id),
+			queryFn: async () => {
+				const response = await api(`/packages/package/deployments/${id}`, {
+					schema: responseSchema(
+						z.object({
+							id: z.string().uuid(),
+							userId: z.string().uuid(),
+							clientId: z.string().uuid(),
+							status: z.enum(["active", "inactive", "pending"]),
+							services: z.array(z.string()),
+							createdAt: z.string().datetime(),
+							updatedAt: z.string().datetime(),
+							connections: z.array(
+								z.object({
+									connectionId: z.string().uuid(),
+									serviceClientName: z.string(),
+									serviceClientType: z.enum([
+										"oauth",
+										"secret_sharing",
+										"embedded_wallet",
+									]),
+									supportedServices: z.array(z.string()),
+									scopes: z.array(z.string()),
+								}),
+							),
+						}),
+					),
+				});
+				if (response.status === "FAILED") {
+					throw new Error(response.error);
+				}
+				return response.data;
+			},
+		}),
+
+	deploymentAuthOptions: (id: string) =>
+		queryOptions({
+			queryKey: packageQueries.deploymentAuth(id),
+			queryFn: async () => {
+				const response = await api(
+					`/packages/packages/user/deployments/${id}/auth`,
+					{
+						schema: responseSchema(
+							z.array(
+								z.object({
+									connection: z.object({
+										connectionId: z.string().uuid(),
+										scopes: z.array(z.string()),
+									}),
+									serviceClient: z.object({
+										serviceClientId: z.string().uuid(),
+										serviceClientName: z.string(),
+										serviceClientType: z.enum([
+											"oauth",
+											"secret_sharing",
+											"embedded_wallet",
+										]),
+										supportedScopes: z.array(z.string()),
+										supportedServices: z.array(z.string()),
+									}),
+								}),
+							),
+						),
+					},
+				);
+				if (response.status === "FAILED") {
+					throw new Error(response.error);
+				}
+				return response.data;
+			},
+		}),
+
+	githubReposOptions: () =>
+		queryOptions({
+			queryKey: packageQueries.githubRepos(),
+			queryFn: async () => {
+				const response = await api("/packages/github/available-packages", {
+					schema: responseSchema(
+						z.array(
+							z.object({
+								id: z.number(),
+								name: z.string(),
+								full_name: z.string(),
+								description: z.string().nullable(),
+								html_url: z.string().url(),
+								clone_url: z.string().url(),
+								language: z.string().nullable(),
+								stargazers_count: z.number(),
+								forks_count: z.number(),
+							}),
+						),
+					),
+				});
+				if (response.status === "FAILED") {
+					throw new Error(response.error);
+				}
+				return response.data;
+			},
+			staleTime: 5 * 60 * 1000,
+		}),
+};
+
+// ===== CREDIT QUERIES =====
+export const creditQueries = {
+	all: () => ["credits"] as const,
+	balance: () => [...creditQueries.all(), "balance"] as const,
+	transactions: () => [...creditQueries.all(), "transactions"] as const,
+	transfers: () => [...creditQueries.all(), "transfers"] as const,
+	deposits: () => [...creditQueries.all(), "deposits"] as const,
+	depositMethods: () => [...creditQueries.all(), "deposit-methods"] as const,
+	cashouts: () => [...creditQueries.all(), "cashouts"] as const,
+	earnings: () => [...creditQueries.all(), "earnings"] as const,
+	spending: () => [...creditQueries.all(), "spending"] as const,
+
+	balanceOptions: () =>
+		queryOptions({
+			queryKey: creditQueries.balance(),
+			queryFn: async () => {
+				const response = await api("/credits/balance", {
+					schema: responseSchema(
+						z.object({
+							accountId: z.string().uuid(),
+							totalCredits: z.string(),
+							totalDeposited: z.string(),
+							totalSpent: z.string(),
+							totalEarned: z.string(),
+							totalCashedOut: z.string(),
+							isActive: z.boolean(),
+							recentTransactions: z.array(z.any()),
+							createdAt: z.string().datetime(),
+							updatedAt: z.string().datetime(),
+						}),
+					),
+				});
+				if (response.status === "FAILED") {
+					throw new Error(response.error);
+				}
+				return response.data;
+			},
+			staleTime: 30 * 1000, // 30 seconds - frequently updated
+		}),
+
+	transactionsOptions: (params?: {
+		type?: string;
+		limit?: number;
+		offset?: number;
+	}) =>
+		queryOptions({
+			queryKey: [...creditQueries.transactions(), params],
+			queryFn: async () => {
+				const searchParams = new URLSearchParams();
+				if (params?.type) searchParams.set("type", params.type);
+				if (params?.limit) searchParams.set("limit", String(params.limit));
+				if (params?.offset) searchParams.set("offset", String(params.offset));
+
+				const response = await api(`/credits/transactions?${searchParams}`, {
+					schema: responseSchema(
+						z.array(
+							z.object({
+								transactionId: z.string().uuid(),
+								accountId: z.string().uuid(),
+								type: z.enum([
+									"deposit",
+									"spend",
+									"earn",
+									"cashout",
+									"refund",
+									"platform_fee",
+									"adjustment",
+								]),
+								amount: z.string(),
+								description: z.string(),
+								transferId: z.string().uuid().nullable(),
+								externalDepositId: z.string().nullable(),
+								cashoutId: z.string().uuid().nullable(),
+								balanceAfter: z.string(),
+								metadata: z.record(z.any()),
+								createdAt: z.string().datetime(),
+							}),
+						),
+					),
+				});
+				if (response.status === "FAILED") {
+					throw new Error(response.error);
+				}
+				return response.data;
+			},
+			staleTime: 30 * 1000,
+		}),
+
+	transfersOptions: (params?: { limit?: number; offset?: number }) =>
+		queryOptions({
+			queryKey: [...creditQueries.transfers(), params],
+			queryFn: async () => {
+				const searchParams = new URLSearchParams();
+				if (params?.limit) searchParams.set("limit", String(params.limit));
+				if (params?.offset) searchParams.set("offset", String(params.offset));
+
+				const response = await api(`/credits/transfers?${searchParams}`, {
+					schema: responseSchema(
+						z.array(
+							z.object({
+								transfer: z.object({
+									transferId: z.string().uuid(),
+									fromAccountId: z.string().uuid().nullable(),
+									toAccountId: z.string().uuid().nullable(),
+									amount: z.string(),
+									platformFee: z.string(),
+									netAmount: z.string(),
+									packageId: z.string().uuid().nullable(),
+									deploymentId: z.string().uuid().nullable(),
+									actionType: z.string().nullable(),
+									description: z.string(),
+									metadata: z.record(z.any()),
+									createdAt: z.string().datetime(),
+								}),
+								package: packageSchema.nullable(),
+							}),
+						),
+					),
+				});
+				if (response.status === "FAILED") {
+					throw new Error(response.error);
+				}
+				return response.data;
+			},
+			staleTime: 1 * 60 * 1000,
+		}),
+
+	depositsOptions: () =>
+		queryOptions({
+			queryKey: creditQueries.deposits(),
+			queryFn: async () => {
+				const response = await api("/credits/deposits", {
+					schema: responseSchema(
+						z.object({
+							deposits: z.array(z.any()),
+							summary: z.object({
+								totalDeposited: z.string(),
+								helio: z.string(),
+								stripe: z.string(),
+								other: z.string(),
+							}),
+						}),
+					),
+				});
+				if (response.status === "FAILED") {
+					throw new Error(response.error);
+				}
+				return response.data;
+			},
+			staleTime: 1 * 60 * 1000,
+		}),
+
+	depositMethodsOptions: () =>
+		queryOptions({
+			queryKey: creditQueries.depositMethods(),
+			queryFn: async () => {
+				const response = await api("/credits/deposit/methods", {
+					schema: responseSchema(
+						z.object({
+							web3: z.object({
+								enabled: z.boolean(),
+								name: z.string(),
+								type: z.literal("web3"),
+								fees: z.object({
+									platform: z.string(),
+									network: z.string(),
+								}),
+								supportedCurrencies: z.array(z.string()),
+								supportedChains: z.array(z.string()),
+							}),
+							traditional: z.object({
+								enabled: z.boolean(),
+								name: z.string(),
+								type: z.literal("traditional"),
+								fees: z.object({
+									platform: z.string(),
+									currency_conversion: z.string(),
+								}),
+								supportedCurrencies: z.array(z.string()),
+								paymentMethods: z.array(z.string()),
+							}),
+						}),
+					),
+				});
+				if (response.status === "FAILED") {
+					throw new Error(response.error);
+				}
+				return response.data;
+			},
+			staleTime: 10 * 60 * 1000, // 10 minutes - rarely changes
+		}),
+
+	cashoutsOptions: (params?: { limit?: number; offset?: number }) =>
+		queryOptions({
+			queryKey: [...creditQueries.cashouts(), params],
+			queryFn: async () => {
+				const searchParams = new URLSearchParams();
+				if (params?.limit) searchParams.set("limit", String(params.limit));
+				if (params?.offset) searchParams.set("offset", String(params.offset));
+
+				const response = await api(`/credits/cashouts?${searchParams}`, {
+					schema: responseSchema(
+						z.array(
+							z.object({
+								cashoutId: z.string().uuid(),
+								accountId: z.string().uuid(),
+								creditAmount: z.string(),
+								processingFee: z.string(),
+								netAmount: z.string(),
+								payoutMethod: z.enum(["crypto", "bank", "paypal"]),
+								payoutDetails: z.record(z.any()),
+								externalTransactionId: z.string().nullable(),
+								status: z.enum([
+									"pending",
+									"processing",
+									"completed",
+									"failed",
+									"cancelled",
+								]),
+								statusMessage: z.string().nullable(),
+								requestedAt: z.string().datetime(),
+								processedAt: z.string().datetime().nullable(),
+								completedAt: z.string().datetime().nullable(),
+								createdAt: z.string().datetime(),
+								updatedAt: z.string().datetime(),
+							}),
+						),
+					),
+				});
+				if (response.status === "FAILED") {
+					throw new Error(response.error);
+				}
+				return response.data;
+			},
+			staleTime: 1 * 60 * 1000,
+		}),
+
+	earningsOptions: () =>
+		queryOptions({
+			queryKey: creditQueries.earnings(),
+			queryFn: async () => {
+				const response = await api("/credits/earnings", {
+					schema: responseSchema(
+						z.object({
+							currentBalance: z.string(),
+							totalEarned: z.string(),
+							totalCashedOut: z.string(),
+							earningsByPackage: z.array(
+								z.object({
+									totalEarned: z.string(),
+									totalTransfers: z.string(),
+									totalPlatformFees: z.string(),
+									packageId: z.string(),
+									packageName: z.string(),
+								}),
+							),
+							recentCashouts: z.array(z.any()),
+						}),
+					),
+				});
+				if (response.status === "FAILED") {
+					throw new Error(response.error);
+				}
+				return response.data;
+			},
+			staleTime: 1 * 60 * 1000,
+		}),
+
+	spendingOptions: () =>
+		queryOptions({
+			queryKey: creditQueries.spending(),
+			queryFn: async () => {
+				const response = await api("/credits/spending", {
+					schema: responseSchema(
+						z.object({
+							currentBalance: z.string(),
+							totalDeposited: z.string(),
+							totalSpent: z.string(),
+							spendingByPackage: z.array(
+								z.object({
+									packageId: z.string(),
+									packageName: z.string(),
+									totalSpent: z.string(),
+									paymentMethod: z.string(),
+									transactionCount: z.number(),
+								}),
+							),
+						}),
+					),
+				});
+				if (response.status === "FAILED") {
+					throw new Error(response.error);
+				}
+				return response.data;
+			},
+			staleTime: 1 * 60 * 1000,
+		}),
+};
+
+// ===== KNOWLEDGE BASE QUERIES =====
+export const knowledgeQueries = {
+	all: () => ["knowledge"] as const,
+	bases: () => [...knowledgeQueries.all(), "bases"] as const,
+	base: (id: string) => [...knowledgeQueries.bases(), id] as const,
+	sources: (baseId: string) =>
+		[...knowledgeQueries.base(baseId), "sources"] as const,
+	units: (baseId: string) =>
+		[...knowledgeQueries.base(baseId), "units"] as const,
+
+	basesOptions: () =>
+		queryOptions({
+			queryKey: knowledgeQueries.bases(),
+			queryFn: async () => {
+				const response = await api("/knowledge-base", {
+					schema: responseSchema(z.array(knowledgeBaseSchema)),
+				});
+				if (response.status === "FAILED") {
+					throw new Error(response.error);
+				}
+				return response.data;
+			},
+			staleTime: 2 * 60 * 1000,
+		}),
+
+	baseOptions: (id: string) =>
+		queryOptions({
+			queryKey: knowledgeQueries.base(id),
+			queryFn: async () => {
+				const response = await api(`/knowledge-base/${id}`, {
+					schema: responseSchema(knowledgeBaseSchema),
+				});
+				if (response.status === "FAILED") {
+					throw new Error(response.error);
+				}
+				return response.data;
+			},
+			staleTime: 5 * 60 * 1000,
+		}),
+
+	sourcesOptions: (baseId: string) =>
+		queryOptions({
+			queryKey: knowledgeQueries.sources(baseId),
+			queryFn: async () => {
+				const response = await api(`/knowledge-base/${baseId}/sources`, {
+					schema: responseSchema(
+						z.array(
+							z.object({
+								sourceId: z.string().uuid(),
+								knowledgeBaseId: z.string().uuid(),
+								sourceType: z.enum([
+									"image",
+									"text",
+									"youtube_url",
+									"url",
+									"file",
+								]),
+								source: z.string(),
+								processingStatus: z.enum([
+									"pending",
+									"processing",
+									"completed",
+									"failed",
+								]),
+								processingErrorMessage: z.string().nullable(),
+								createdAt: z.string().datetime(),
+								updatedAt: z.string().datetime(),
+							}),
+						),
+					),
+				});
+				if (response.status === "FAILED") {
+					throw new Error(response.error);
+				}
+				return response.data;
+			},
+			staleTime: 30 * 1000, // 30 seconds - processing status changes frequently
+		}),
+
+	unitsOptions: (baseId: string) =>
+		queryOptions({
+			queryKey: knowledgeQueries.units(baseId),
+			queryFn: async () => {
+				const response = await api(`/knowledge-base/${baseId}/units`, {
+					schema: responseSchema(
+						z.array(
+							z.object({
+								unitId: z.string().uuid(),
+								knowledgeBaseId: z.string().uuid(),
+								sourceId: z.string().uuid(),
+								name: z.string(),
+								content: z.string(),
+								tags: z.array(z.string()),
+								type: z.string().nullable(),
+								createdAt: z.string().datetime(),
+								updatedAt: z.string().datetime(),
+							}),
+						),
+					),
+				});
+				if (response.status === "FAILED") {
+					throw new Error(response.error);
+				}
+				return response.data;
+			},
+			staleTime: 2 * 60 * 1000,
+		}),
+};
+
+// ===== HUB/AUTH QUERIES =====
+export const hubQueries = {
+	all: () => ["hub"] as const,
+	auth: () => [...hubQueries.all(), "auth"] as const,
+	userAuth: () => [...hubQueries.auth(), "user"] as const,
+	userAuthConnection: (id: string) => [...hubQueries.userAuth(), id] as const,
+	oauthClients: () => [...hubQueries.all(), "oauth-clients"] as const,
+	oauthClient: (id: string) => [...hubQueries.oauthClients(), id] as const,
+
+	authMethodsOptions: () =>
+		queryOptions({
+			queryKey: hubQueries.auth(),
+			queryFn: async () => {
+				const response = await api("/hub/auth", {
+					schema: responseSchema(
+						z.array(
+							z.object({
+								clientId: z.string().uuid(),
+								name: z.string(),
+								type: z.enum(["oauth", "secret_sharing", "embedded_wallet"]),
+								supportedScopes: z.array(z.string()),
+								supportedServices: z.array(z.string()),
+								metadata: z.record(z.any()),
+							}),
+						),
+					),
+				});
+				if (response.status === "FAILED") {
+					throw new Error(response.error);
+				}
+				return response.data;
+			},
+			staleTime: 10 * 60 * 1000, // 10 minutes - rarely changes
+		}),
+
+	userAuthOptions: () =>
+		queryOptions({
+			queryKey: hubQueries.userAuth(),
+			queryFn: async () => {
+				const response = await api("/hub/auth/user", {
+					schema: responseSchema(
+						z.array(
+							z.object({
+								user_service_connections: z.object({
+									id: z.string().uuid(),
+									userId: z.string().uuid(),
+									clientId: z.string().uuid(),
+									scopes: z.array(z.string()).nullable(),
+									createdAt: z.string().datetime(),
+									updatedAt: z.string().datetime(),
+								}),
+								service_clients: z.object({
+									clientId: z.string().uuid(),
+									name: z.string(),
+									type: z.enum(["oauth", "secret_sharing", "embedded_wallet"]),
+									supportedScopes: z.array(z.string()),
+									supportedServices: z.array(z.string()),
+								}),
+							}),
+						),
+					),
+				});
+				if (response.status === "FAILED") {
+					throw new Error(response.error);
+				}
+				return response.data;
+			},
+			staleTime: 2 * 60 * 1000,
+		}),
+
+	userAuthConnectionOptions: (id: string) =>
+		queryOptions({
+			queryKey: hubQueries.userAuthConnection(id),
+			queryFn: async () => {
+				const response = await api(`/hub/auth/user/${id}`, {
+					schema: responseSchema(
+						z.object({
+							id: z.string().uuid(),
+							userId: z.string().uuid(),
+							clientId: z.string().uuid(),
+							credentials: z.record(z.any()),
+							metadata: z.record(z.any()),
+							policy: z.record(z.any()),
+							scopes: z.array(z.string()).nullable(),
+							createdAt: z.string().datetime(),
+							updatedAt: z.string().datetime(),
+						}),
+					),
+				});
+				if (response.status === "FAILED") {
+					throw new Error(response.error);
+				}
+				return response.data;
+			},
+		}),
+
+	oauthClientsOptions: () =>
+		queryOptions({
+			queryKey: hubQueries.oauthClients(),
+			queryFn: async () => {
+				const response = await api("/hub/oauth-clients", {
+					schema: responseSchema(
+						z.array(
+							z.object({
+								clientId: z.string().uuid(),
+								developerId: z.string().uuid(),
+								name: z.string(),
+								redirectUris: z.array(z.string().url()),
+								metadata: z.record(z.any()),
+								createdAt: z.string().datetime(),
+								updatedAt: z.string().datetime(),
+							}),
+						),
+					),
+				});
+				if (response.status === "FAILED") {
+					throw new Error(response.error);
+				}
+				return response.data;
+			},
+			staleTime: 5 * 60 * 1000,
+		}),
+
+	oauthClientOptions: (id: string) =>
+		queryOptions({
+			queryKey: hubQueries.oauthClient(id),
+			queryFn: async () => {
+				const response = await api(`/hub/oauth-clients/${id}`, {
+					schema: responseSchema(
+						z.object({
+							clientId: z.string().uuid(),
+							developerId: z.string().uuid(),
+							name: z.string(),
+							redirectUris: z.array(z.string().url()),
+							metadata: z.record(z.any()),
+							createdAt: z.string().datetime(),
+							updatedAt: z.string().datetime(),
+						}),
+					),
+				});
+				if (response.status === "FAILED") {
+					throw new Error(response.error);
+				}
+				return response.data;
+			},
+			staleTime: 5 * 60 * 1000,
+		}),
+};
