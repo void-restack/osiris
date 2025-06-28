@@ -1,11 +1,11 @@
+import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ArrowUpRight, Download } from "lucide-react";
 
 export function InstallAction() {
-  return (
-    <Button>
-      Instal
-      <Download className="w-4 h-4" />
-    </Button>
-  );
+	return (
+		<Button>
+			Install
+			<Download className="h-4 w-4" />
+		</Button>
+	);
 }

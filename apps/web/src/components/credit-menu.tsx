@@ -1,39 +1,49 @@
 import { ArrowUpDown, ChevronDown, Plus } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+	Popover,
+	PopoverContent,
+	PopoverTrigger,
+} from "@/components/ui/popover";
 import { Button } from "./ui/button";
 
 export function CreditsMenu({ credits }: { credits: number }) {
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button className="bg-popover hover:bg-popover cursor-pointer flex items-center gap-1 min-w-[130px] rounded-6px h-8 text-sm">
-          <span className="text-[#171717]">{credits}</span>
-          <span className="text-[#A3A3A3]">Credits</span>
-          <ChevronDown className="h-[14px] w-[14px] stroke-[#A3A3A3]" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="max-w-[140px] border-none mt-2 flex flex-col p-0 rounded-[6px] shadow-none">
-          <AddCredits />
-          <TxHistory />
-      </PopoverContent>
-    </Popover>
-  );
+	return (
+		<Popover>
+			<PopoverTrigger asChild>
+				<Button className="flex h-8 min-w-[130px] cursor-pointer items-center gap-1 rounded-6px bg-popover text-sm hover:bg-popover">
+					<span className="text-[#171717]">{credits}</span>
+					<span className="text-[#A3A3A3]">Credits</span>
+					<ChevronDown className="h-[14px] w-[14px] stroke-[#A3A3A3]" />
+				</Button>
+			</PopoverTrigger>
+			<PopoverContent className="mt-2 flex max-w-[140px] flex-col rounded-[6px] border-none p-0 shadow-none">
+				<AddCredits />
+				<TxHistory />
+			</PopoverContent>
+		</Popover>
+	);
 }
 
 export function AddCredits() {
-  return (
-    <Button variant={"ghost"} className="w-full justify-start hover:border h-8 cursor-pointer">
-        <Plus className="stroke-primary" />
-        Add Credits
-    </Button>
- );
+	return (
+		<Button
+			variant={"ghost"}
+			className="h-8 w-full cursor-pointer justify-start hover:border"
+		>
+			<Plus className="stroke-primary" />
+			Add Credits
+		</Button>
+	);
 }
 
 export function TxHistory() {
-    return (
-        <Button variant={"ghost"} className="w-full justify-start h-8 cursor-pointer">
-            <ArrowUpDown className="stroke-primary" />
-            Trx History
-        </Button>
-    )
+	return (
+		<Button
+			variant={"ghost"}
+			className="h-8 w-full cursor-pointer justify-start"
+		>
+			<ArrowUpDown className="stroke-primary" />
+			Trx History
+		</Button>
+	);
 }
