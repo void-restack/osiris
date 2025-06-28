@@ -198,8 +198,16 @@ body {
 	* {
 		@apply border-border outline-ring/50;
 	}
+
 	body {
 		@apply bg-background text-foreground;
+	}
+}
+
+@layer utilities {
+	.PopoverContent {
+		width: var(--radix-popover-trigger-width);
+		max-height: var(--radix-popover-content-available-height);
 	}
 }
 

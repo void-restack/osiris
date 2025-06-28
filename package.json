@@ -18,7 +18,9 @@
 		"dev:web": "bun run --filter web dev",
 		"dev:server": "bun run --filter server dev"
 	},
-	"dependencies": {},
+	"dependencies": {
+		"@radix-ui/react-slot": "^1.2.3"
+	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.0.0",
 		"husky": "^9.1.7",
