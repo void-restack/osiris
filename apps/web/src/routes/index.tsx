@@ -6,6 +6,7 @@ import { McpDetailsHeader } from "@/components/features/mcp-details/details-head
 import { capabilities, McpCapabilitiesList } from "@/components/features/mcp-details/capabilites-list";
 import { ServerList, type McpServer } from "@/components/features/mcp-details/mcp-servers";
 import { McpActionTable } from "@/components/features/mcp-details/mcp-action-table";
+import { authenticators, McpAuthList } from "@/components/features/mcp-details/mcp-auth";
 
 export const Route = createFileRoute("/")({
 	component: HomeComponent,
@@ -69,6 +70,7 @@ function HomeComponent() {
 		{/* <McpCapabilitiesList data={capabilities} /> */}
 		<div className="px-10">
 		<ServerList data={servers} />
+		<McpAuthList data={authenticators} />
 		<McpActionTable />
 		</div>
 	</div>;

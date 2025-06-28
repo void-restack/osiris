@@ -24,92 +24,79 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { MoveUpRight } from "lucide-react";
-import { cn } from "@/lib/utils";
 
-type actionStatus = "Pending" | "Failed" | "Success";
+import { Mail, Reply, Send } from "lucide-react";
+import { ICONS } from "@/components/icons";
+import { McpTag } from "@/components/tag";
+import { Link } from "@tanstack/react-router";
 
-type McpAction = {
+interface Authenticator {
+  id: string;
   name: string;
-  status: actionStatus;
-  timestamp: Date;
-  id: number;
-};
+  icon: string;
+  scopes: string[];
+}
 
-const data: McpAction[] = [
+export const authenticators: Authenticator[] = [
   {
-    name: "Analysing and syncing contacts",
-    id: 1,
-    status: "Pending",
-    timestamp: new Date(),
+    id: "gmail",
+    name: "Gmail",
+    icon: "/test/gmail.svg",
+    scopes: ["Read", "Write", "Send"],
   },
   {
-    name: "Send an Email",
-    id: 2,
-    status: "Failed",
-    timestamp: new Date(),
+    id: "calendar",
+    name: "Calendar",
+    icon: "/test/calander.svg",
+    scopes: ["Read", "Write", "Send"],
   },
   {
-    name: "Draft an Email",
-    id: 4,
-    status: "Success",
-    timestamp: new Date(),
+    id: "contact",
+    name: "Contact",
+    icon: "/test/contact.svg",
+    scopes: ["Read", "Write", "Send"],
   },
 ];
 
-export type Payment = {
-  id: string;
-  amount: number;
-  status: "pending" | "processing" | "success" | "failed";
-  email: string;
-};
-
-export const columns: ColumnDef<McpAction>[] = [
+export const columns: ColumnDef<Authenticator>[] = [
   {
     accessorKey: "id",
     header: () => {
-        return <h1 className="font-medium text-sm text-right w-[42px] pr-3">#</h1>
+      return (
+        <div className="flex items-center gap-2">
+          <ICONS.auth />
+          <p>MCP requires 3 Authenticators.</p>
+        </div>
+      );
     },
-    cell: ({ row }) => <div className="font-medium text-sm text-[#737373] text-right">{row.index + 1}</div>,
+    cell: ({ row }) => {
+      return (
+        <div className="flex items-center gap-3">
+          <img
+            width={36}
+            height={36}
+            src={row.original.icon}
+            alt={row.original.name}
+          />
+          <p className="font-medium text-primary-800">{row.original.name}</p>
+        </div>
+      );
+    },
   },
   {
-    accessorKey: "name",
-    header: "Name",
+    accessorKey: "scopes",
+    header: "",
     cell: ({ row }) => (
-      <div className="capitalize text-sm text-[#171717]">{row.getValue("name")}</div>
+      <div className="flex items-center gap-3 justify-end px-8">
+        {row.original.scopes.map((scope) => (
+          <div className="bg-primary-50 rounded-[4px] px-2 py-0.5 h-6 text-xs text-primary-400" key={scope}>{scope}</div>
+        ))}
+      </div>
     ),
   },
-  {
-    accessorKey: "status",
-    header: () => {
-        return <p className="text-right">Status</p>
-    },
-    cell: ({ row }) => <div className="flex justify-end">
-      <div className={cn("w-max rounded-[4px] px-2 py-0.5 h-6 text-xs", row.getValue("status") === "Pending" ? "bg-primary-50 text-primary-400" : row.getValue("status") === "Failed" ? "bg-[#F03D3D1A] text-[#F03D3D]" : "bg-success-100 text-[#2DCA04]")}>{row.getValue("status")}</div>
-    </div>,
-  },
-  {
-    accessorKey: "timestamp",
-    header: () => {
-        return <p className="text-right">Timestamp</p>
-    },
-    cell: ({ row }) => <div className="lowercase text-right">{(row.getValue("timestamp") as Date).toLocaleString()}</div>,
-  },
-  {
-    accessorKey: "#",
-    header: () => {
-        <p className=""></p>
-    },
-    cell: () => {
-        return <div className="w-[56px] flex justify-end">
-            <Button className="bg-[#F5F5F5] hover:bg-[#F5F5F5] h-6 w-5 rounded-none" variant={"ghost"}>
-                <MoveUpRight width={14} height={14} />
-            </Button>
-        </div>
-    }
-  }
 ];
 
-export function McpActionTable() {
+export function McpAuthList({ data }: { data: Authenticator[] }) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
@@ -138,17 +125,14 @@ export function McpActionTable() {
   });
 
   return (
-    <div className="rounded-md border border-[#F5F5F5]">
+    <div className="rounded-md border border-primary-50">
       <Table>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow className="" key={headerGroup.id}>
               {headerGroup.headers.map((header, index) => {
                 return (
-                  <TableHead 
-                    className={`text-[#737373] text-sm font-medium  ${index === 0 ? 'pr-0' : index === 1 ? 'pl-0' : ''}`} 
-                    key={header.id}
-                  >
+                  <TableHead key={header.id}>
                     {header.isPlaceholder
                       ? null
                       : flexRender(
@@ -169,10 +153,7 @@ export function McpActionTable() {
                 data-state={row.getIsSelected() && "selected"}
               >
                 {row.getVisibleCells().map((cell, index) => (
-                  <TableCell
-                    className={`h-14 ${index === 0 || index === 4 ? 'pr-3 w-[42px]' : index === 1 ? 'pl-0' : ''}`}
-                    key={cell.id}
-                  >
+                  <TableCell key={cell.id}>
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </TableCell>
                 ))}
