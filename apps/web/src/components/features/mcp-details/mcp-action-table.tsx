@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { MoveUpRight } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 type actionStatus = "Pending" | "Failed" | "Success";
 
@@ -79,20 +80,27 @@ export const columns: ColumnDef<McpAction>[] = [
   },
   {
     accessorKey: "status",
-    cell: ({ row }) => <div className="lowercase">{row.getValue("status")}</div>,
+    header: () => {
+        return <p className="text-right">Status</p>
+    },
+    cell: ({ row }) => <div className="flex justify-end">
+      <div className={cn("w-max rounded-[4px] px-2 py-0.5 h-6 text-xs", row.getValue("status") === "Pending" ? "bg-primary-50 text-primary-400" : row.getValue("status") === "Failed" ? "bg-[#F03D3D1A] text-[#F03D3D]" : "bg-success-100 text-[#2DCA04]")}>{row.getValue("status")}</div>
+    </div>,
   },
   {
     accessorKey: "timestamp",
-    header: "Timestamp",
-    cell: ({ row }) => <div className="lowercase">{(row.getValue("timestamp") as Date).toLocaleString()}</div>,
+    header: () => {
+        return <p className="text-right">Timestamp</p>
+    },
+    cell: ({ row }) => <div className="lowercase text-right">{(row.getValue("timestamp") as Date).toLocaleString()}</div>,
   },
   {
     accessorKey: "#",
     header: () => {
-        <p></p>
+        <p className=""></p>
     },
     cell: () => {
-        return <div className="w-[56px]">
+        return <div className="w-[56px] flex justify-end">
             <Button className="bg-[#F5F5F5] hover:bg-[#F5F5F5] h-6 w-5 rounded-none" variant={"ghost"}>
                 <MoveUpRight width={14} height={14} />
             </Button>
@@ -162,7 +170,7 @@ export function McpActionTable() {
               >
                 {row.getVisibleCells().map((cell, index) => (
                   <TableCell
-                    className={`h-14 ${index === 0 ? 'pr-3 w-[42px]' : index === 1 ? 'pl-0' : ''}`}
+                    className={`h-14 ${index === 0 || index === 4 ? 'pr-3 w-[42px]' : index === 1 ? 'pl-0' : ''}`}
                     key={cell.id}
                   >
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}

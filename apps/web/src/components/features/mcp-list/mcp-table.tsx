@@ -98,7 +98,7 @@ export const columns: ColumnDef<McpCardProps>[] = [
   }
 ];
 
-export function McpActionTable() {
+export function McpTable() {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
