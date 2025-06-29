@@ -2,8 +2,8 @@
 
 import { ICONS } from "@/components/icons";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { cn } from "@/lib/utils";
 import { useAppStore } from "@/lib/store";
+import { cn } from "@/lib/utils";
 
 export function McpViewToggle() {
 	const { mcpView, setMcpView } = useAppStore();

@@ -1,10 +1,10 @@
 import { Separator } from "@/components/ui/separator";
+import { useAppStore } from "@/lib/store";
 import { McpCardList } from "./mcp-card-list";
 import { McpFilters } from "./mcp-filters";
 import { McpListPagination } from "./mcp-list-pagination";
-import { McpViewToggle } from "./toggle-view";
 import { McpTable } from "./mcp-table";
-import { useAppStore } from "@/lib/store";
+import { McpViewToggle } from "./toggle-view";
 
 export function McpListContainer() {
 	const { mcpView } = useAppStore();
@@ -12,7 +12,8 @@ export function McpListContainer() {
 	const mockData = [
 		{
 			title: "Memory tool",
-			description: "Store and retrieve user-specific memories to maintain context and make informed decisions based on past interactions",
+			description:
+				"Store and retrieve user-specific memories to maintain context and make informed decisions based on past interactions",
 			tags: [
 				{
 					tag: "Assistant",

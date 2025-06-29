@@ -24,7 +24,7 @@ export function McpSearchBox() {
 						placeholder="I want to Send my boss emails"
 						className="h-[84px] w-full resize-none rounded-[12px] border border-none bg-primary-00 p-4 text-primary-700 placeholder:text-primary-300 focus:outline-none focus:ring-0"
 					/>
-					<Button className="-translate-y-1/2 absolute top-1/2 right-4">
+					<Button className="-translate-y-1/2 absolute inset-shadow-search-btn top-1/2 right-4">
 						<span>Search</span>
 						<Search />
 					</Button>

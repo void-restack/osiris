@@ -50,7 +50,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 			<SidebarHeader className="flex min-h-[86px] w-full items-center justify-center border-b border-b-primary-100">
 				<SidebarMenu className="justify-center-safe flex h-full w-full">
 					<SidebarMenuItem>
-						<SidebarMenuButton className="hover:bg-transparent" size="sm" asChild>
+						<SidebarMenuButton
+							className="hover:bg-transparent"
+							size="sm"
+							asChild
+						>
 							<a href="#">
 								<div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
 									<Link to="/">

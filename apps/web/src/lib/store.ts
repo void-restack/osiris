@@ -19,4 +19,4 @@ export const useAppStore = create<AppState>()(
 			name: "osiris-app-store",
 		},
 	),
-); 
+);

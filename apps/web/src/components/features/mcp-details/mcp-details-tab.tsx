@@ -3,8 +3,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { capabilities, McpCapabilitiesList } from "./capabilites-list";
 import { McpActionTable } from "./mcp-action-table";
 import { authenticators, McpAuthList } from "./mcp-auth";
-import { type McpServer, ServerList } from "./mcp-servers";
 import { McpDetailsView } from "./mcp-details-view";
+import { type McpServer, ServerList } from "./mcp-servers";
 
 const servers: McpServer[] = [
 	{
@@ -60,7 +60,7 @@ const servers: McpServer[] = [
 export function McpTabs() {
 	return (
 		<Tabs defaultValue="readme" className="flex w-full flex-col gap-y-8">
-			<TabsList className="flex h-12 w-full justify-start border-b border-b-primary-100 py-0 px-6">
+			<TabsList className="flex h-12 w-full justify-start border-b border-b-primary-100 px-6 py-0">
 				<TabsTrigger value="readme">
 					<ICONS.readme /> Readme
 				</TabsTrigger>
@@ -89,7 +89,7 @@ export function McpTabs() {
 					<McpCapabilitiesList data={capabilities} />
 				</TabLayout>
 			</TabsContent>
-			<TabsContent  value="authenticators">
+			<TabsContent value="authenticators">
 				<TabLayout>
 					<McpAuthList data={authenticators} />
 				</TabLayout>
@@ -109,10 +109,10 @@ export function McpTabs() {
 }
 
 function TabLayout({ children }: { children: React.ReactNode }) {
-	return <div className="px-6 flex gap-6">
-		<div className="w-full">
-			{children}
+	return (
+		<div className="flex gap-6 px-6">
+			<div className="w-full">{children}</div>
+			<McpDetailsView />
 		</div>
-		<McpDetailsView />
-	</div>
+	);
 }

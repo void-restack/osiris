@@ -10,7 +10,10 @@ export function CreditsMenu({ credits }: { credits: number }) {
 	return (
 		<Popover>
 			<PopoverTrigger asChild>
-				<Button variant={"secondary"} className="flex h-8 min-w-[130px] cursor-pointer items-center gap-1 rounded-6px text-sm">
+				<Button
+					variant={"secondary"}
+					className="flex h-8 min-w-[130px] cursor-pointer items-center gap-1 rounded-6px text-sm"
+				>
 					<span className="text-[#171717]">{credits}</span>
 					<span className="text-[#A3A3A3]">Credits</span>
 					<ChevronDown className="h-[14px] w-[14px] stroke-[#A3A3A3]" />

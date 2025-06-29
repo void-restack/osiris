@@ -12,7 +12,9 @@ import {
 	useReactTable,
 	type VisibilityState,
 } from "@tanstack/react-table";
+import { BadgeCheck, Eye } from "lucide-react";
 import * as React from "react";
+import { ICONS } from "@/components/icons";
 import { McpTag, type McpTagProps } from "@/components/tag";
 import {
 	Table,
@@ -23,8 +25,6 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import type { McpCardProps } from "./mcp-card";
-import { BadgeCheck, Eye } from "lucide-react";
-import { ICONS } from "@/components/icons";
 
 interface McpTableRow extends McpCardProps {
 	credits?: number | "FREE";
@@ -46,19 +46,19 @@ export const columns: ColumnDef<McpTableRow>[] = [
 		accessorKey: "title",
 		header: "Name",
 		cell: ({ row }) => (
-			<div className="flex items-center gap-3 min-w-[220px]">
+			<div className="flex min-w-[220px] items-center gap-3">
 				<img
 					src={row.original.icon}
 					alt={row.getValue("title") as string}
-					className="h-8 w-8 rounded-md object-cover border"
+					className="h-8 w-8 rounded-md border object-cover"
 				/>
 				<div>
 					<div className="flex items-center gap-1">
-						<span className="text-[#171717] text-sm font-medium">
+						<span className="font-medium text-[#171717] text-sm">
 							{row.getValue("title")}
 						</span>
 						{row.original.isVerified && (
-							<ICONS.verifiedBadge className="w-4 h-4 text-green-500" />
+							<ICONS.verifiedBadge className="h-4 w-4 text-green-500" />
 						)}
 					</div>
 					<div className="text-[#737373] text-xs">
@@ -72,7 +72,7 @@ export const columns: ColumnDef<McpTableRow>[] = [
 		accessorKey: "description",
 		header: "Description",
 		cell: ({ row }) => (
-			<div className="text-[#737373] text-sm max-w-md truncate">
+			<div className="max-w-md truncate text-[#737373] text-sm">
 				{row.getValue("description")}
 			</div>
 		),
@@ -98,12 +98,14 @@ export const columns: ColumnDef<McpTableRow>[] = [
 			const credits = row.original.credits;
 			if (credits === "FREE") {
 				return (
-					<span className="px-3 py-1 rounded bg-[#F5F5F5] text-xs font-semibold text-[#737373]">FREE</span>
+					<span className="rounded bg-[#F5F5F5] px-3 py-1 font-semibold text-[#737373] text-xs">
+						FREE
+					</span>
 				);
 			}
 			return (
-				<span className="flex items-center gap-1 px-3 py-1 rounded bg-green-100 text-xs font-semibold text-[#2DCA04]">
-					<Eye className="w-4 h-4 text-green-500" />
+				<span className="flex items-center gap-1 rounded bg-green-100 px-3 py-1 font-semibold text-[#2DCA04] text-xs">
+					<Eye className="h-4 w-4 text-green-500" />
 					{credits}
 				</span>
 			);
@@ -173,7 +175,7 @@ export function McpTable({ data }: McpTableProps) {
 							<TableRow
 								key={row.id}
 								data-state={row.getIsSelected() && "selected"}
-								className="hover:bg-gray-50 cursor-pointer"
+								className="cursor-pointer hover:bg-gray-50"
 							>
 								{row.getVisibleCells().map((cell, index) => (
 									<TableCell
