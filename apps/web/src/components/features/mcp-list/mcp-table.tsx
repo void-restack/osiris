@@ -23,52 +23,19 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import type { McpCardProps } from "./mcp-card";
+import { BadgeCheck, Eye } from "lucide-react";
+import { ICONS } from "@/components/icons";
 
-// biome-ignore lint/correctness/noUnusedVariables: <Different types will come from api>
-type actionStatus = "Pending" | "Failed" | "Success";
+interface McpTableRow extends McpCardProps {
+	credits?: number | "FREE";
+}
 
-const data: McpCardProps[] = [
-	{
-		title: "Analysing and syncing contacts",
-		description: "Analysing and syncing contacts",
-		tags: [{ tag: "Type" }],
-		icon: "https://www.google.com/images/branding/googlelogo/1x/googlelogo_color_272x92dp.png",
-		userHandle: "John Doe",
-		isVerified: true,
-	},
-	{
-		title: "Send an Email",
-		description: "Send an Email",
-		tags: [{ tag: "Type" }],
-		icon: "https://www.google.com/images/branding/googlelogo/1x/googlelogo_color_272x92dp.png",
-		userHandle: "John Doe",
-		isVerified: true,
-	},
-	{
-		title: "Draft an Email",
-		description: "Draft an Email",
-		tags: [{ tag: "Type" }],
-		icon: "https://www.google.com/images/branding/googlelogo/1x/googlelogo_color_272x92dp.png",
-		userHandle: "John Doe",
-		isVerified: true,
-	},
-];
-
-export type Payment = {
-	id: string;
-	amount: number;
-	status: "pending" | "processing" | "success" | "failed";
-	email: string;
-};
-
-export const columns: ColumnDef<McpCardProps>[] = [
+export const columns: ColumnDef<McpTableRow>[] = [
 	{
 		accessorKey: "id",
-		header: () => {
-			return (
-				<h1 className="w-[42px] pr-3 text-right font-medium text-sm">#</h1>
-			);
-		},
+		header: () => (
+			<h1 className="w-[42px] pr-3 text-right font-medium text-sm">#</h1>
+		),
 		cell: ({ row }) => (
 			<div className="text-right font-medium text-[#737373] text-sm">
 				{row.index + 1}
@@ -79,36 +46,76 @@ export const columns: ColumnDef<McpCardProps>[] = [
 		accessorKey: "title",
 		header: "Name",
 		cell: ({ row }) => (
-			<div className="text-[#171717] text-sm capitalize">
-				{row.getValue("title")}
+			<div className="flex items-center gap-3 min-w-[220px]">
+				<img
+					src={row.original.icon}
+					alt={row.getValue("title") as string}
+					className="h-8 w-8 rounded-md object-cover border"
+				/>
+				<div>
+					<div className="flex items-center gap-1">
+						<span className="text-[#171717] text-sm font-medium">
+							{row.getValue("title")}
+						</span>
+						{row.original.isVerified && (
+							<ICONS.verifiedBadge className="w-4 h-4 text-green-500" />
+						)}
+					</div>
+					<div className="text-[#737373] text-xs">
+						{row.original.userHandle}
+					</div>
+				</div>
 			</div>
 		),
 	},
 	{
 		accessorKey: "description",
-		header: "Timestamp",
+		header: "Description",
 		cell: ({ row }) => (
-			<div className="lowercase">
-				{row.getValue("isVerified") ? "Verified" : "Unverified"}
+			<div className="text-[#737373] text-sm max-w-md truncate">
+				{row.getValue("description")}
 			</div>
 		),
 	},
 	{
 		accessorKey: "tags",
-		header: () => {
-			<p>Type</p>;
-		},
+		header: "Type",
 		cell: ({ row }) => {
+			const tags = row.getValue("tags") as McpTagProps[];
 			return (
-				<div className="w-[56px]">
-					<McpTag tag={(row.getValue("tags") as McpTagProps[])[0].tag} />
+				<div className="flex gap-1">
+					{tags.slice(0, 2).map((tag, index) => (
+						<McpTag key={index} tag={tag.tag} />
+					))}
 				</div>
+			);
+		},
+	},
+	{
+		accessorKey: "credits",
+		header: "Credits",
+		cell: ({ row }) => {
+			const credits = row.original.credits;
+			if (credits === "FREE") {
+				return (
+					<span className="px-3 py-1 rounded bg-[#F5F5F5] text-xs font-semibold text-[#737373]">FREE</span>
+				);
+			}
+			return (
+				<span className="flex items-center gap-1 px-3 py-1 rounded bg-green-100 text-xs font-semibold text-[#2DCA04]">
+					<Eye className="w-4 h-4 text-green-500" />
+					{credits}
+				</span>
 			);
 		},
 	},
 ];
 
-export function McpTable() {
+interface McpTableProps {
+	data: McpTableRow[];
+}
+
+export function McpTable({ data }: McpTableProps) {
 	const [sorting, setSorting] = React.useState<SortingState>([]);
 	const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
 		[],
@@ -166,6 +173,7 @@ export function McpTable() {
 							<TableRow
 								key={row.id}
 								data-state={row.getIsSelected() && "selected"}
+								className="hover:bg-gray-50 cursor-pointer"
 							>
 								{row.getVisibleCells().map((cell, index) => (
 									<TableCell

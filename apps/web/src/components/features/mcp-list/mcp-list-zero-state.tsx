@@ -3,7 +3,7 @@ import { ICONS } from "@/components/icons";
 export function McpListZeroState({
 	similarMcps,
 }: {
-	similarMcps: React.ReactNode;
+	similarMcps?: React.ReactNode;
 }) {
 	return (
 		<div className="gapy-3 flex h-full w-full flex-col items-center justify-center">

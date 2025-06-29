@@ -15,7 +15,7 @@ export function McpTag({
 	return (
 		<div
 			className={cn(
-				"flex h-[26px] items-center gap-2.5 rounded-[6px] bg-primary-50 px-2 text-primary-700 text-sm",
+				"flex h-[26px] items-center gap-1.5 rounded-[6px] bg-primary-50 px-2 text-primary-700 text-sm",
 				className,
 			)}
 			{...props}

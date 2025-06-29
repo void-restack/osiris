@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 export function McpSearchBox() {
 	return (
 		<section className="flex flex-col gap-6">
-			hello
 			<div className="h-12 w-full" />
 			<div className="flex flex-col gap-1 text-center">
 				<h2 className="font-medium text-primary-800 text-xl">

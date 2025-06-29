@@ -3,10 +3,67 @@ import { McpCardList } from "./mcp-card-list";
 import { McpFilters } from "./mcp-filters";
 import { McpListPagination } from "./mcp-list-pagination";
 import { McpViewToggle } from "./toggle-view";
+import { McpTable } from "./mcp-table";
+import { useAppStore } from "@/lib/store";
 
 export function McpListContainer() {
+	const { mcpView } = useAppStore();
+
+	const mockData = [
+		{
+			title: "Memory tool",
+			description: "Store and retrieve user-specific memories to maintain context and make informed decisions based on past interactions",
+			tags: [
+				{
+					tag: "Assistant",
+					icon: "/test/user.svg",
+				},
+				{
+					tag: "Free",
+				},
+			],
+			icon: "/test/mem.svg",
+			userHandle: "@mem0ai/mem0-memory-mcp",
+			isVerified: true,
+			credits: "FREE" as const,
+		},
+		{
+			title: "Email Assistant",
+			description: "Send and manage emails with AI assistance",
+			tags: [
+				{
+					tag: "Assistant",
+					icon: "/test/user.svg",
+				},
+				{
+					tag: "Free",
+				},
+			],
+			icon: "/test/gmail.svg",
+			userHandle: "@emailai/email-assistant-mcp",
+			isVerified: true,
+			credits: 100,
+		},
+		{
+			title: "Calendar Manager",
+			description: "Manage your calendar and schedule meetings efficiently",
+			tags: [
+				{
+					tag: "Productivity",
+				},
+				{
+					tag: "Premium",
+				},
+			],
+			icon: "/test/calander.svg",
+			userHandle: "@calendartech/calendar-mcp",
+			isVerified: false,
+			credits: 100,
+		},
+	];
+
 	return (
-		<div className="relative flex h-full flex-col gap-4">
+		<div className="flex h-full flex-col gap-4">
 			<div className="h-[72px] px-6" />
 			<div className="flex w-full items-center justify-between px-6">
 				<h3 className="w-full font-medium text-[#171717] text-xl">All MCPs</h3>
@@ -17,40 +74,11 @@ export function McpListContainer() {
 			</div>
 			<Separator />
 			<div className="flex flex-col gap-4 px-6">
-				<McpCardList
-					cards={[
-						{
-							title: "MCP 1",
-							description: "MCP 1 description",
-							tags: [
-								{
-									tag: "tag1",
-								},
-								{
-									tag: "tag2",
-								},
-							],
-							icon: "/logo.svg",
-							userHandle: "user1",
-							isVerified: true,
-						},
-						{
-							title: "MCP 2",
-							description: "MCP 2 description",
-							tags: [
-								{
-									tag: "tag1",
-								},
-								{
-									tag: "tag2",
-								},
-							],
-							icon: "/logo.svg",
-							userHandle: "user1",
-							isVerified: true,
-						},
-					]}
-				/>
+				{mcpView === "directory" ? (
+					<McpCardList cards={mockData} />
+				) : (
+					<McpTable data={mockData} />
+				)}
 			</div>
 			<McpListPagination
 				totalPages={10}

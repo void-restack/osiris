@@ -4,7 +4,7 @@ import { McpVersions } from "./mcp-versions";
 
 export function McpDetailsHeader() {
 	return (
-		<section className="flex w-full flex-col">
+		<section className="flex w-full flex-col px-6">
 			<div className="relative">
 				<img
 					src={"/test/banner.svg"}
