@@ -46,7 +46,14 @@ export async function generateMetadata(props: {
 	if (!page) notFound();
 
 	return {
-		title: page.data.title,
+		title: `${page.data.title} | Osiris`,
 		description: page.data.description,
+		openGraph: {
+			images: "/og.png",
+		},
+		twitter: {
+			card: "summary_large_image",
+			images: "/og.png",
+		},
 	};
 }
