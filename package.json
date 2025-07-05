@@ -14,9 +14,8 @@
 		"dev": "bun run --filter '*' dev",
 		"build": "bun run --filter '*' build",
 		"check-types": "bun run --filter '*' check-types",
-		"dev:native": "bun run --filter native dev",
 		"dev:web": "bun run --filter web dev",
-		"dev:server": "bun run --filter server dev"
+		"dev:docs": "bun run --filter docs dev"
 	},
 	"dependencies": {
 		"@radix-ui/react-slot": "^1.2.3",
