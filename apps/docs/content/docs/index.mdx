@@ -1,13 +1,174 @@
 ---
-title: Hello World
-description: Your first document
+title: Welcome to Osiris
+description: Build authenticated, stateful, and policy-driven MCPs with enterprise-grade security
 ---
+import { Step, Steps } from 'fumadocs-ui/components/steps';
 
-Welcome to the docs! You can start writing documents in `/content/docs`.
+# Welcome to Osiris
 
-## What is Next?
+Osiris is a comprehensive framework for building authenticated, stateful, and policy-driven MCPs (Model Context Protocol) with enterprise-grade security. Built with privacy-first principles, Osiris enables developers to create sophisticated MCPs that can safely interact with external services, manage user data, and execute blockchain transactions—all while maintaining user sovereignty and control.
+
+## What is Osiris?
+
+Osiris provides secure authentication, wallet management, and policy enforcement for MCPs. The platform consists of three core components:
+
+- **[Osiris SDK](/docs/sdk)** - A comprehensive framework for building MCPs with authentication and state management
+- **[Policy Engine](/docs/policy-engine)** - Advanced policy enforcement for blockchain transactions and wallet security
+- **[Backend Hub](/docs/backend)** - Centralized authentication and service management infrastructure
+
+## Quick Start
+
+Get started with Osiris in minutes using the CLI:
+
+<Steps>
+<Step>
+### Install the CLI
+
+```bash
+npm install -g @osiris-ai/cli
+```
+
+Or use with npx:
+```bash
+npx @osiris-ai/cli register
+```
+</Step>
+
+<Step>
+### Register your account
+
+Create your Osiris account and OAuth credentials:
+
+```bash
+osiris register
+```
+
+This will:
+- Create your user account
+- Set up OAuth client credentials
+- Save configuration locally
+- Open authentication in your browser
+</Step>
+
+<Step>
+### Connect authentication services
+
+Connect external services to your account:
+
+```bash
+osiris connect-auth
+```
+
+Choose from available services:
+- Google (Gmail, Calendar, Drive)
+- GitHub (repositories, issues)
+- Discord (servers, channels)
+- Linear (projects, issues)
+- And more...
+</Step>
+
+<Step>
+### Create your first MCP
+
+Generate a complete MCP project:
+
+```bash
+osiris create-app
+```
+
+This creates a full project with:
+- Authentication setup
+- Database configuration
+- Example tools and resources
+- TypeScript/JavaScript templates
+</Step>
+
+<Step>
+### Start development
+
+```bash
+cd your-project-name
+npm install
+npm run dev
+```
+
+Your MCP server is now running with full authentication!
+</Step>
+</Steps>
+
+## Key Features
+
+### 🔐 Multi-Layered Authentication
+- **OAuth Integration**: Seamless integration with Google, GitHub, Discord, and more
+- **Secret Sharing**: Secure management of API keys and database credentials  
+- **Embedded Wallets**: Hardware-backed wallet security with policy enforcement
+
+### 🧠 Stateful Operations
+- **Persistent Memory**: MCPs maintain state across conversations
+- **Multi-Database Support**: PostgreSQL, MongoDB, Redis, and SQLite adapters
+- **Cross-Platform Data**: Share data across different AI platforms
+
+### 🛡️ Policy Engine
+- **Transaction Validation**: Prevent invalid blockchain transactions
+- **Risk Management**: Configurable limits and restrictions
+- **User Control**: Users set their own wallet policies
+
+### 🌐 Production Ready
+- **Multi-Tenant**: Isolated authentication and data per deployment
+- **Scalable**: Enterprise-grade infrastructure
+- **Monitoring**: Built-in health checks and logging
+
+## What Can You Build?
 
 <Cards>
-  <Card title="Learn more about Next.js" href="https://nextjs.org/docs" />
-  <Card title="Learn more about Fumadocs" href="https://fumadocs.vercel.app" />
+  <Card title="Productivity MCPs" href="/docs/examples#productivity-mcps">
+    Gmail, Calendar, Notion, Linear, and GitHub integrations
+  </Card>
+  <Card title="Web3 MCPs" href="/docs/examples#web3-mcps">
+    Uniswap, DeFi protocols, and blockchain interactions
+  </Card>
+  <Card title="Gaming MCPs" href="/docs/examples#gaming-mcps">
+    World of AI, multiplayer games, and interactive experiences
+  </Card>
+  <Card title="Utility MCPs" href="/docs/examples#utility-mcps">
+    Build your own authenticated and stateful MCPs
+  </Card>
 </Cards>
+
+## Why Choose Osiris?
+
+### For Developers
+- **Rapid Development**: Focus on your MCP logic, not authentication infrastructure
+- **Type Safety**: Full TypeScript support with comprehensive error handling
+- **Flexible Architecture**: Support for multiple authentication patterns and databases
+
+### For Users
+- **Privacy First**: Your data stays under your control
+- **Secure by Default**: Enterprise-grade security with policy enforcement
+- **Cross-Platform**: Works across all major AI platforms
+
+### For Enterprises
+- **Scalable**: Multi-tenant architecture with isolated data
+- **Compliant**: Built with enterprise security requirements in mind
+- **Extensible**: Easy to integrate with existing infrastructure
+
+## Next Steps
+
+<Cards>
+  <Card title="SDK Documentation" href="/docs/sdk">
+    Learn how to build MCPs with the Osiris SDK
+  </Card>
+  <Card title="Policy Engine" href="/docs/policy-engine">
+    Understand wallet security and transaction policies
+  </Card>
+  <Card title="Examples" href="/docs/examples">
+    Explore real-world MCP implementations
+  </Card>
+  <Card title="Roadmap" href="/docs/roadmap">
+    See what's coming next and contribute ideas
+  </Card>
+</Cards>
+
+---
+
+**Ready to build the future of AI-powered applications?** Start with our [CLI registration](#quick-start) or explore our [examples](/docs/examples) to see what's possible.

@@ -1,0 +1,178 @@
+/* Custom theme overrides for Osiris documentation */
+
+/* Primary button styling */
+.btn-primary,
+[data-variant="default"] {
+  background-color: #2DCA04 !important;
+  border-color: #2DCA04 !important;
+}
+
+.btn-primary:hover,
+[data-variant="default"]:hover {
+  background-color: #25a803 !important;
+  border-color: #25a803 !important;
+}
+
+/* Link styling: neutral text, no underline, green bg on hover/focus/active */
+a, .fd-link, .fd-breadcrumb a, .fd-pagination a {
+  text-decoration: none !important;
+  transition: background-color 0.2s;
+}
+
+a:hover, a:focus, a:active,
+.fd-link:hover, .fd-link:focus, .fd-link:active,
+.fd-breadcrumb a:hover, .fd-breadcrumb a:focus, .fd-breadcrumb a:active,
+.fd-pagination a:hover, .fd-pagination a:focus, .fd-pagination a:active {
+  background-color: #7bf35d6c !important; /* 8% opacity green */
+  border: none !important;
+  text-decoration: none !important;
+}
+
+/* Navigation active states */
+[data-active="true"] {
+  background-color: #2DCA0405 !important;
+}
+
+/* Sidebar active items */
+[data-active="true"] .sidebar-item,
+.sidebar-item[data-active="true"] {
+  background-color: #2DCA0405 !important;
+  border-left-color: #2DCA04 !important;
+}
+
+/* Code blocks */
+pre {
+  background-color: #2DCA0405 !important;
+  border: none !important;
+}
+
+/* Inline code */
+code {
+  background-color: #2DCA0405 !important;
+}
+
+/* Cards */
+.card,
+[data-variant="card"] {
+  border: none !important;
+  transition: background-color 0.2s;
+}
+
+.card:hover,
+[data-variant="card"]:hover {
+  background-color: #2DCA040D !important;
+  border: none !important;
+}
+
+/* Search input focus */
+input:focus {
+  border-color: #2DCA04 !important;
+  box-shadow: 0 0 0 2px #2DCA0405 !important;
+}
+
+/* Fumadocs specific components */
+.fd-nav {
+  border-bottom: none !important;
+}
+
+.fd-sidebar {
+  border-right: none !important;
+}
+
+.fd-toc {
+  border-left: none !important;
+}
+
+/* Button components */
+.fd-btn-primary {
+  background-color: #2DCA04 !important;
+  border-color: #2DCA04 !important;
+}
+
+.fd-btn-primary:hover {
+  background-color: #25a803 !important;
+  border-color: #25a803 !important;
+}
+
+/* Dark mode adjustments */
+.dark .btn-primary,
+.dark [data-variant="default"] {
+}
+
+.dark [data-active="true"] {
+}
+
+.dark code {
+}
+
+.dark .fd-btn-primary {
+}
+
+/* Logo and branding */
+.nav-title,
+.fd-nav-title {
+  color: #2DCA04 !important;
+}
+
+/* Footer links: no underline, green bg on hover */
+footer a, .fd-footer a {
+  text-decoration: none !important;
+  transition: background-color 0.2s;
+}
+
+footer a:hover, .fd-footer a:hover {
+  background-color: #2DCA040D !important;
+  text-decoration: none !important;
+}
+
+/* Breadcrumb styling: no underline, green bg on hover */
+.fd-breadcrumb a {
+  text-decoration: none !important;
+  transition: background-color 0.2s;
+}
+
+.fd-breadcrumb a:hover {
+  background-color: #2DCA040D !important;
+  text-decoration: none !important;
+}
+
+/* Search styling */
+.fd-search-input:focus {
+  border-color: #2DCA04 !important;
+  box-shadow: 0 0 0 2px #2DCA0405 !important;
+}
+
+/* Pagination: no underline, green bg on hover */
+.fd-pagination a {
+  text-decoration: none !important;
+  transition: background-color 0.2s;
+}
+
+.fd-pagination a:hover {
+  background-color: #2DCA040D !important;
+  text-decoration: none !important;
+}
+
+.fd-pagination [data-active="true"] {
+  background-color: #2DCA04 !important;
+}
+
+/* Callout components */
+.fd-callout {
+  border-left: none !important;
+}
+
+/* Tab components */
+.fd-tabs-trigger[data-active="true"] {
+  background-color: #2DCA04 !important;
+}
+
+/* Steps component */
+.fd-steps-item[data-active="true"] {
+  /* Only accent, not text color */
+}
+
+/* File tree */
+.fd-file-tree-item[data-active="true"] {
+  background-color: #2DCA0405 !important;
+} 
