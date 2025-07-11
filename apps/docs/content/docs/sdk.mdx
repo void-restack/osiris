@@ -1,0 +1,726 @@
+---
+title: Osiris SDK
+description: Comprehensive framework for building authenticated, stateful, and policy-driven MCPs
+---
+
+The Osiris SDK is a comprehensive framework for building authenticated, stateful, and policy-driven MCPs (Model Context Protocol) with enterprise-grade security. It handles authentication, state management, and policy enforcement automatically, letting you focus on building intelligent MCP tools.
+
+## Installation
+
+### Option 1: Using CLI (Recommended)
+
+The fastest way to get started is using the Osiris CLI:
+
+```bash
+# Install CLI
+npm install -g @osiris-ai/cli
+
+# Register account and get credentials
+osiris register
+
+# Connect authentication services
+osiris connect-auth
+
+# Create your project
+osiris create-app
+```
+
+This creates a complete project with:
+- Authentication setup
+- Database configuration  
+- Example tools and resources
+- Environment configuration
+- TypeScript/JavaScript templates
+
+### Option 2: Manual Installation
+
+```bash
+npm install @osiris-ai/sdk
+```
+
+## Quick Start
+
+### CLI-Generated Project
+
+When you run `osiris create-app`, you get a complete project structure:
+
+```
+your-project/
+├── index.ts              # Main MCP server entry point
+├── client.ts             # MCP client setup and configuration
+├── tools/
+│   └── hello-world.ts    # Example tool
+├── resources/
+│   └── hello-world.ts    # Example resource
+├── prompts/
+│   └── hello-world.ts    # Example prompt
+├── schema/
+│   └── index.ts          # Zod schema definitions
+├── .env                  # Environment variables (auto-configured)
+├── .env.example          # Environment template
+├── osiris.json           # Project configuration
+└── package.json          # Dependencies and scripts
+```
+
+### Generated Environment Configuration
+
+The CLI automatically configures your `.env` file:
+
+```bash
+# Osiris Hub Configuration
+HUB_BASE_URL=https://api.osirislabs.xyz/v1
+
+# OAuth Credentials (auto-filled by CLI)
+OAUTH_CLIENT_ID=your-oauth-client-id
+OAUTH_CLIENT_SECRET=your-oauth-client-secret
+
+# MCP Server Configuration
+PORT=3000
+NODE_ENV=development
+
+# Database Configuration
+DATABASE_ADAPTER=postgres
+DATABASE_URL=postgresql://username:password@localhost:5432/your-project
+```
+
+### Generated Server Code
+
+Here's what the CLI generates in `index.ts`:
+
+```typescript
+import { createMcpServer } from '@osiris-ai/sdk';
+import { PostgresDatabaseAdapter } from '@osiris-ai/sdk';
+import { configureClient } from './client.js';
+import dotenv from 'dotenv';
+
+dotenv.config();
+
+const databaseAdapter = new PostgresDatabaseAdapter({
+    connectionString: process.env.DATABASE_URL!
+});
+
+await createMcpServer({
+    name: 'your-project',
+    version: '1.0.0',
+    
+    auth: {
+        useHub: true,
+        hubConfig: {
+            baseUrl: process.env.HUB_BASE_URL!,
+            clientId: process.env.OAUTH_CLIENT_ID!,
+            clientSecret: process.env.OAUTH_CLIENT_SECRET!,
+        },
+        database: databaseAdapter,
+    },
+    
+    server: {
+        port: parseInt(process.env.PORT || '3000'),
+        mcpPath: '/mcp',
+        callbackBasePath: '/callback',
+    },
+
+    configure: configureClient
+});
+```
+
+### Generated Client Configuration
+
+The `client.ts` file registers your tools, resources, and prompts:
+
+```typescript
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { registerHelloWorldTool } from './tools/hello-world.js';
+import { registerHelloWorldResource } from './resources/hello-world.js';
+import { registerHelloWorldPrompt } from './prompts/hello-world.js';
+
+export function configureClient(server: McpServer) {
+    // Register tools
+    registerHelloWorldTool(server);
+    
+    // Register resources
+    registerHelloWorldResource(server);
+    
+    // Register prompts
+    registerHelloWorldPrompt(server);
+}
+```
+
+## Authentication Architecture
+
+Osiris SDK provides **dual-layer authentication** that secures both user access and LLM interactions:
+
+### Layer 1: User ↔ MCP Authentication
+
+#### OAuth Authentication (Hub-Based)
+**Best for**: API integrations with Google, GitHub, Discord, etc.
+
+```typescript
+// Automatically configured by CLI
+auth: {
+    useHub: true,
+    hubConfig: {
+        baseUrl: process.env.HUB_BASE_URL!,
+        clientId: process.env.OAUTH_CLIENT_ID!,
+        clientSecret: process.env.OAUTH_CLIENT_SECRET!,
+    }
+}
+
+// In your tools
+const context = getAuthContext();
+const googleToken = context.getToken();
+const gmail = createHubGmailClient({ hubBaseUrl: process.env.HUB_BASE_URL! });
+```
+
+**Security Model**: OAuth scopes define what your MCP can access
+- ✅ Centralized token management through hub
+- ✅ Automatic token refresh
+- ✅ User controls permissions via OAuth scopes
+
+#### Secret Sharing (Direct Access)
+**Best for**: Database connections, API keys, internal services
+
+```typescript
+// Set up via CLI: osiris connect-auth
+const context = getAuthContext();
+// Access shared secrets securely
+```
+
+**Security Model**: Direct secret management
+- ✅ Encrypted storage
+- ✅ User-controlled access
+
+#### Embedded Wallets (Policy Engine Security)
+**Best for**: Blockchain interactions, financial operations
+
+```typescript
+// From Uniswap MCP example
+const { token, context } = getAuthContext("osiris");
+const client = new EVMWalletClient(hubBaseUrl, token.access_token, context.deploymentId, chainId);
+const walletRecords = await client.getWalletRecords();
+const account = await client.getViemAccount(walletRecords[0].metadata.wallet.addresses[0]);
+```
+
+**Security Model**: Policy engine enforced at wallet level
+- ✅ User sets policies in their wallet
+- ✅ MCP/LLM cannot execute invalid transactions
+- ✅ Policy rules prevent unauthorized actions
+
+### Layer 2: LLM ↔ MCP Authentication
+
+Prevents unauthorized LLM access to your MCP:
+
+When a user creates a new deployment, the Hub generates a unique deployment ID that can be used for MCP authentication. With the upcoming MCP Router feature, users won't need to deploy individual MCPs - they can use a single MCP to securely call other MCPs. This reduces context load on LLMs while maintaining secure authentication.
+
+The Osiris SDK provides clear error messages that LLMs can interpret to guide users through the MCP authentication process. This enables:
+
+- ✅ Automated deployment ID generation
+- ✅ Simplified MCP routing and authentication 
+- ✅ Reduced LLM context requirements
+- ✅ Clear authentication guidance
+
+## Manual MCP Server Setup
+
+If you prefer to set up manually instead of using the CLI:
+
+### Basic MCP Server
+
+```typescript
+import { createMcpServer, PostgresDatabaseAdapter } from '@osiris-ai/sdk';
+
+await createMcpServer({
+    name: 'my-mcp',
+    version: '1.0.0',
+    
+    auth: {
+        useHub: true,
+        hubConfig: {
+            baseUrl: process.env.HUB_BASE_URL!,
+            clientId: process.env.OAUTH_CLIENT_ID!,
+            clientSecret: process.env.OAUTH_CLIENT_SECRET!,
+        },
+        database: new PostgresDatabaseAdapter({
+            connectionString: process.env.DATABASE_URL!
+        }),
+    },
+    
+    server: {
+        port: 3001,
+        mcpPath: '/mcp',
+        callbackBasePath: '/callback',
+    },
+
+    configure: (server) => {
+        server.tool('example_tool', 'Example tool', {
+            message: { type: 'string', description: 'Message to process' }
+        }, async ({ message }) => {
+            return {
+                content: [{ type: 'text', text: `Processed: ${message}` }]
+            };
+        });
+    }
+});
+```
+
+### Gmail MCP Example
+
+```typescript
+import { createMcpServer, getAuthContext, createHubGmailClient } from '@osiris-ai/sdk';
+
+class GmailMCP {
+    private hubBaseUrl: string;
+
+    constructor(hubBaseUrl: string) {
+        this.hubBaseUrl = hubBaseUrl;
+    }
+
+    getGmailClient() {
+        const context = getAuthContext();
+        
+        if (!context.tokens) {
+            throw new Error('No Google token available. Please authenticate with Google first.');
+        }
+
+        return createHubGmailClient({
+            hubBaseUrl: this.hubBaseUrl
+        });
+    }
+
+    configureServer(server) {
+        server.tool(
+            'send_email',
+            'Send an email through Gmail',
+            {
+                to: { type: 'string', description: 'Recipient email' },
+                subject: { type: 'string', description: 'Email subject' },
+                body: { type: 'string', description: 'Email content' }
+            },
+            async ({ to, subject, body }) => {
+                const gmail = this.getGmailClient();
+                
+                const emailContent = [
+                    `To: ${to}`,
+                    `Subject: ${subject}`,
+                    'MIME-Version: 1.0',
+                    'Content-Type: text/plain; charset=UTF-8',
+                    '',
+                    body
+                ];
+                
+                const raw = Buffer.from(emailContent.join('\r\n'))
+                    .toString('base64')
+                    .replace(/\+/g, '-')
+                    .replace(/\//g, '_');
+                
+                const result = await gmail.users.messages.send({
+                    userId: 'me',
+                    requestBody: { raw }
+                });
+                
+                return {
+                    content: [{
+                        type: 'text',
+                        text: `✅ Email sent successfully! Message ID: ${result.data.id}`
+                    }]
+                };
+            }
+        );
+    }
+}
+
+// Start server
+const gmailMcp = new GmailMCP(process.env.HUB_BASE_URL!);
+
+await createMcpServer({
+    name: 'gmail-mcp',
+    version: '1.0.0',
+    
+    auth: {
+        useHub: true,
+        hubConfig: {
+            baseUrl: process.env.HUB_BASE_URL!,
+            clientId: process.env.OAUTH_CLIENT_ID!,
+            clientSecret: process.env.OAUTH_CLIENT_SECRET!,
+        },
+        database: new PostgresDatabaseAdapter({
+            connectionString: process.env.DATABASE_URL!
+        }),
+    },
+    
+    server: {
+        port: 3001,
+        mcpPath: '/mcp',
+        callbackBasePath: '/callback',
+    },
+
+    configure: (server) => {
+        gmailMcp.configureServer(server);
+    }
+});
+```
+
+## Stateful MCP Architecture
+
+Osiris MCPs maintain persistent state across conversations:
+
+### State Storage Options
+
+#### Option 1: User's Database (Recommended)
+```typescript
+const { token, context } = getAuthContext("osiris");
+const response = await fetch(`https://api.osirislabs.xyz/v1/hub/action/${deploymentId}/postgres`, {
+    method: "POST",
+    body: JSON.stringify({
+        sql: `SELECT * FROM user_data WHERE user_id = $1`,
+        params: [context.userId]
+    })
+});
+```
+
+#### Option 2: MCP's Database
+```typescript
+database: new PostgresDatabaseAdapter({
+    connectionString: process.env.MCP_DATABASE_URL!,
+})
+```
+
+## Database Adapters
+
+### Development
+```typescript
+import { MemoryDatabaseAdapter } from '@osiris-ai/sdk';
+
+database: new MemoryDatabaseAdapter() // Data stored in memory (lost on restart)
+```
+
+### Production
+```typescript
+import { PostgresDatabaseAdapter } from '@osiris-ai/sdk';
+
+database: new PostgresDatabaseAdapter({
+    connectionString: process.env.DATABASE_URL!
+})
+```
+
+### Other Options
+```typescript
+import { MongoDBDatabaseAdapter, RedisDatabaseAdapter, SQLiteDatabaseAdapter } from '@osiris-ai/sdk';
+
+// MongoDB
+database: new MongoDBDatabaseAdapter({
+    connectionString: 'mongodb://localhost:27017/osiris'
+})
+
+// Redis  
+database: new RedisDatabaseAdapter({
+    host: 'localhost',
+    port: 6379
+})
+
+// SQLite
+database: new SQLiteDatabaseAdapter({
+    filepath: './mcp_data.db'
+})
+```
+
+## Token Context System
+
+The Osiris SDK provides request-scoped authentication context:
+
+### Basic Context Usage
+
+```typescript
+import { getAuthContext } from '@osiris-ai/sdk';
+
+server.tool('context_example', 'Shows how to use auth context', schema, async (params) => {
+  // For OAuth services
+  const context = getAuthContext();
+  if (!context.tokens) {
+    throw new Error('No tokens available. Please authenticate first.');
+  }
+  
+  // For embedded wallets  
+  const { token, context: walletContext } = getAuthContext("osiris");
+  if (!token || !walletContext) {
+    throw new Error("No wallet token or context found");
+  }
+  
+  return { content: [{ type: 'text', text: 'Context accessed successfully' }] };
+});
+```
+
+### Multi-Tenant Isolation
+
+Each deployment automatically isolates user data:
+
+```typescript
+// Context is automatically scoped to current user
+const context = getAuthContext();
+console.log('User ID:', context.userId);
+console.log('Deployment ID:', context.deploymentId);
+
+// All database operations are automatically user-scoped
+const userEmails = await fetchUserEmails(context.userId);
+```
+
+## Error Handling
+
+### Authentication Errors
+
+```typescript
+import { AuthContextError } from '@osiris-ai/sdk';
+
+server.tool('robust_tool', 'Tool with error handling', schema, async (params) => {
+    try {
+        const gmail = createHubGmailClient({ hubBaseUrl: process.env.HUB_BASE_URL! });
+        const result = await gmail.users.messages.list({ userId: 'me' });
+        
+        return {
+            content: [{ type: 'text', text: 'Success!' }]
+        };
+        
+    } catch (error) {
+        if (error instanceof AuthContextError) {
+            return {
+                content: [{
+                    type: 'text',
+                    text: `🔐 Authentication required: ${error.authorizationUrl}`
+                }],
+                isError: true
+            };
+        }
+        
+        return {
+            content: [{
+                type: 'text', 
+                text: `❌ Error: ${error.message}`
+            }],
+            isError: true
+        };
+    }
+});
+```
+
+### Wallet Transaction Errors
+
+```typescript
+server.tool('wallet_tool', 'Wallet operation', schema, async (params) => {
+    try {
+        const { token, context } = getAuthContext("osiris");
+        if (!token || !context) {
+            throw new Error("Wallet authentication required");
+        }
+        
+        // Wallet operation - policy engine validates automatically
+        const result = await performWalletOperation();
+        
+        return {
+            content: [{ type: 'text', text: `✅ Transaction: ${result.hash}` }]
+        };
+        
+    } catch (error) {
+        if (error.message.includes('policy')) {
+            return {
+                content: [{
+                    type: 'text',
+                    text: `🚫 Transaction blocked by wallet policy: ${error.message}`
+                }],
+                isError: true
+            };
+        }
+        
+        return {
+            content: [{
+                type: 'text',
+                text: `💳 Wallet error: ${error.message}`
+            }],
+            isError: true
+        };
+    }
+});
+```
+
+## Development Workflow
+
+### 1. Start Development Server
+
+```bash
+# From your CLI-generated project
+npm run dev
+
+# Or for TypeScript projects
+npm run dev  # Uses tsx for hot reload
+```
+
+### 2. Testing Your MCP
+
+The generated project includes example tools you can test immediately:
+
+```bash
+# Test the hello world tool
+curl -X POST http://localhost:3000/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"method": "tools/call", "params": {"name": "hello_world", "arguments": {"name": "Alice"}}}'
+```
+
+### 3. Adding New Tools
+
+Create a new tool in the `tools/` directory:
+
+```typescript
+// tools/my-new-tool.ts
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { z } from 'zod';
+
+export function registerMyNewTool(server: McpServer) {
+    const MyToolSchema = z.object({
+        param1: z.string().describe('Parameter description')
+    });
+    
+    server.tool('my_new_tool', 'Description of what this tool does', MyToolSchema, async ({ param1 }) => {
+        // Your tool logic here
+        return {
+            content: [{
+                type: 'text',
+                text: `Tool result: ${param1}`
+            }]
+        };
+    });
+}
+```
+
+Then register it in `client.ts`:
+
+```typescript
+import { registerMyNewTool } from './tools/my-new-tool.js';
+
+export function configureClient(server: McpServer) {
+    registerHelloWorldTool(server);
+    registerMyNewTool(server); // Add this line
+    // ... other registrations
+}
+```
+
+## Environment Variables
+
+```bash
+# Core Configuration
+HUB_BASE_URL=https://api.osirislabs.xyz/v1
+PORT=3000
+
+# OAuth Authentication (auto-configured by CLI)
+OAUTH_CLIENT_ID=your-oauth-client-id
+OAUTH_CLIENT_SECRET=your-oauth-client-secret
+
+# Database
+DATABASE_URL=postgresql://user:pass@localhost:5432/mcp_db
+
+# Deployment Security
+MCP_DEPLOYMENT_SECRET=your-deployment-secret
+```
+
+## Best Practices
+
+### 1. Use the CLI for Setup
+
+**✅ RECOMMENDED**: Use the CLI for project setup
+```bash
+osiris register
+osiris connect-auth
+osiris create-app
+```
+
+**❌ AVOID**: Manual credential management
+```bash
+# Don't manually manage OAuth credentials
+```
+
+### 2. Choose the Right Authentication
+
+**OAuth** for external APIs:
+- ✅ Google, GitHub, Discord APIs
+- ✅ Centralized token management
+- ✅ User controls permissions
+
+**Embedded Wallets** for blockchain:
+- ✅ DeFi interactions, token transfers  
+- ✅ Policy engine prevents invalid transactions
+- ✅ Hardware-backed security
+
+### 3. Handle Context Properly
+
+```typescript
+// ✅ GOOD: Check for auth context
+const context = getAuthContext();
+if (!context.tokens) {
+    throw new Error('Authentication required');
+}
+
+// ✅ GOOD: Handle wallet context
+const { token, context } = getAuthContext("osiris");
+if (!token || !context) {
+    throw new Error("Wallet authentication required");
+}
+```
+
+### 4. Implement Stateful Patterns
+
+```typescript
+// ✅ GOOD: Store user state for learning
+server.tool('smart_tool', 'Learns user patterns', schema, async (params) => {
+    const context = getAuthContext();
+    
+    // Load user history
+    const history = await getUserHistory(context.userId);
+    
+    // Make decision based on history
+    const result = await makeDecision(params, history);
+    
+    // Store for future learning
+    await storeUserAction(context.userId, { 
+        params, 
+        result, 
+        timestamp: new Date() 
+    });
+    
+    return result;
+});
+```
+
+### 5. Use Proper Error Messages
+
+```typescript
+// ✅ GOOD: Actionable error messages
+catch (error) {
+    if (error instanceof AuthContextError) {
+        return {
+            content: [{
+                type: 'text',
+                text: `🔐 Please authenticate: ${error.authorizationUrl}`
+            }],
+            isError: true
+        };
+    }
+}
+
+// ❌ BAD: Generic error messages  
+catch (error) {
+    return { content: [{ type: 'text', text: 'Error' }], isError: true };
+}
+```
+
+## Next Steps
+
+<Cards>
+  <Card title="Policy Engine" href="/policy-engine">
+    Learn about wallet security and transaction policies
+  </Card>
+  <Card title="Examples" href="/examples">
+    Explore real-world MCP implementations
+  </Card>
+  <Card title="Roadmap" href="/roadmap">
+    See what's coming next and contribute ideas
+  </Card>
+  <Card title="Authenticators" href="/authenticators">
+    See all available authentication methods
+  </Card>
+</Cards> 

@@ -10,7 +10,7 @@ npm run dev
 # or
 pnpm dev
 # or
-yarn dev
+yarn de
 ```
 
 Open http://localhost:3000 with your browser to see the result.

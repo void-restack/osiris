@@ -1,0 +1,457 @@
+---
+title: Examples
+description: Real-world MCP implementations built with Osiris SDK
+---
+
+Explore real-world MCP implementations built with the Osiris SDK. These examples showcase the power of authenticated, stateful, and policy-driven MCPs across different domains.
+
+## Productivity MCPs
+
+### Gmail MCP
+Email management with OAuth authentication
+
+```typescript
+import { createMcpServer, getAuthContext, createHubGmailClient } from '@osiris-ai/sdk';
+
+class GmailMCP {
+    configureServer(server) {
+        server.tool('send_email', 'Send an email through Gmail', {
+            to: { type: 'string', description: 'Recipient email' },
+            subject: { type: 'string', description: 'Email subject' },
+            body: { type: 'string', description: 'Email content' }
+        }, async ({ to, subject, body }) => {
+            const gmail = this.getGmailClient();
+            
+            const emailContent = [
+                `To: ${to}`,
+                `Subject: ${subject}`,
+                'MIME-Version: 1.0',
+                'Content-Type: text/plain; charset=UTF-8',
+                '',
+                body
+            ];
+            
+            const raw = Buffer.from(emailContent.join('\r\n'))
+                .toString('base64')
+                .replace(/\+/g, '-')
+                .replace(/\//g, '_');
+            
+            const result = await gmail.users.messages.send({
+                userId: 'me',
+                requestBody: { raw }
+            });
+            
+            return {
+                content: [{
+                    type: 'text',
+                    text: `✅ Email sent successfully! Message ID: ${result.data.id}`
+                }]
+            };
+        });
+    }
+}
+```
+
+**Features:**
+- OAuth authentication with Google
+- Send emails through Gmail API
+- Persistent token management
+- Multi-tenant isolation
+
+### Calendar MCP
+Calendar management and scheduling
+
+```typescript
+server.tool('create_event', 'Create a calendar event', {
+    title: { type: 'string', description: 'Event title' },
+    start: { type: 'string', description: 'Start time (ISO 8601)' },
+    end: { type: 'string', description: 'End time (ISO 8601)' },
+    description: { type: 'string', description: 'Event description' }
+}, async ({ title, start, end, description }) => {
+    const calendar = this.getCalendarClient();
+    
+    const event = await calendar.events.insert({
+        calendarId: 'primary',
+        requestBody: {
+            summary: title,
+            start: { dateTime: start },
+            end: { dateTime: end },
+            description: description
+        }
+    });
+    
+    return {
+        content: [{
+            type: 'text',
+            text: `📅 Event created: ${event.data.htmlLink}`
+        }]
+    };
+});
+```
+
+### Discord MCP
+Discord server and channel management
+
+```typescript
+server.tool('send_message', 'Send a message to Discord channel', {
+    channel_id: { type: 'string', description: 'Discord channel ID' },
+    message: { type: 'string', description: 'Message content' }
+}, async ({ channel_id, message }) => {
+    const discord = this.getDiscordClient();
+    
+    const result = await discord.channels.createMessage(channel_id, {
+        content: message
+    });
+    
+    return {
+        content: [{
+            type: 'text',
+            text: `💬 Message sent to Discord: ${result.id}`
+        }]
+    };
+});
+```
+
+## Web3 MCPs
+
+### Uniswap MCP
+DeFi trading with policy enforcement
+
+```typescript
+import { getAuthContext, EVMWalletClient } from '@osiris-ai/sdk';
+
+class UniswapMCP {
+    async swap(params: SwapTransactionParams): Promise<CallToolResult> {
+        // Get wallet context - policy engine validates transactions
+        const { token, context } = getAuthContext("osiris");
+        if (!token || !context) {
+            throw new Error("Wallet authentication required");
+        }
+        
+        const client = new EVMWalletClient(
+            this.hubBaseUrl, 
+            token.access_token, 
+            context.deploymentId, 
+            this.chainId
+        );
+        
+        const walletRecords = await client.getWalletRecords();
+        const account = await client.getViemAccount(
+            walletRecords[0].metadata.wallet.addresses[0]
+        );
+        
+        // Policy engine automatically validates transaction
+        const signedTx = await client.signTransaction(abi, serializedTx, account.address);
+        const hash = await walletClient.sendRawTransaction({
+            serializedTransaction: signedTx as `0x${string}`
+        });
+        
+        return createSuccessResponse("Successfully swapped tokens", {
+            hash: hash
+        });
+    }
+}
+```
+
+**Features:**
+- Embedded wallet integration
+- Policy engine validation
+- Transaction limits and safety checks
+- Support for EVM chains
+
+### Hyperliquid Trader MCP
+Policy-enforced trading assistant
+
+```typescript
+export class HyperliquidTrader {
+    async executeMarketOrder(params: {
+        asset: 'ETH' | 'SOL';
+        amount: number;
+        side: 'buy' | 'sell';
+    }) {
+        const { token, context } = getAuthContext("osiris");
+        if (!token || !context) {
+            throw new Error("Wallet authentication required");
+        }
+        
+        const client = new EVMWalletClient(
+            this.hubBaseUrl, 
+            token.access_token, 
+            context.deploymentId, 
+            this.chainId
+        );
+        
+        // Policy engine automatically validates transaction
+        const transaction = await client.signTransaction(
+            abi, 
+            serializedTx, 
+            account.address
+        );
+        
+        // Store trade for portfolio tracking
+        await this.storeTradeHistory(context.userId, {
+            asset: params.asset,
+            amount: params.amount,
+            side: params.side,
+            hash: transaction.hash,
+            timestamp: new Date()
+        });
+        
+        return transaction;
+    }
+}
+```
+
+**Features:**
+- Asset restrictions (ETH and SOL only)
+- Order limits (market orders under $100)
+- Risk management through policy engine
+- Portfolio tracking with persistent state
+
+## Gaming MCPs
+
+### World of AI MCP
+LLM-powered historical strategy game
+
+```typescript
+server.tool('start_conquest', 'Initialize a new World of AI game session', {
+    player_name: { type: 'string', description: 'Name of the player/character' },
+    scenario_id: { type: 'string', description: 'Historical scenario to play' }
+}, async ({ player_name, scenario_id }) => {
+    const session = await gameEngine.initializeGame({
+        playerId: 'user_' + Date.now(),
+        playerName: player_name,
+        scenarioId: scenario_id
+    });
+
+    const summary = await gameEngine.getGameSummary(session.sessionId);
+    const latestComic = await stateManager.getLatestComicPanel(session.sessionId);
+
+    return {
+        content: [{
+            type: 'text',
+            text: `🏛️ **CONQUEST BEGINS: ${session.scenario.name}**\n\n` +
+                  `Welcome, ${player_name}! ${session.scenario.description}\n\n` +
+                  `**Setting:** ${session.scenario.geographicLocation}\n` +
+                  `**Period:** ${session.scenario.historicalPeriod}\n\n` +
+                  `**Session ID:** ${session.sessionId}\n\n` +
+                  (latestComic ? `**Comic Panel:** ${latestComic.imageUrl}\n\n` : '') +
+                  `Your story begins now. The fate of history is in your hands!`
+        }]
+    };
+});
+```
+
+**Features:**
+- Persistent game sessions across conversations
+- AI-generated comic panels
+- Complex game state management
+- Historical scenario simulation
+
+### Multiplayer D&D MCP
+Cross-platform multiplayer campaigns
+
+```typescript
+server.tool('create_campaign', 'Start a new D&D campaign', {
+    campaign_name: { type: 'string' },
+    max_players: { type: 'number' },
+    setting: { type: 'string' }
+}, async ({ campaign_name, max_players, setting }) => {
+    const campaign = await gameEngine.createCampaign({
+        name: campaign_name,
+        dmId: 'ai-dungeon-master',
+        maxPlayers: max_players,
+        setting: setting || 'fantasy'
+    });
+    
+    return {
+        content: [{
+            type: 'text',
+            text: `🏰 **CAMPAIGN CREATED: ${campaign_name}**\n\n` +
+                  `Campaign ID: ${campaign.id}\n` +
+                  `Setting: ${campaign.setting}\n` +
+                  `Max Players: ${max_players}\n\n` +
+                  `Share this campaign ID with friends to invite them!`
+        }]
+    };
+});
+```
+
+**Features:**
+- Cross-platform multiplayer (ChatGPT, Claude, etc.)
+- Persistent character sheets and campaigns
+- Cross-conversation notifications
+- AI dungeon master with dynamic storytelling
+
+## Utility MCPs
+
+### Notion MCP
+Workspace and knowledge management
+
+```typescript
+server.tool('create_page', 'Create a new Notion page', {
+    parent_id: { type: 'string', description: 'Parent page or database ID' },
+    title: { type: 'string', description: 'Page title' },
+    content: { type: 'string', description: 'Page content in markdown' }
+}, async ({ parent_id, title, content }) => {
+    const notion = this.getNotionClient();
+    
+    const page = await notion.pages.create({
+        parent: { page_id: parent_id },
+        properties: {
+            title: {
+                title: [{ text: { content: title } }]
+            }
+        },
+        children: [
+            {
+                object: 'block',
+                type: 'paragraph',
+                paragraph: {
+                    rich_text: [{ text: { content } }]
+                }
+            }
+        ]
+    });
+    
+    return {
+        content: [{
+            type: 'text',
+            text: `📝 Page created: ${page.url}`
+        }]
+    };
+});
+```
+
+### GitHub MCP
+Repository and issue management
+
+```typescript
+server.tool('create_issue', 'Create a GitHub issue', {
+    repo: { type: 'string', description: 'Repository name (owner/repo)' },
+    title: { type: 'string', description: 'Issue title' },
+    body: { type: 'string', description: 'Issue description' },
+    labels: { type: 'array', description: 'Issue labels' }
+}, async ({ repo, title, body, labels }) => {
+    const github = this.getGitHubClient();
+    const [owner, repoName] = repo.split('/');
+    
+    const issue = await github.rest.issues.create({
+        owner,
+        repo: repoName,
+        title,
+        body,
+        labels
+    });
+    
+    return {
+        content: [{
+            type: 'text',
+            text: `🐛 Issue created: ${issue.data.html_url}`
+        }]
+    };
+});
+```
+
+## Stateful Examples
+
+### Nutrition Tracker MCP
+Persistent health data management
+
+```typescript
+interface NutritionEntry {
+    timestamp: Date;
+    mealType: 'breakfast' | 'lunch' | 'dinner' | 'snack';
+    foods: FoodItem[];
+    macroBreakdown: MacroBreakdown;
+}
+
+export class NutritionTracker {
+    async logMeal(userId: string, entry: NutritionEntry) {
+        // Store in structured format
+        await this.database.nutritionEntries.create({
+            userId,
+            ...entry,
+            calculatedCalories: entry.foods.reduce((sum, food) => 
+                sum + (food.calories * food.quantity), 0)
+        });
+        
+        // Update daily totals
+        await this.updateDailyTotals(userId, entry.timestamp);
+    }
+    
+    async getWeeklyAnalysis(userId: string): Promise<WeeklyNutrition> {
+        const entries = await this.database.nutritionEntries.findMany({
+            where: { 
+                userId,
+                timestamp: { gte: sevenDaysAgo }
+            }
+        });
+        
+        return {
+            avgCalories: entries.reduce((sum, e) => sum + e.calculatedCalories, 0) / 7,
+            macroBreakdown: this.calculateMacroBreakdown(entries),
+            adherenceRate: this.calculateAdherenceToGoals(entries)
+        };
+    }
+}
+```
+
+**Features:**
+- Persistent nutrition data
+- Trend analysis and insights
+- Goal tracking with real metrics
+- Cross-conversation memory
+
+## Key Benefits Demonstrated
+
+### 🔐 Authenticated
+- User data stays private and secure
+- OAuth integration with major services
+- Multi-tenant isolation
+
+### 🧠 Stateful
+- MCPs learn and improve from every interaction
+- Data accumulates value over time
+- Personalized experiences
+
+### 🔄 Persistent
+- Information survives conversation resets
+- Cross-platform data sharing
+- Long-term relationship building
+
+### 🚀 Scalable
+- Handle complex workflows
+- Multiple service integrations
+- Enterprise-grade infrastructure
+
+### 🛡️ Policy-Safe
+- Wallet transactions protected by user-defined policies
+- Risk management and limits
+- Automatic validation
+
+### 🌐 Social
+- Shared leaderboards and challenges
+- Multiplayer experiences
+- Community features
+
+## Getting Started
+
+<Cards>
+  <Card title="Gmail MCP" href="#gmail-mcp">
+    Email management with OAuth authentication
+  </Card>
+  <Card title="Uniswap MCP" href="#uniswap-mcp">
+    DeFi trading with policy enforcement
+  </Card>
+  <Card title="World of AI MCP" href="#world-of-ai-mcp">
+    LLM-powered historical strategy game
+  </Card>
+  <Card title="Build Your Own" href="/sdk">
+    Start building your own authenticated and stateful MCPs
+  </Card>
+</Cards>
+
+---
+
+These examples showcase the unique power of authenticated, stateful MCPs with cross-platform capabilities that only the Osiris SDK can provide. Each example demonstrates how to build intelligent assistants that grow smarter with every use while maintaining complete privacy and security. 

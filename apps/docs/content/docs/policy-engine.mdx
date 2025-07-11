@@ -1,0 +1,608 @@
+---
+title: Policy Engine
+description: Advanced policy enforcement for blockchain transactions and wallet security
+---
+
+The Osiris Policy Engine is a powerful and flexible TypeScript library for defining and enforcing policies on blockchain transactions, with primary focus on EVM-compatible chains and Solana. It provides fine-grained rules to allow or deny operations based on their properties and arguments.
+
+## Installation
+
+```bash
+npm install @osiris-ai/policy-engine
+```
+
+## Core Concepts
+
+### Policies
+
+A policy consists of two sets of rules:
+- **`allow` rules**: Define conditions under which an action is permitted
+- **`deny` rules**: Define conditions under which an action is explicitly forbidden
+
+An action is ultimately allowed if:
+1. It does not match any `deny` rules
+2. It matches at least one `allow` rule (if `allow` rules are defined)
+
+If no `allow` rules are defined, any action not denied is implicitly allowed.
+
+### Actions
+
+An action represents an operation that needs to be validated against a policy:
+
+```typescript
+interface ActionData {
+    method: "signMessage" | "signTypedData" | "signTransaction" | "signRawPayloads";
+    chain?: string; // e.g., "evm:1" for Ethereum mainnet, "solana:mainnet"
+    contractAddress?: string; // For EVM transactions
+    programId?: string; // For Solana transactions
+    walletAddress?: string; // Address performing the action
+    payload?: any; // Action-specific data
+    abi?: ABISpec; // ABI for EVM transaction decoding
+    idl?: IDLSpec; // IDL for Solana transaction decoding
+    organizationId: string; // Identifier for the organization
+    metadata?: {
+        description?: string;
+        riskLevel?: "low" | "medium" | "high";
+        estimatedGas?: string;
+        estimatedValue?: string;
+    };
+}
+```
+
+## Policy Builder (Recommended)
+
+The `PolicyBuilder` provides a fluent API for creating policies for common scenarios:
+
+```typescript
+import { PolicyBuilder } from "@osiris-ai/policy-engine";
+
+const policy = new PolicyBuilder()
+    .allowApprove(
+        { addressEq: "0xUniswapV2Router02" }, // Spender constraints
+        { bigIntMax: "1000000000000000000" }   // Amount constraints (max 1 ETH)
+    )
+    .allowTransfer(
+        { addressInList: ["0xRecipient1", "0xRecipient2"] }, // "to" constraints
+        { bigIntMax: "5000000000000000000" }               // Amount constraints (max 5 ETH)
+    )
+    .denyUnlimitedApprovals() // Denies approvals for type(uint256).max
+    .allowMessageSigning({ stringContains: "Welcome to Osiris" })
+    .build();
+```
+
+## Policy Constraints
+
+### General Constraints (JSON Schema)
+- `const`: Value must be exactly equal to the provided value
+- `type`: Specifies the data type ("string", "number", "boolean", "array", "object")
+- `enum`: Value must be one of the specified values in the array
+- `pattern`: String value must match the provided regular expression
+- `minLength`, `maxLength`: For strings and arrays
+- `minimum`, `maximum`: For numbers
+- `properties`, `required`: For objects
+- `allOf`, `anyOf`, `oneOf`, `not`: Logical combinators
+
+### Custom Constraints (Blockchain-Specific)
+
+#### For BigInts (represented as strings)
+```typescript
+{
+    bigIntMin: "100000000000000000", // Minimum value (0.1 ETH)
+    bigIntMax: "1000000000000000000", // Maximum value (1 ETH)
+    bigIntEq: "500000000000000000"    // Exact value (0.5 ETH)
+}
+```
+
+#### For Addresses (case-insensitive for EVM)
+```typescript
+{
+    addressEq: "0x1234567890123456789012345678901234567890",
+    addressInList: [
+        "0x1234567890123456789012345678901234567890",
+        "0x0987654321098765432109876543210987654321"
+    ]
+}
+```
+
+#### For Strings
+```typescript
+{
+    stringContains: "Osiris",
+    stringStartsWith: "Login to",
+    stringEndsWith: "approved"
+}
+```
+
+## Raw Policy Definition
+
+You can also define policies directly as JavaScript objects:
+
+```typescript
+const rawPolicy = {
+    allow: [
+        {
+            method: "signTransaction",
+            chain: { const: "evm:1" }, // Ethereum mainnet only
+            contractAddress: { addressEq: "0xSomeContractAddress" },
+            decoded: {
+                functionName: { const: "deposit" },
+                args: {
+                    lengthEq: 1, // Function must have 1 argument
+                    "0": { bigIntMin: "100000000000000000" } // First argument ≥ 0.1 ETH
+                }
+            }
+        },
+        {
+            method: "signMessage",
+            payload: {
+                type: "object",
+                properties: {
+                    domain: { const: "myapp.com" },
+                    message: { stringStartsWith: "Login to MyApp:" }
+                },
+                required: ["domain", "message"]
+            }
+        }
+    ],
+    deny: [
+        {
+            method: "signTransaction",
+            decoded: {
+                functionName: { const: "setApprovalForAll" },
+                args: {
+                    "1": { const: true } // Deny if 'approved' argument is true
+                }
+            }
+        }
+    ]
+};
+```
+
+## Validating Actions
+
+Use the `validatePolicy` function to validate actions against policies:
+
+```typescript
+import { validatePolicy, ActionData, PolicyValidationResult } from "@osiris-ai/policy-engine";
+
+async function checkAction(actionData: ActionData, policy: any) {
+    const result: PolicyValidationResult = await validatePolicy(actionData, policy);
+
+    if (result.allowed) {
+        console.log("✅ Action is allowed!");
+        console.log("Matched allow rules:", result.matchedAllowRules);
+    } else {
+        console.error("❌ Action is denied or no allow rule matched.");
+        if (result.matchedDenyRules.length > 0) {
+            console.error("Matched deny rules:", result.matchedDenyRules);
+        }
+        if (result.errors && result.errors.length > 0) {
+            console.error("Validation errors:", result.errors);
+        }
+    }
+    
+    console.log("Expanded Action:", result.expandedAction);
+}
+```
+
+### Policy Validation Result
+
+```typescript
+interface PolicyValidationResult {
+    allowed: boolean; // True if the action is allowed
+    matchedAllowRules: PolicyRule[]; // Allow rules that matched
+    matchedDenyRules: PolicyRule[]; // Deny rules that matched
+    expandedAction: ExpandedAction; // Action data after expansion and decoding
+    errors?: any[]; // Validation errors
+}
+```
+
+## Blockchain Support
+
+### EVM (Ethereum, Polygon, etc.)
+
+The policy engine automatically decodes EVM transactions:
+
+```typescript
+const exampleAction: ActionData = {
+    method: "signTransaction",
+    chain: "evm:1",
+    contractAddress: "0xTokenAddress",
+    walletAddress: "0xUserWallet",
+    organizationId: "org_123",
+    payload: {
+        serializedTransaction: "0x..." // Raw transaction data
+    },
+    abi: {
+        type: "etherscan", // Fetch ABI from Etherscan
+        value: "0xTokenAddress",
+        chain: "evm:1"
+    }
+};
+```
+
+**Features:**
+- **Transaction Decoding**: Automatically parses raw transactions using ABI
+- **Function Extraction**: Extracts function names and arguments
+- **Address Handling**: Case-insensitive address comparisons
+- **ABI Fetching**: Supports Etherscan, Sourcify, or inline ABIs
+
+### Solana
+
+For Solana transactions, the engine uses IDL (Interface Description Language):
+
+```typescript
+const solanaAction: ActionData = {
+    method: "signTransaction",
+    chain: "solana:mainnet",
+    programId: "11111111111111111111111111111112",
+    walletAddress: "SolanaWalletAddress",
+    organizationId: "org_123",
+    payload: {
+        instructions: [...] // Solana instruction data
+    },
+    idl: {
+        type: "url",
+        value: "https://example.com/program.json"
+    }
+};
+```
+
+**Features:**
+- **Instruction Decoding**: Decodes Solana instructions using IDL
+- **Program Analysis**: Extracts program names and instruction types
+- **Account Validation**: Validates account addresses and permissions
+
+## Common Use Cases
+
+### ERC20 Token Policies
+
+```typescript
+const erc20Policy = new PolicyBuilder()
+    // Allow transfers up to 100 tokens
+    .allowTransfer(
+        { addressInList: ["0xTrustedRecipient1", "0xTrustedRecipient2"] },
+        { bigIntMax: "100000000000000000000" } // 100 tokens (18 decimals)
+    )
+    // Allow approvals for specific DEX contracts only
+    .allowApprove(
+        { addressEq: "0xUniswapV2Router02" },
+        { bigIntMax: "1000000000000000000000" } // 1000 tokens max
+    )
+    // Deny unlimited approvals
+    .denyUnlimitedApprovals()
+    .build();
+```
+
+### DeFi Interaction Policies
+
+```typescript
+const defiPolicy = new PolicyBuilder()
+    // Allow Uniswap swaps up to 1 ETH
+    .allowTransaction(
+        { contractAddress: { addressEq: "0xE592427A0AEce92De3Edee1F18E0157C05861564" } },
+        { 
+            decoded: {
+                functionName: { const: "exactInputSingle" },
+                args: {
+                    "0": { // SwapParams struct
+                        properties: {
+                            amountIn: { bigIntMax: "1000000000000000000" } // 1 ETH max
+                        }
+                    }
+                }
+            }
+        }
+    )
+    // Deny flashloan functions
+    .denyTransaction({
+        decoded: {
+            functionName: { enum: ["flashloan", "flashLoan", "borrow"] }
+        }
+    })
+    .build();
+```
+
+### Message Signing Policies
+
+```typescript
+const messagePolicy = new PolicyBuilder()
+    // Allow signing messages from trusted domains
+    .allowMessageSigning({
+        payload: {
+            type: "object",
+            properties: {
+                domain: { 
+                    enum: ["myapp.com", "trusted-dapp.eth"] 
+                },
+                message: { 
+                    stringStartsWith: "Login to" 
+                }
+            },
+            required: ["domain", "message"]
+        }
+    })
+    // Deny signing arbitrary messages
+    .denyMessageSigning({
+        payload: {
+            type: "string",
+            stringContains: "transfer"
+        }
+    })
+    .build();
+```
+
+## Integration with Osiris SDK
+
+The policy engine is automatically integrated with embedded wallets in the Osiris SDK:
+
+```typescript
+import { getAuthContext, EVMWalletClient } from '@osiris-ai/sdk';
+
+// Policy engine validates transactions automatically
+const { token, context } = getAuthContext("osiris");
+const client = new EVMWalletClient(hubBaseUrl, token.access_token, context.deploymentId, chainId);
+
+try {
+    // This transaction will be validated against user's wallet policies
+    const transaction = await client.signTransaction(abi, serializedTx, address);
+    console.log("✅ Transaction approved by policy engine");
+} catch (error) {
+    if (error.message.includes('policy')) {
+        console.log("🚫 Transaction blocked by wallet policy");
+    }
+}
+```
+
+## Why Wallet Policies Matter
+
+Unlike traditional APIs, blockchain transactions are:
+- **Irreversible**: Once confirmed, cannot be undone
+- **Financial**: Directly involve user's assets
+- **Complex**: Smart contract interactions can have unexpected consequences
+- **High-stakes**: Mistakes can result in total loss of funds
+
+The policy engine prevents MCPs and LLMs from:
+- 🚫 Transferring more than daily limits
+- 🚫 Sending to blocked/suspicious addresses
+- 🚫 Paying excessive gas fees
+- 🚫 Interacting with unauthorized contracts
+- 🚫 Executing transactions during off-hours
+
+## Policy Library (Coming Soon)
+
+We're launching a comprehensive library of pre-built policies that developers and users can leverage for common use cases. This library will provide battle-tested policy configurations that you can use directly or customize for your specific needs.
+
+### Featured Policy Templates
+
+#### DeFi Safety Policies
+```typescript
+import { PolicyLibrary } from '@osiris-ai/policy-library';
+
+// Conservative DeFi trading with daily limits
+const conservativeDeFiPolicy = PolicyLibrary.defi.conservative({
+    dailyLimit: "1000000000000000000", // 1 ETH per day
+    allowedProtocols: ["uniswap", "aave", "compound"],
+    maxSlippage: 0.05 // 5% max slippage
+});
+
+// Aggressive trading with higher limits
+const aggressiveDeFiPolicy = PolicyLibrary.defi.aggressive({
+    dailyLimit: "10000000000000000000", // 10 ETH per day
+    allowedProtocols: ["uniswap", "1inch", "paraswap", "aave", "compound"],
+    maxSlippage: 0.1 // 10% max slippage
+});
+```
+
+#### NFT Collection Policies
+```typescript
+// Safe NFT trading with collection whitelist
+const nftCollectionPolicy = PolicyLibrary.nft.collection({
+    allowedCollections: [
+        "0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D", // BAYC
+        "0x60E4d786628Fea6478F785A6d7e704777c86a7c6", // MAYC
+    ],
+    maxFloorMultiplier: 2.0, // Max 2x floor price
+    dailyTransactionLimit: 3
+});
+```
+
+#### Enterprise Security Policies
+```typescript
+// Multi-signature requirements for large transactions
+const enterprisePolicy = PolicyLibrary.enterprise.multiSig({
+    singleSignLimit: "100000000000000000", // 0.1 ETH
+    multiSigThreshold: 2, // Require 2 signatures above limit
+    allowedSigners: ["0x...", "0x...", "0x..."],
+    businessHours: {
+        timezone: "UTC",
+        start: "09:00",
+        end: "17:00",
+        weekdays: true
+    }
+});
+```
+
+### Community-Contributed Policies
+
+The policy library will include community-contributed policies for specific use cases:
+
+- **Gaming Policies**: Prevent excessive in-game spending
+- **Yield Farming**: Automated rebalancing with risk limits
+- **DAO Governance**: Voting and proposal restrictions
+- **Cross-Chain**: Bridge transaction limits and validation
+- **Institutional**: Compliance-focused policies for regulated entities
+
+### Using Policy Library
+
+```typescript
+import { PolicyLibrary } from '@osiris-ai/policy-library';
+import { PolicyBuilder } from '@osiris-ai/policy-engine';
+
+// Use a pre-built policy
+const policy = PolicyLibrary.defi.conservative();
+
+// Customize a pre-built policy
+const customPolicy = PolicyLibrary.defi.conservative()
+    .withDailyLimit("2000000000000000000") // 2 ETH instead of 1
+    .withAdditionalProtocol("sushiswap")
+    .build();
+
+// Combine multiple policies
+const combinedPolicy = new PolicyBuilder()
+    .merge(PolicyLibrary.defi.conservative())
+    .merge(PolicyLibrary.nft.collection())
+    .build();
+```
+
+### Policy Validation & Testing
+
+The library will include testing utilities to validate policies:
+
+```typescript
+import { PolicyTester } from '@osiris-ai/policy-library';
+
+// Test policy against sample transactions
+const tester = new PolicyTester(policy);
+
+const testResults = await tester.runTests([
+    {
+        name: "Small Uniswap swap",
+        transaction: { /* transaction data */ },
+        expectedResult: "allow"
+    },
+    {
+        name: "Large transfer",
+        transaction: { /* transaction data */ },
+        expectedResult: "deny"
+    }
+]);
+
+console.log(`Policy tests: ${testResults.passed}/${testResults.total} passed`);
+```
+
+---
+
+## Advanced Features
+
+### ABI and IDL Fetching
+
+The engine supports multiple ABI/IDL sources:
+
+```typescript
+// Etherscan ABI
+abi: { type: "etherscan", value: "0xContractAddress", chain: "evm:1" }
+
+// Sourcify ABI
+abi: { type: "sourcify", value: "0xContractAddress", chain: "evm:1" }
+
+// Direct URL
+abi: { type: "url", value: "https://example.com/abi.json" }
+
+// Inline ABI
+abi: { type: "inline", value: [...] } // Actual ABI array
+```
+
+### Custom Constraints
+
+You can extend the policy engine with custom constraints:
+
+```typescript
+import { PolicyValidator } from "@osiris-ai/policy-engine";
+
+const validator = new PolicyValidator();
+
+// Add custom keyword
+validator.addKeyword({
+    keyword: "customConstraint",
+    type: "string",
+    compile: (schema) => {
+        return function validate(data) {
+            // Custom validation logic
+            return data.includes("custom");
+        };
+    }
+});
+```
+
+## Best Practices
+
+### 1. Start with Allow Lists
+
+```typescript
+// ✅ GOOD: Explicit allow list
+const policy = new PolicyBuilder()
+    .allowTransfer(
+        { addressInList: ["0xTrustedAddress1", "0xTrustedAddress2"] },
+        { bigIntMax: "1000000000000000000" }
+    )
+    .build();
+
+// ❌ BAD: Implicit allow all
+const policy = new PolicyBuilder()
+    .denyTransfer({ addressEq: "0xBadAddress" })
+    .build();
+```
+
+### 2. Use Reasonable Limits
+
+```typescript
+// ✅ GOOD: Reasonable daily limits
+const policy = new PolicyBuilder()
+    .allowTransfer(
+        { addressInList: trustedAddresses },
+        { bigIntMax: "10000000000000000000" } // 10 ETH daily limit
+    )
+    .build();
+```
+
+### 3. Combine Multiple Constraints
+
+```typescript
+// ✅ GOOD: Multiple constraints for safety
+const policy = new PolicyBuilder()
+    .allowTransaction({
+        contractAddress: { addressEq: "0xUniswapRouter" },
+        decoded: {
+            functionName: { const: "swapExactTokensForTokens" },
+            args: {
+                "0": { bigIntMax: "1000000000000000000" }, // amountIn ≤ 1 ETH
+                "1": { bigIntMin: "900000000000000000" },  // amountOutMin ≥ 0.9 ETH
+                "4": { bigIntMax: Math.floor(Date.now() / 1000) + 3600 } // deadline ≤ 1 hour
+            }
+        }
+    })
+    .build();
+```
+
+### 4. Test Your Policies
+
+```typescript
+// Test policy with sample transactions
+const testAction: ActionData = {
+    method: "signTransaction",
+    chain: "evm:1",
+    contractAddress: "0xTestContract",
+    // ... other fields
+};
+
+const result = await validatePolicy(testAction, policy);
+console.log("Policy test result:", result.allowed);
+```
+
+## Next Steps
+
+<Cards>
+  <Card title="SDK Integration" href="/sdk">
+    Learn how policies work with the Osiris SDK
+  </Card>
+  <Card title="Examples" href="/examples#web3-mcps">
+    See policy engine in action with Web3 MCPs
+  </Card>
+  <Card title="Authenticators" href="/authenticators">
+    Understand wallet authentication methods
+  </Card>
+  <Card title="Roadmap" href="/roadmap">
+    See what's coming next and contribute ideas
+  </Card>
+</Cards> 

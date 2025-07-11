@@ -1,0 +1,11 @@
+{
+	"title": "Documentation",
+	"pages": [
+		"index",
+		"sdk",
+		"policy-engine",
+		"authenticators",
+		"examples/index",
+		"roadmap"
+	]
+}
