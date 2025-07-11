@@ -30,6 +30,16 @@ const data = {
 			title: "MCP Hub",
 			url: "/hub/mcp",
 			icon: BookOpen,
+			items: [
+				{
+					title: "X Content",
+					url: "#",
+				},
+				{
+					title: "Browser Base",
+					url: "#",
+				},
+			],
 		},
 		{
 			title: "Profile",

@@ -7,6 +7,7 @@ export default function HubLayout({ children }: { children: React.ReactNode }) {
 		<SidebarProvider>
 			<AppSidebar />
 			<SidebarInset>{children}</SidebarInset>
+			{/* <SidebarInset className="max-w-sm w-full"></SidebarInset> */}
 		</SidebarProvider>
 	);
 }

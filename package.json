@@ -17,14 +17,6 @@
 		"dev:web": "bun run --filter web dev",
 		"dev:docs": "bun run --filter docs dev"
 	},
-	"dependencies": {
-		"@radix-ui/react-slot": "^1.2.3",
-		"@tanstack/react-query": "^5.81.5",
-		"@tanstack/react-query-devtools": "^5.81.5",
-		"cmdk": "^1.1.1",
-		"up-fetch": "^2.1.6",
-		"zod": "^3.25.67"
-	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.0.0",
 		"husky": "^9.1.7",
@@ -36,5 +28,8 @@
 			"biome check --write ."
 		]
 	},
-	"packageManager": "bun@1.2.13"
+	"packageManager": "bun@1.2.13",
+	"dependencies": {
+		"sonner": "^2.0.6"
+	}
 }
