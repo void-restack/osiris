@@ -1,49 +1,26 @@
-// import { Autocomplete } from "@/components/ui/autocomplete";
 import { createFileRoute } from "@tanstack/react-router";
-import { BadgeCheck, CheckIcon, SearchIcon } from "lucide-react";
-import { useId } from "react";
+import { BadgeCheck, CheckIcon } from "lucide-react";
+import { Autocomplete } from "@/components/ui/autocomplete";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-
-export default function InlineButtonInput() {
-	const id = useId();
-	return (
-		<div className="mt-6 *:not-first:mt-2">
-			<div className="relative">
-				<Input
-					id={id}
-					className="inset-shadow-search h-[49px] rounded-xl border-none bg-primary-25 pe-24 text-primary-800 placeholder:text-primary-300"
-					placeholder="Cursor, Google, github etc."
-					type="search"
-				/>
-				<Button className="-translate-y-1/2 absolute inset-shadow-search-btn top-1/2 right-2">
-					<span>Search</span>
-					<SearchIcon />
-				</Button>
-			</div>
-		</div>
-	);
-}
 
 export const Route = createFileRoute("/hub/auth")({
 	component: RouteComponent,
 });
 
 function RouteComponent() {
-	// const countries = [
-	//   { value: "us", label: "United States" },
-	//   { value: "ca", label: "Canada" },
-	//   { value: "uk", label: "United Kingdom" },
-	//   { value: "de", label: "Germany" },
-	//   { value: "fr", label: "France" },
-	// ];
-	//
-	// const searchCountries = (query: string) => {
-	//   return countries.filter(country =>
-	//     country.label.toLowerCase().includes(query.toLowerCase())
-	//   );
-	// };
+	const countries = [
+		{ value: "us", label: "United States" },
+		{ value: "ca", label: "Canada" },
+		{ value: "uk", label: "United Kingdom" },
+		{ value: "de", label: "Germany" },
+		{ value: "fr", label: "France" },
+	];
+
+	const searchCountries = (query: string) => {
+		return countries.filter((country) =>
+			country.label.toLowerCase().includes(query.toLowerCase()),
+		);
+	};
 
 	return (
 		<div>
@@ -55,181 +32,28 @@ function RouteComponent() {
 					<span className="text-primary-300 text-sm">
 						Search across various of authentication hubs on osiris
 					</span>
-					<InlineButtonInput />
-					{/* <Autocomplete */}
-					{/*   className="mt-6" */}
-					{/*   onSearch={searchCountries} */}
-					{/*   placeholder="Select a country..." */}
-					{/*   emptyText="No countries found." */}
-					{/* /> */}
+					<Autocomplete
+						className="mt-6"
+						onSearch={searchCountries}
+						emptyText="No countries found."
+						footerText="Footer text"
+						bottomLeftContent={
+							<div className="flex items-center gap-3">
+								<div className="rounded-md bg-primary-50 p-1.5 text-xs">
+									Google
+								</div>
+								<div className="rounded-md bg-primary-50 p-1.5 text-xs">
+									Github
+								</div>
+							</div>
+						}
+						bottomRightContent={<></>}
+					/>
 				</div>
 				<div className="flex w-full items-center justify-between border-b border-b-primary-100 px-6 py-4 font-medium text-xl">
 					<h4>All Hubs</h4>
 				</div>
-				{/* <ScrollArea asChild> */}
 				<div className="grid w-full grid-cols-1 gap-6 p-6 md:grid-cols-2 lg:grid-cols-3">
-					<div className="h-fit min-h-48 min-w-xs rounded-xl border border-primary-100 p-6">
-						<div className="mb-4 flex w-full items-start justify-between">
-							<div className="size-14 rounded-xl bg-purple-400" />
-							{/* connection status btn TODO: make status badge variants */}
-							<Badge variant="outline" className="h-6 gap-1 rounded-md">
-								<CheckIcon
-									className="text-emerald-500"
-									size={12}
-									aria-hidden="true"
-								/>
-								Badge
-							</Badge>
-						</div>
-						<div className="justify-baseline mb-4 flex flex-col items-start">
-							<h4 className="inline items-center font-medium">
-								Contacts <BadgeCheck className="inline size-4" />
-							</h4>
-							<span className="text-primary-300 text-xs tracking-tight">
-								25+ Scopes
-							</span>
-						</div>
-						<p className="text-ellipsis text-primary-300 text-sm">
-							Store and retrieve user-specific memories to maintain context and
-							make informed decisions based on past interactions
-						</p>
-					</div>
-
-					<div className="h-fit min-h-48 min-w-xs rounded-xl border border-primary-100 p-6">
-						<div className="mb-4 flex w-full items-start justify-between">
-							<div className="size-14 rounded-xl bg-purple-400" />
-							{/* connection status btn TODO: make status badge variants */}
-							<Badge variant="outline" className="h-6 gap-1 rounded-md">
-								<CheckIcon
-									className="text-emerald-500"
-									size={12}
-									aria-hidden="true"
-								/>
-								Badge
-							</Badge>
-						</div>
-						<div className="justify-baseline mb-4 flex flex-col items-start">
-							<h4 className="inline items-center font-medium">
-								Contacts <BadgeCheck className="inline size-4" />
-							</h4>
-							<span className="text-primary-300 text-xs tracking-tight">
-								25+ Scopes
-							</span>
-						</div>
-						<p className="text-ellipsis text-primary-300 text-sm">
-							Store and retrieve user-specific memories to maintain context and
-							make informed decisions based on past interactions
-						</p>
-					</div>
-
-					<div className="h-fit min-h-48 min-w-xs rounded-xl border border-primary-100 p-6">
-						<div className="mb-4 flex w-full items-start justify-between">
-							<div className="size-14 rounded-xl bg-purple-400" />
-							{/* connection status btn TODO: make status badge variants */}
-							<Badge variant="outline" className="h-6 gap-1 rounded-md">
-								<CheckIcon
-									className="text-emerald-500"
-									size={12}
-									aria-hidden="true"
-								/>
-								Badge
-							</Badge>
-						</div>
-						<div className="justify-baseline mb-4 flex flex-col items-start">
-							<h4 className="inline items-center font-medium">
-								Contacts <BadgeCheck className="inline size-4" />
-							</h4>
-							<span className="text-primary-300 text-xs tracking-tight">
-								25+ Scopes
-							</span>
-						</div>
-						<p className="text-ellipsis text-primary-300 text-sm">
-							Store and retrieve user-specific memories to maintain context and
-							make informed decisions based on past interactions
-						</p>
-					</div>
-
-					<div className="h-fit min-h-48 min-w-xs rounded-xl border border-primary-100 p-6">
-						<div className="mb-4 flex w-full items-start justify-between">
-							<div className="size-14 rounded-xl bg-purple-400" />
-							{/* connection status btn TODO: make status badge variants */}
-							<Badge variant="outline" className="h-6 gap-1 rounded-md">
-								<CheckIcon
-									className="text-emerald-500"
-									size={12}
-									aria-hidden="true"
-								/>
-								Badge
-							</Badge>
-						</div>
-						<div className="justify-baseline mb-4 flex flex-col items-start">
-							<h4 className="inline items-center font-medium">
-								Contacts <BadgeCheck className="inline size-4" />
-							</h4>
-							<span className="text-primary-300 text-xs tracking-tight">
-								25+ Scopes
-							</span>
-						</div>
-						<p className="text-ellipsis text-primary-300 text-sm">
-							Store and retrieve user-specific memories to maintain context and
-							make informed decisions based on past interactions
-						</p>
-					</div>
-
-					<div className="h-fit min-h-48 min-w-xs rounded-xl border border-primary-100 p-6">
-						<div className="mb-4 flex w-full items-start justify-between">
-							<div className="size-14 rounded-xl bg-purple-400" />
-							{/* connection status btn TODO: make status badge variants */}
-							<Badge variant="outline" className="h-6 gap-1 rounded-md">
-								<CheckIcon
-									className="text-emerald-500"
-									size={12}
-									aria-hidden="true"
-								/>
-								Badge
-							</Badge>
-						</div>
-						<div className="justify-baseline mb-4 flex flex-col items-start">
-							<h4 className="inline items-center font-medium">
-								Contacts <BadgeCheck className="inline size-4" />
-							</h4>
-							<span className="text-primary-300 text-xs tracking-tight">
-								25+ Scopes
-							</span>
-						</div>
-						<p className="text-ellipsis text-primary-300 text-sm">
-							Store and retrieve user-specific memories to maintain context and
-							make informed decisions based on past interactions
-						</p>
-					</div>
-
-					<div className="h-fit min-h-48 min-w-xs rounded-xl border border-primary-100 p-6">
-						<div className="mb-4 flex w-full items-start justify-between">
-							<div className="size-14 rounded-xl bg-purple-400" />
-							{/* connection status btn TODO: make status badge variants */}
-							<Badge variant="outline" className="h-6 gap-1 rounded-md">
-								<CheckIcon
-									className="text-emerald-500"
-									size={12}
-									aria-hidden="true"
-								/>
-								Badge
-							</Badge>
-						</div>
-						<div className="justify-baseline mb-4 flex flex-col items-start">
-							<h4 className="inline items-center font-medium">
-								Contacts <BadgeCheck className="inline size-4" />
-							</h4>
-							<span className="text-primary-300 text-xs tracking-tight">
-								25+ Scopes
-							</span>
-						</div>
-						<p className="text-ellipsis text-primary-300 text-sm">
-							Store and retrieve user-specific memories to maintain context and
-							make informed decisions based on past interactions
-						</p>
-					</div>
-
 					<div className="h-fit min-h-48 min-w-xs rounded-xl border border-primary-100 p-6">
 						<div className="mb-4 flex w-full items-start justify-between">
 							<div className="size-14 rounded-xl bg-purple-400" />

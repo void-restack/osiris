@@ -9,17 +9,11 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as SlugRouteImport } from './routes/$slug'
 import { Route as HubRouteRouteImport } from './routes/hub/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as HubMcpRouteImport } from './routes/hub/mcp'
 import { Route as HubAuthRouteImport } from './routes/hub/auth'
 
-const SlugRoute = SlugRouteImport.update({
-  id: '/$slug',
-  path: '/$slug',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const HubRouteRoute = HubRouteRouteImport.update({
   id: '/hub',
   path: '/hub',
@@ -44,14 +38,12 @@ const HubAuthRoute = HubAuthRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/hub': typeof HubRouteRouteWithChildren
-  '/$slug': typeof SlugRoute
   '/hub/auth': typeof HubAuthRoute
   '/hub/mcp': typeof HubMcpRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/hub': typeof HubRouteRouteWithChildren
-  '/$slug': typeof SlugRoute
   '/hub/auth': typeof HubAuthRoute
   '/hub/mcp': typeof HubMcpRoute
 }
@@ -59,33 +51,24 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/hub': typeof HubRouteRouteWithChildren
-  '/$slug': typeof SlugRoute
   '/hub/auth': typeof HubAuthRoute
   '/hub/mcp': typeof HubMcpRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/hub' | '/$slug' | '/hub/auth' | '/hub/mcp'
+  fullPaths: '/' | '/hub' | '/hub/auth' | '/hub/mcp'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/hub' | '/$slug' | '/hub/auth' | '/hub/mcp'
-  id: '__root__' | '/' | '/hub' | '/$slug' | '/hub/auth' | '/hub/mcp'
+  to: '/' | '/hub' | '/hub/auth' | '/hub/mcp'
+  id: '__root__' | '/' | '/hub' | '/hub/auth' | '/hub/mcp'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   HubRouteRoute: typeof HubRouteRouteWithChildren
-  SlugRoute: typeof SlugRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/$slug': {
-      id: '/$slug'
-      path: '/$slug'
-      fullPath: '/$slug'
-      preLoaderRoute: typeof SlugRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/hub': {
       id: '/hub'
       path: '/hub'
@@ -134,7 +117,6 @@ const HubRouteRouteWithChildren = HubRouteRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   HubRouteRoute: HubRouteRouteWithChildren,
-  SlugRoute: SlugRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

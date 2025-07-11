@@ -54,9 +54,7 @@ async function api<T = any>(
 		requestHeaders.Authorization = `Bearer ${token}`;
 	}
 
-	//   if (body && !(body instanceof FormData)) {
 	requestHeaders["Content-Type"] = "application/json";
-	//   }
 
 	const requestInit: RequestInit = {
 		method,
@@ -88,7 +86,7 @@ async function api<T = any>(
 		if (response.status === 401) {
 			localStorage.removeItem("access_token");
 			localStorage.removeItem("refresh_token");
-			window.location.href = "/login";
+			window.location.href = "/";
 			throw new ApiError(401, data, "Unauthorized");
 		}
 
@@ -116,7 +114,6 @@ async function api<T = any>(
 			throw error;
 		}
 
-		// Check if it's a network error (likely CORS)
 		if (error instanceof TypeError && error.message.includes("fetch")) {
 			throw new ApiError(0, null, "Network error - possible CORS issue");
 		}
