@@ -1,5 +1,14 @@
 import { Link } from "@tanstack/react-router";
-import { BookOpen, Bot, Settings2, SquareTerminal } from "lucide-react";
+import {
+	BookOpen,
+	Bot,
+	ExternalLink,
+	File,
+	HeartPlus,
+	Settings2,
+	SquareTerminal,
+	Wallet,
+} from "lucide-react";
 import type * as React from "react";
 import { NavMain } from "@/components/nav-main";
 import {
@@ -11,7 +20,7 @@ import {
 	SidebarMenuButton,
 	SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { UserPopover } from "./user-popover";
+import { Button } from "./ui/button";
 
 const data = {
 	navMain: [
@@ -52,6 +61,20 @@ const data = {
 			icon: Settings2,
 		},
 	],
+	navFooter: [
+		{
+			title: "Docs",
+			url: "https://docs.osirislabs.xyz",
+			icon: File,
+			isActive: true,
+		},
+		{
+			title: "Support",
+			url: "#",
+			icon: HeartPlus,
+			isActive: true,
+		},
+	],
 };
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
@@ -82,8 +105,26 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 			<SidebarContent>
 				<NavMain items={data.navMain} />
 			</SidebarContent>
-			{/* <SidebarFooter>
-			</SidebarFooter> */}
+			<SidebarFooter>
+				<NavMain items={data.navFooter} />
+				<div className="inset-shadow-credit-card rounded-[6px] bg-white px-2 py-3">
+					<p className="mb-2 text-primary-300 text-xs">Available Credits</p>
+					<div className="mb-6 flex items-center justify-between">
+						<span className="text-lg text-primary-800">
+							00.00 <span className="text-primary-300">(~ $00.00)</span>{" "}
+						</span>
+						<ExternalLink className="size-4 text-primary-300 hover:text-primary-800" />
+					</div>
+					<Button
+						variant="outline"
+						className="w-full text-primary-400"
+						icon={Wallet}
+						iconPlacement="right"
+					>
+						Add Funds
+					</Button>
+				</div>
+			</SidebarFooter>
 		</Sidebar>
 	);
 }
