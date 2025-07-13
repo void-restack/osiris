@@ -1,53 +1,43 @@
 "use client";
 
-import { Search } from "lucide-react";
 import { ICONS } from "@/components/icons";
-import { McpTagList } from "@/components/tag";
+import { Autocomplete } from "@/components/ui/autocomplete";
 import { Button } from "@/components/ui/button";
 
 export function McpSearchBox() {
 	return (
-		<section className="flex flex-col gap-6">
-			<div className="h-12 w-full" />
-			<div className="flex flex-col gap-1 text-center">
-				<h2 className="font-medium text-primary-800 text-xl">
-					Search across 1000+ MCPs
-				</h2>
-				<p className="text-primary-300 text-sm">
-					Want to write an email, Need Notion Personal Assistant? Search your
-					queries
-				</p>
-			</div>
-			<div className="mx-auto flex w-full max-w-[720px] flex-col gap-3 rounded-[18px] bg-primary-25 p-4 shadow-[inset_0_1px_2px_0_rgba(0,0,0,0.05)] drop-shadow-[0_1px_1px_rgba(0,0,0,0.08)]">
-				<div className="relative">
-					<textarea
-						placeholder="I want to Send my boss emails"
-						className="h-[84px] w-full resize-none rounded-[12px] border border-none bg-primary-00 p-4 text-primary-700 placeholder:text-primary-300 focus:outline-none focus:ring-0"
-					/>
-					<Button className="-translate-y-1/2 absolute inset-shadow-search-btn top-1/2 right-4">
-						<span>Search</span>
-						<Search />
-					</Button>
-				</div>
-				<div className="flex justify-between">
-					<McpTagList
-						className="bg-white text-primary-300"
-						tags={[
-							{
-								tag: "Assistant",
-							},
-							{
-								tag: "Free",
-							},
-						]}
-					/>
-					<div className="flex p-0">
-						<UploadFile />
-						<RetrieveMcp />
+		<div className="mx-auto mt-8 w-full pb-14 text-center">
+			<h2 className="mb-2 font-medium text-xl leading-3 tracking-tight">
+				Search across 1000+ MCPs
+			</h2>
+			<span className="text-primary-300 text-sm">
+				Want to write an email, Need Notion Personal Assistant? Search your
+				queries
+			</span>
+			<Autocomplete
+				className="mt-6"
+				onSearch={() => []}
+				emptyText="No countries found."
+				footerText="Footer text"
+				bottomLeftContent={
+					<div className="flex items-center gap-3">
+						<div className="rounded-md bg-primary-100 p-1.5 text-primary-400 text-xs ">
+							Notion AI assistant
+						</div>
+
+						<div className="rounded-md bg-primary-100 p-1.5 text-primary-400 text-xs">
+							Calendar Manager
+						</div>
 					</div>
-				</div>
-			</div>
-		</section>
+				}
+				bottomRightContent={
+					<div>
+						<UploadFile />
+						<Retry />
+					</div>
+				}
+			/>
+		</div>
 	);
 }
 
@@ -63,7 +53,7 @@ export function UploadFile() {
 	);
 }
 
-export function RetrieveMcp() {
+export function Retry() {
 	return (
 		<Button
 			className="cursor-pointer hover:text-primary-700"
