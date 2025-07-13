@@ -8,7 +8,7 @@ function RouteComponent() {
 	return (
 		<div>
 			<h1>Packages</h1>
-			<div className="grid gap-4"></div>
+			<div className="grid gap-4" />
 		</div>
 	);
 }
