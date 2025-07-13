@@ -32,24 +32,24 @@ function RouteComponent() {
 					<span className="text-primary-300 text-sm">
 						Search across various of authentication hubs on osiris
 					</span>
-					<Autocomplete
-						className="mt-6"
-						onSearch={searchCountries}
-						emptyText="No countries found."
-						footerText="Footer text"
-						bottomLeftContent={
-							<div className="flex items-center gap-3">
-								<div className="rounded-md bg-primary-50 p-1.5 text-xs">
-									Google
-								</div>
-								<div className="rounded-md bg-primary-50 p-1.5 text-xs">
-									Github
-								</div>
-							</div>
-						}
-						bottomRightContent={<></>}
-					/>
 				</div>
+				<Autocomplete
+					className="mt-6"
+					onSearch={searchCountries}
+					emptyText="No countries found."
+					footerText="Footer text"
+					bottomLeftContent={
+						<div className="flex items-center gap-3">
+							<div className="rounded-md bg-primary-50 p-1.5 text-xs">
+								Google
+							</div>
+							<div className="rounded-md bg-primary-50 p-1.5 text-xs">
+								Github
+							</div>
+						</div>
+					}
+					bottomRightContent={<></>}
+				/>
 				<div className="flex w-full items-center justify-between border-b border-b-primary-100 px-6 py-4 font-medium text-xl">
 					<h4>All Hubs</h4>
 				</div>
