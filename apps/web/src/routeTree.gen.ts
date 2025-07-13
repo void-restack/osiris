@@ -11,9 +11,11 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as HubRouteRouteImport } from './routes/hub/route'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as HubMcpRouteImport } from './routes/hub/mcp'
 import { Route as HubKnowledgeRouteImport } from './routes/hub/knowledge'
-import { Route as HubAuthRouteImport } from './routes/hub/auth'
+import { Route as HubMcpIndexRouteImport } from './routes/hub/mcp.index'
+import { Route as HubAuthIndexRouteImport } from './routes/hub/auth.index'
+import { Route as HubMcpMcpIdRouteImport } from './routes/hub/mcp.$mcpId'
+import { Route as HubAuthAuthIdRouteImport } from './routes/hub/auth.$authId'
 
 const HubRouteRoute = HubRouteRouteImport.update({
   id: '/hub',
@@ -25,50 +27,88 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const HubMcpRoute = HubMcpRouteImport.update({
-  id: '/mcp',
-  path: '/mcp',
-  getParentRoute: () => HubRouteRoute,
-} as any)
 const HubKnowledgeRoute = HubKnowledgeRouteImport.update({
   id: '/knowledge',
   path: '/knowledge',
   getParentRoute: () => HubRouteRoute,
 } as any)
-const HubAuthRoute = HubAuthRouteImport.update({
-  id: '/auth',
-  path: '/auth',
+const HubMcpIndexRoute = HubMcpIndexRouteImport.update({
+  id: '/mcp/',
+  path: '/mcp/',
+  getParentRoute: () => HubRouteRoute,
+} as any)
+const HubAuthIndexRoute = HubAuthIndexRouteImport.update({
+  id: '/auth/',
+  path: '/auth/',
+  getParentRoute: () => HubRouteRoute,
+} as any)
+const HubMcpMcpIdRoute = HubMcpMcpIdRouteImport.update({
+  id: '/mcp/$mcpId',
+  path: '/mcp/$mcpId',
+  getParentRoute: () => HubRouteRoute,
+} as any)
+const HubAuthAuthIdRoute = HubAuthAuthIdRouteImport.update({
+  id: '/auth/$authId',
+  path: '/auth/$authId',
   getParentRoute: () => HubRouteRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/hub': typeof HubRouteRouteWithChildren
-  '/hub/auth': typeof HubAuthRoute
   '/hub/knowledge': typeof HubKnowledgeRoute
-  '/hub/mcp': typeof HubMcpRoute
+  '/hub/auth/$authId': typeof HubAuthAuthIdRoute
+  '/hub/mcp/$mcpId': typeof HubMcpMcpIdRoute
+  '/hub/auth': typeof HubAuthIndexRoute
+  '/hub/mcp': typeof HubMcpIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/hub': typeof HubRouteRouteWithChildren
-  '/hub/auth': typeof HubAuthRoute
   '/hub/knowledge': typeof HubKnowledgeRoute
-  '/hub/mcp': typeof HubMcpRoute
+  '/hub/auth/$authId': typeof HubAuthAuthIdRoute
+  '/hub/mcp/$mcpId': typeof HubMcpMcpIdRoute
+  '/hub/auth': typeof HubAuthIndexRoute
+  '/hub/mcp': typeof HubMcpIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/hub': typeof HubRouteRouteWithChildren
-  '/hub/auth': typeof HubAuthRoute
   '/hub/knowledge': typeof HubKnowledgeRoute
-  '/hub/mcp': typeof HubMcpRoute
+  '/hub/auth/$authId': typeof HubAuthAuthIdRoute
+  '/hub/mcp/$mcpId': typeof HubMcpMcpIdRoute
+  '/hub/auth/': typeof HubAuthIndexRoute
+  '/hub/mcp/': typeof HubMcpIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/hub' | '/hub/auth' | '/hub/knowledge' | '/hub/mcp'
+  fullPaths:
+    | '/'
+    | '/hub'
+    | '/hub/knowledge'
+    | '/hub/auth/$authId'
+    | '/hub/mcp/$mcpId'
+    | '/hub/auth'
+    | '/hub/mcp'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/hub' | '/hub/auth' | '/hub/knowledge' | '/hub/mcp'
-  id: '__root__' | '/' | '/hub' | '/hub/auth' | '/hub/knowledge' | '/hub/mcp'
+  to:
+    | '/'
+    | '/hub'
+    | '/hub/knowledge'
+    | '/hub/auth/$authId'
+    | '/hub/mcp/$mcpId'
+    | '/hub/auth'
+    | '/hub/mcp'
+  id:
+    | '__root__'
+    | '/'
+    | '/hub'
+    | '/hub/knowledge'
+    | '/hub/auth/$authId'
+    | '/hub/mcp/$mcpId'
+    | '/hub/auth/'
+    | '/hub/mcp/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -92,13 +132,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/hub/mcp': {
-      id: '/hub/mcp'
-      path: '/mcp'
-      fullPath: '/hub/mcp'
-      preLoaderRoute: typeof HubMcpRouteImport
-      parentRoute: typeof HubRouteRoute
-    }
     '/hub/knowledge': {
       id: '/hub/knowledge'
       path: '/knowledge'
@@ -106,26 +139,51 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HubKnowledgeRouteImport
       parentRoute: typeof HubRouteRoute
     }
-    '/hub/auth': {
-      id: '/hub/auth'
+    '/hub/mcp/': {
+      id: '/hub/mcp/'
+      path: '/mcp'
+      fullPath: '/hub/mcp'
+      preLoaderRoute: typeof HubMcpIndexRouteImport
+      parentRoute: typeof HubRouteRoute
+    }
+    '/hub/auth/': {
+      id: '/hub/auth/'
       path: '/auth'
       fullPath: '/hub/auth'
-      preLoaderRoute: typeof HubAuthRouteImport
+      preLoaderRoute: typeof HubAuthIndexRouteImport
+      parentRoute: typeof HubRouteRoute
+    }
+    '/hub/mcp/$mcpId': {
+      id: '/hub/mcp/$mcpId'
+      path: '/mcp/$mcpId'
+      fullPath: '/hub/mcp/$mcpId'
+      preLoaderRoute: typeof HubMcpMcpIdRouteImport
+      parentRoute: typeof HubRouteRoute
+    }
+    '/hub/auth/$authId': {
+      id: '/hub/auth/$authId'
+      path: '/auth/$authId'
+      fullPath: '/hub/auth/$authId'
+      preLoaderRoute: typeof HubAuthAuthIdRouteImport
       parentRoute: typeof HubRouteRoute
     }
   }
 }
 
 interface HubRouteRouteChildren {
-  HubAuthRoute: typeof HubAuthRoute
   HubKnowledgeRoute: typeof HubKnowledgeRoute
-  HubMcpRoute: typeof HubMcpRoute
+  HubAuthAuthIdRoute: typeof HubAuthAuthIdRoute
+  HubMcpMcpIdRoute: typeof HubMcpMcpIdRoute
+  HubAuthIndexRoute: typeof HubAuthIndexRoute
+  HubMcpIndexRoute: typeof HubMcpIndexRoute
 }
 
 const HubRouteRouteChildren: HubRouteRouteChildren = {
-  HubAuthRoute: HubAuthRoute,
   HubKnowledgeRoute: HubKnowledgeRoute,
-  HubMcpRoute: HubMcpRoute,
+  HubAuthAuthIdRoute: HubAuthAuthIdRoute,
+  HubMcpMcpIdRoute: HubMcpMcpIdRoute,
+  HubAuthIndexRoute: HubAuthIndexRoute,
+  HubMcpIndexRoute: HubMcpIndexRoute,
 }
 
 const HubRouteRouteWithChildren = HubRouteRoute._addFileChildren(

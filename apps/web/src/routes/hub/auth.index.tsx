@@ -3,7 +3,7 @@ import { BadgeCheck, CheckIcon } from "lucide-react";
 import { Autocomplete } from "@/components/ui/autocomplete";
 import { Badge } from "@/components/ui/badge";
 
-export const Route = createFileRoute("/hub/auth")({
+export const Route = createFileRoute("/hub/auth/")({
 	component: RouteComponent,
 });
 
