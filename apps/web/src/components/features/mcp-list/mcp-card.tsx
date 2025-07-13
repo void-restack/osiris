@@ -22,7 +22,7 @@ export function McpCard({
 	isVerified,
 }: McpCardProps & ComponentProps<"div">) {
 	return (
-		<div className="flex max-w-[348px] cursor-pointer flex-col gap-3 rounded-[12px] border p-3 shadow-[inset_0_0_0.7px_0_#0000001C] hover:bg-[#FAFAFA]">
+		<div className="flex cursor-pointer flex-col gap-3 rounded-[12px] border p-3 shadow-[inset_0_0_0.7px_0_#0000001C] hover:bg-[#FAFAFA]">
 			<div className="flex justify-between">
 				<McpCardIcon icon={icon} />
 				<McpTagList tags={tags} />

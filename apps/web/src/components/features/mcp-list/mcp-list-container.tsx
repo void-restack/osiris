@@ -64,7 +64,7 @@ export function McpListContainer() {
 	];
 
 	return (
-		<div className="flex h-full flex-col gap-4">
+		<div className="flex min-h-0 flex-1 flex-col gap-3">
 			<div className="h-[72px] px-6" />
 			<div className="flex w-full items-center justify-between px-6">
 				<h3 className="w-full font-medium text-[#171717] text-xl">All MCPs</h3>
@@ -74,20 +74,24 @@ export function McpListContainer() {
 				</div>
 			</div>
 			<Separator />
-			<div className="flex flex-col gap-4 px-6">
-				{mcpView === "directory" ? (
-					<McpCardList cards={mockData} />
-				) : (
-					<McpTable data={mockData} />
-				)}
+			<div className="flex min-h-0 flex-1 flex-col">
+				<div className="flex-1 overflow-auto">
+					<div className="px-6">
+						{mcpView === "directory" ? (
+							<McpCardList cards={mockData} />
+						) : (
+							<McpTable data={mockData} />
+						)}
+					</div>
+				</div>
+				<McpListPagination
+					totalPages={10}
+					currentPage={1}
+					onPageChange={() => {}}
+					resultsPerPage={10}
+					totalResults={100}
+				/>
 			</div>
-			<McpListPagination
-				totalPages={10}
-				currentPage={1}
-				onPageChange={() => {}}
-				resultsPerPage={10}
-				totalResults={100}
-			/>
 		</div>
 	);
 }

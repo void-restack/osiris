@@ -14,7 +14,7 @@ export const Route = createFileRoute("/")({
 function HomeComponent() {
 	return (
 		<HubLayout>
-			<main className="flex h-full flex-col gap-4">
+			<main className="flex h-full flex-col">
 				<div className="flex min-h-[86px] items-center justify-between border-b px-6">
 					<div className="flex items-center gap-2">
 						<SidebarTrigger className="-ml-1" />
@@ -30,6 +30,7 @@ function HomeComponent() {
 					</div>
 				</div>
 				<McpSearchBox />
+				<div className="h-4" />
 				<McpListContainer />
 			</main>
 		</HubLayout>
