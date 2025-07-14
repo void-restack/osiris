@@ -144,7 +144,7 @@ export function Autocomplete<T extends AutocompleteItem>({
 	return (
 		<div
 			className={cn(
-				"mx-auto flex w-full max-w-[720px] flex-col gap-3 rounded-[18px] bg-primary-25 p-4 shadow-[inset_0_1px_2px_0_rgba(0,0,0,0.05)] drop-shadow-[0_1px_1px_rgba(0,0,0,0.08)]",
+				"mx-auto flex w-full flex-col gap-3 rounded-[18px] bg-primary-25 p-4 shadow-[inset_0_1px_2px_0_rgba(0,0,0,0.05)] drop-shadow-[0_1px_1px_rgba(0,0,0,0.08)] sm:max-w-[496px] md:max-w-[720px]",
 				className,
 			)}
 		>
