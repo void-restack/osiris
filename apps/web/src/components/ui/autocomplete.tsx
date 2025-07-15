@@ -39,6 +39,7 @@ interface AutocompleteProps<T extends AutocompleteItem> {
 	onSearchButtonClick?: () => void;
 	bottomLeftContent?: React.ReactNode;
 	bottomRightContent?: React.ReactNode;
+	popularItems?: React.ReactNode;
 }
 
 export function Autocomplete<T extends AutocompleteItem>({
@@ -49,7 +50,6 @@ export function Autocomplete<T extends AutocompleteItem>({
 	loading = false,
 	debounceMs = 300,
 	emptyText = "No results found.",
-	footerText,
 	renderItem,
 	getItemValue = (item) => item.value,
 	getItemLabel = (item) => item.label,
@@ -61,6 +61,7 @@ export function Autocomplete<T extends AutocompleteItem>({
 	onSearchButtonClick,
 	bottomLeftContent,
 	bottomRightContent,
+	popularItems,
 }: AutocompleteProps<T>) {
 	const [open, setOpen] = React.useState(false);
 	const [internalLoading, setInternalLoading] = React.useState(false);
@@ -132,8 +133,11 @@ export function Autocomplete<T extends AutocompleteItem>({
 	const defaultRenderItem = (item: T, query: string) => {
 		const label = getItemLabel(item);
 		return (
-			<div className="flex flex-col">
+			<div className="flex items-center space-x-2">
+				<div className="size-4 rounded-md bg-purple-400" />
 				<span>{getHighlightedText(label, query)}</span>
+				<span> - </span>
+				<span className="text-primary-400">oauth descriptions</span>
 			</div>
 		);
 	};
@@ -178,6 +182,15 @@ export function Autocomplete<T extends AutocompleteItem>({
 				<div className="relative">
 					{shouldShowResults && (
 						<CommandList className="absolute top-1.5 z-50 w-full rounded-md border border-border bg-background">
+							{popularItems ? (
+								<>
+									<span className="mb-2 px-3 py-2 text-[13px] text-primary-400">
+										Popular
+									</span>
+									<div className="px-3">{popularItems}</div>
+									<div className="mt-3 border-primary-100 border-t border-dashed" />
+								</>
+							) : null}
 							{isLoading ? (
 								<CommandLoading>
 									<LoaderCircle className="h-4 w-4 animate-spin text-muted-foreground" />
@@ -204,11 +217,6 @@ export function Autocomplete<T extends AutocompleteItem>({
 										))}
 									</CommandGroup>
 								</>
-							)}
-							{footerText && (
-								<div className="border-border border-t bg-muted/50 px-2 py-0.5 text-[10px] text-muted-foreground">
-									<p>{footerText}</p>
-								</div>
 							)}
 						</CommandList>
 					)}

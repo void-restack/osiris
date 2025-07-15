@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { BadgeCheck, Link2, RefreshCcw } from "lucide-react";
 import {
 	AlertDialog,
@@ -76,13 +76,26 @@ function RouteComponent() {
 							</div>
 						}
 						bottomRightContent={<></>}
+						popularItems={
+							<div className="flex w-full gap-2">
+								<div className="rounded-[6px] bg-primary-100 px-2 py-0.5 text-xs">
+									Github
+								</div>
+								<div className="rounded-[6px] bg-primary-100 px-2 py-0.5 text-xs">
+									Google
+								</div>
+							</div>
+						}
 					/>
 				</div>
 				<div className="flex w-full items-center justify-between border-b border-b-primary-100 px-6 py-4 font-medium text-xl">
 					<h4>All Hubs</h4>
 				</div>
 				<div className="grid w-full grid-cols-1 gap-6 p-6 md:grid-cols-2 lg:grid-cols-3">
-					<div className="h-fit min-h-48 min-w-xs rounded-xl border border-primary-100 p-6">
+					<Link
+						to={`/hub/auth/${123}`}
+						className="h-fit min-h-48 min-w-xs rounded-xl border border-primary-100 p-6"
+					>
 						<div className="mb-4 flex w-full items-start justify-between">
 							<div className="size-14 rounded-xl bg-purple-400" />
 							{/* connection status btn TODO: make status badge variants */}
@@ -166,7 +179,7 @@ function RouteComponent() {
 							Store and retrieve user-specific memories to maintain context and
 							make informed decisions based on past interactions
 						</p>
-					</div>
+					</Link>
 				</div>
 			</div>
 

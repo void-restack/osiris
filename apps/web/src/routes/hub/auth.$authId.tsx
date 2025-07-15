@@ -5,5 +5,7 @@ export const Route = createFileRoute("/hub/auth/$authId")({
 });
 
 function RouteComponent() {
-	return <div>Hello "/hub/auth/$authId"!</div>;
+	const { authId } = Route.useParams();
+	console.log("AUTHID: ", authId);
+	return <div>Hello {authId}</div>;
 }
