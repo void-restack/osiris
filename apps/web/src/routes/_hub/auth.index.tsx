@@ -101,9 +101,8 @@ function RouteComponent() {
 					>
 						<div className="mb-4 flex w-full items-start justify-between">
 							<div className="size-14 rounded-xl bg-purple-400" />
-							{/* connection status btn TODO: make status badge variants */}
 							<AlertDialog>
-								<AlertDialogTrigger asChild className="z-50">
+								<AlertDialogTrigger asChild>
 									<Button
 										variant="ghost"
 										className="flex h-fit items-center gap-1 rounded-[6px] bg-badge-success px-2 py-1 font-medium text-badge-success-text text-xs"

@@ -28,7 +28,7 @@ export function DynamicBreadcrumb() {
 								</BreadcrumbLink>
 							)}
 						</BreadcrumbItem>
-						{!crumb.isLast && <BreadcrumbSeparator />}
+						{!crumb.isLast && <BreadcrumbSeparator>/</BreadcrumbSeparator>}
 					</div>
 				))}
 			</BreadcrumbList>
