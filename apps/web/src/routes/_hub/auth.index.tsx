@@ -29,8 +29,11 @@ const samplePermissions: Permission[] = [
 	{ id: "access-calendar", label: "Access Calendar" },
 ];
 
-export const Route = createFileRoute("/hub/auth/")({
+export const Route = createFileRoute("/_hub/auth/")({
 	component: RouteComponent,
+	loader: () => ({
+		breadcrumb: "Authentication",
+	}),
 });
 
 function RouteComponent() {
@@ -93,14 +96,14 @@ function RouteComponent() {
 				</div>
 				<div className="grid w-full grid-cols-1 gap-6 p-6 md:grid-cols-2 lg:grid-cols-3">
 					<Link
-						to={`/hub/auth/${123}`}
+						to={`/auth/${123}`}
 						className="h-fit min-h-48 min-w-xs rounded-xl border border-primary-100 p-6"
 					>
 						<div className="mb-4 flex w-full items-start justify-between">
 							<div className="size-14 rounded-xl bg-purple-400" />
 							{/* connection status btn TODO: make status badge variants */}
 							<AlertDialog>
-								<AlertDialogTrigger asChild>
+								<AlertDialogTrigger asChild className="z-50">
 									<Button
 										variant="ghost"
 										className="flex h-fit items-center gap-1 rounded-[6px] bg-badge-success px-2 py-1 font-medium text-badge-success-text text-xs"

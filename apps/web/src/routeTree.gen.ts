@@ -9,17 +9,16 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as HubRouteRouteImport } from './routes/hub/route'
+import { Route as HubRouteRouteImport } from './routes/_hub/route'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as HubKnowledgeRouteImport } from './routes/hub/knowledge'
-import { Route as HubMcpIndexRouteImport } from './routes/hub/mcp.index'
-import { Route as HubAuthIndexRouteImport } from './routes/hub/auth.index'
-import { Route as HubMcpMcpIdRouteImport } from './routes/hub/mcp.$mcpId'
-import { Route as HubAuthAuthIdRouteImport } from './routes/hub/auth.$authId'
+import { Route as HubKnowledgeRouteImport } from './routes/_hub/knowledge'
+import { Route as HubMcpIndexRouteImport } from './routes/_hub/mcp.index'
+import { Route as HubAuthIndexRouteImport } from './routes/_hub/auth.index'
+import { Route as HubMcpMcpIdRouteImport } from './routes/_hub/mcp.$mcpId'
+import { Route as HubAuthAuthIdRouteImport } from './routes/_hub/auth.$authId'
 
 const HubRouteRoute = HubRouteRouteImport.update({
-  id: '/hub',
-  path: '/hub',
+  id: '/_hub',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -55,60 +54,50 @@ const HubAuthAuthIdRoute = HubAuthAuthIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/hub': typeof HubRouteRouteWithChildren
-  '/hub/knowledge': typeof HubKnowledgeRoute
-  '/hub/auth/$authId': typeof HubAuthAuthIdRoute
-  '/hub/mcp/$mcpId': typeof HubMcpMcpIdRoute
-  '/hub/auth': typeof HubAuthIndexRoute
-  '/hub/mcp': typeof HubMcpIndexRoute
+  '/knowledge': typeof HubKnowledgeRoute
+  '/auth/$authId': typeof HubAuthAuthIdRoute
+  '/mcp/$mcpId': typeof HubMcpMcpIdRoute
+  '/auth': typeof HubAuthIndexRoute
+  '/mcp': typeof HubMcpIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/hub': typeof HubRouteRouteWithChildren
-  '/hub/knowledge': typeof HubKnowledgeRoute
-  '/hub/auth/$authId': typeof HubAuthAuthIdRoute
-  '/hub/mcp/$mcpId': typeof HubMcpMcpIdRoute
-  '/hub/auth': typeof HubAuthIndexRoute
-  '/hub/mcp': typeof HubMcpIndexRoute
+  '/knowledge': typeof HubKnowledgeRoute
+  '/auth/$authId': typeof HubAuthAuthIdRoute
+  '/mcp/$mcpId': typeof HubMcpMcpIdRoute
+  '/auth': typeof HubAuthIndexRoute
+  '/mcp': typeof HubMcpIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/hub': typeof HubRouteRouteWithChildren
-  '/hub/knowledge': typeof HubKnowledgeRoute
-  '/hub/auth/$authId': typeof HubAuthAuthIdRoute
-  '/hub/mcp/$mcpId': typeof HubMcpMcpIdRoute
-  '/hub/auth/': typeof HubAuthIndexRoute
-  '/hub/mcp/': typeof HubMcpIndexRoute
+  '/_hub': typeof HubRouteRouteWithChildren
+  '/_hub/knowledge': typeof HubKnowledgeRoute
+  '/_hub/auth/$authId': typeof HubAuthAuthIdRoute
+  '/_hub/mcp/$mcpId': typeof HubMcpMcpIdRoute
+  '/_hub/auth/': typeof HubAuthIndexRoute
+  '/_hub/mcp/': typeof HubMcpIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/hub'
-    | '/hub/knowledge'
-    | '/hub/auth/$authId'
-    | '/hub/mcp/$mcpId'
-    | '/hub/auth'
-    | '/hub/mcp'
+    | '/knowledge'
+    | '/auth/$authId'
+    | '/mcp/$mcpId'
+    | '/auth'
+    | '/mcp'
   fileRoutesByTo: FileRoutesByTo
-  to:
-    | '/'
-    | '/hub'
-    | '/hub/knowledge'
-    | '/hub/auth/$authId'
-    | '/hub/mcp/$mcpId'
-    | '/hub/auth'
-    | '/hub/mcp'
+  to: '/' | '/knowledge' | '/auth/$authId' | '/mcp/$mcpId' | '/auth' | '/mcp'
   id:
     | '__root__'
     | '/'
-    | '/hub'
-    | '/hub/knowledge'
-    | '/hub/auth/$authId'
-    | '/hub/mcp/$mcpId'
-    | '/hub/auth/'
-    | '/hub/mcp/'
+    | '/_hub'
+    | '/_hub/knowledge'
+    | '/_hub/auth/$authId'
+    | '/_hub/mcp/$mcpId'
+    | '/_hub/auth/'
+    | '/_hub/mcp/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -118,10 +107,10 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/hub': {
-      id: '/hub'
-      path: '/hub'
-      fullPath: '/hub'
+    '/_hub': {
+      id: '/_hub'
+      path: ''
+      fullPath: ''
       preLoaderRoute: typeof HubRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
@@ -132,38 +121,38 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/hub/knowledge': {
-      id: '/hub/knowledge'
+    '/_hub/knowledge': {
+      id: '/_hub/knowledge'
       path: '/knowledge'
-      fullPath: '/hub/knowledge'
+      fullPath: '/knowledge'
       preLoaderRoute: typeof HubKnowledgeRouteImport
       parentRoute: typeof HubRouteRoute
     }
-    '/hub/mcp/': {
-      id: '/hub/mcp/'
+    '/_hub/mcp/': {
+      id: '/_hub/mcp/'
       path: '/mcp'
-      fullPath: '/hub/mcp'
+      fullPath: '/mcp'
       preLoaderRoute: typeof HubMcpIndexRouteImport
       parentRoute: typeof HubRouteRoute
     }
-    '/hub/auth/': {
-      id: '/hub/auth/'
+    '/_hub/auth/': {
+      id: '/_hub/auth/'
       path: '/auth'
-      fullPath: '/hub/auth'
+      fullPath: '/auth'
       preLoaderRoute: typeof HubAuthIndexRouteImport
       parentRoute: typeof HubRouteRoute
     }
-    '/hub/mcp/$mcpId': {
-      id: '/hub/mcp/$mcpId'
+    '/_hub/mcp/$mcpId': {
+      id: '/_hub/mcp/$mcpId'
       path: '/mcp/$mcpId'
-      fullPath: '/hub/mcp/$mcpId'
+      fullPath: '/mcp/$mcpId'
       preLoaderRoute: typeof HubMcpMcpIdRouteImport
       parentRoute: typeof HubRouteRoute
     }
-    '/hub/auth/$authId': {
-      id: '/hub/auth/$authId'
+    '/_hub/auth/$authId': {
+      id: '/_hub/auth/$authId'
       path: '/auth/$authId'
-      fullPath: '/hub/auth/$authId'
+      fullPath: '/auth/$authId'
       preLoaderRoute: typeof HubAuthAuthIdRouteImport
       parentRoute: typeof HubRouteRoute
     }

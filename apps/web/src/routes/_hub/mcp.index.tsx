@@ -11,7 +11,7 @@ const packagesSearchSchema = z.object({
 	publisherId: z.string().optional(),
 });
 
-export const Route = createFileRoute("/hub/mcp/")({
+export const Route = createFileRoute("/_hub/mcp/")({
 	validateSearch: packagesSearchSchema,
 	loaderDeps: ({ search }) => ({ search }),
 	loader: ({ context: { queryClient }, deps }) =>

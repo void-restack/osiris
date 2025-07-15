@@ -4,7 +4,7 @@ import { KnowledgeBaseListContainer } from "@/components/features/knowledge-base
 import { KnowledgeBaseDetailsHeader } from "@/components/features/knowledge-base/knowledge-base-details-header";
 import { UploadContent } from "@/components/features/knowledge-base/upload-contnet";
 
-export const Route = createFileRoute("/hub/knowledge")({
+export const Route = createFileRoute("/_hub/knowledge")({
 	component: RouteComponent,
 });
 

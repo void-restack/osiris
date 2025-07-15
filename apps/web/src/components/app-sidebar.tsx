@@ -32,12 +32,12 @@ const data = {
 		},
 		{
 			title: "AuthHub",
-			url: "/hub/auth",
+			url: "auth",
 			icon: Bot,
 		},
 		{
 			title: "MCP Hub",
-			url: "/hub/mcp",
+			url: "/mcp",
 			icon: BookOpen,
 			items: [
 				{

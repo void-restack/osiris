@@ -1,18 +1,11 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router";
+import { DynamicBreadcrumb } from "@/components/dynamic-breadcrumb";
 import HubLayout from "@/components/layouts/hub-layout";
-import {
-	Breadcrumb,
-	BreadcrumbItem,
-	BreadcrumbLink,
-	BreadcrumbList,
-	BreadcrumbPage,
-	BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { UserPopover } from "@/components/user-popover";
 
-export const Route = createFileRoute("/hub")({
+export const Route = createFileRoute("/_hub")({
 	component: RouteComponent,
 });
 
@@ -26,19 +19,8 @@ function RouteComponent() {
 						orientation="vertical"
 						className="mr-2 data-[orientation=vertical]:h-4"
 					/>
-					<Breadcrumb>
-						<BreadcrumbList>
-							<BreadcrumbItem className="hidden md:block">
-								<BreadcrumbLink href="#">Discover MCPs</BreadcrumbLink>
-							</BreadcrumbItem>
-							<BreadcrumbSeparator className="hidden md:block" />
-							<BreadcrumbItem>
-								<BreadcrumbPage>Gmail MCP</BreadcrumbPage>
-							</BreadcrumbItem>
-						</BreadcrumbList>
-					</Breadcrumb>
+					<DynamicBreadcrumb />
 				</div>
-
 				<UserPopover />
 			</header>
 			<div className="hidebar h-full w-full overflow-y-scroll pb-8">
