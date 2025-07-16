@@ -37,9 +37,11 @@ function RouteComponent() {
 		}),
 	);
 	return (
-		<main className="flex h-full flex-col">
-			<McpSearchBox />
-			<McpListContainer />
+		<main>
+			<div className="flex flex-1 flex-col pt-4">
+				<McpSearchBox />
+				<McpListContainer />
+			</div>
 		</main>
 	);
 }

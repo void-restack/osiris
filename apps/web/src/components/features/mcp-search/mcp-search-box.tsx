@@ -14,29 +14,32 @@ export function McpSearchBox() {
 				Want to write an email, Need Notion Personal Assistant? Search your
 				queries
 			</span>
-			<Autocomplete
-				className="mt-6"
-				onSearch={() => []}
-				emptyText="No countries found."
-				footerText="Footer text"
-				bottomLeftContent={
-					<div className="flex items-center gap-3">
-						<div className="rounded-md bg-primary-100 p-1.5 text-primary-400 text-xs ">
-							Notion AI assistant
-						</div>
 
-						<div className="rounded-md bg-primary-100 p-1.5 text-primary-400 text-xs">
-							Calendar Manager
+			<div className="w-full px-4 md:px-0">
+				<Autocomplete
+					className="mt-6"
+					onSearch={() => []}
+					emptyText="No countries found."
+					footerText="Footer text"
+					bottomLeftContent={
+						<div className="flex items-center gap-3">
+							<div className="rounded-md bg-primary-100 p-1.5 text-primary-400 text-xs ">
+								Notion AI assistant
+							</div>
+
+							<div className="rounded-md bg-primary-100 p-1.5 text-primary-400 text-xs">
+								Calendar Manager
+							</div>
 						</div>
-					</div>
-				}
-				bottomRightContent={
-					<div>
-						<UploadFile />
-						<Retry />
-					</div>
-				}
-			/>
+					}
+					bottomRightContent={
+						<div>
+							<UploadFile />
+							<Retry />
+						</div>
+					}
+				/>
+			</div>
 		</div>
 	);
 }
