@@ -14,7 +14,7 @@ export default function HubLayout({ children }: { children: React.ReactNode }) {
 				{children}
 			</SidebarInset>
 			{isEditSidebarOpen && (
-				<SidebarInset className="w-full max-w-sm border-primary-100 border-l bg-white">
+				<SidebarInset className="w-full max-w-[448px] border-primary-100 border-l bg-white md:w-[448px]">
 					<EditDatabaseSidebar />
 				</SidebarInset>
 			)}

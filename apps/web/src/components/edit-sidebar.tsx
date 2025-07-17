@@ -1,4 +1,4 @@
-import { Save, X } from "lucide-react";
+import { X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,11 +24,9 @@ export function EditDatabaseSidebar() {
 	const { selectedDatabase, closeEditSidebar, updateSelectedDatabase } =
 		useAppStore();
 
-	// Local form state
 	const [formData, setFormData] = useState<Database | null>(null);
 	const [hasChanges, setHasChanges] = useState(false);
 
-	// Initialize form when selectedDatabase changes
 	useEffect(() => {
 		if (selectedDatabase) {
 			setFormData({ ...selectedDatabase });
@@ -36,7 +34,6 @@ export function EditDatabaseSidebar() {
 		}
 	}, [selectedDatabase]);
 
-	// Track changes
 	useEffect(() => {
 		if (formData && selectedDatabase) {
 			const changed =
@@ -55,22 +52,18 @@ export function EditDatabaseSidebar() {
 
 	const handleSave = () => {
 		if (formData && hasChanges) {
-			// Update the store with the new data
 			updateSelectedDatabase(formData);
 
-			// Here you would typically also save to your backend
 			// await saveDatabase(formData);
 
 			setHasChanges(false);
 
-			// You might want to show a success toast here
 			console.log("Database updated:", formData);
 		}
 	};
 
 	const handleCancel = () => {
 		if (hasChanges) {
-			// You might want to show a confirmation dialog here
 			const confirmDiscard = window.confirm("Discard unsaved changes?");
 			if (!confirmDiscard) return;
 		}
@@ -83,15 +76,10 @@ export function EditDatabaseSidebar() {
 
 	return (
 		<div className="flex h-full flex-col">
-			{/* Header */}
-			<div className="flex items-center justify-between border-primary-100 border-b p-6">
+			<div className="flex items-center justify-between rounded-t-xl border-b border-b-dashed border-b-primary-100 bg-primary-25 p-6.5">
 				<div>
-					<h2 className="font-semibold text-lg text-primary-800">
-						Edit Database
-					</h2>
-					<p className="text-primary-400 text-sm">
-						Configure database connection settings
-					</p>
+					<span className="text-primary-300">Postgres / </span>
+					<span>{formData.name}</span>
 				</div>
 				<Button
 					variant="ghost"
@@ -103,14 +91,9 @@ export function EditDatabaseSidebar() {
 				</Button>
 			</div>
 
-			{/* Form Content */}
 			<div className="flex-1 space-y-6 overflow-y-auto p-6">
-				{/* Database ID - Read only */}
-				<div className="space-y-2">
-					<Label
-						htmlFor="database-id"
-						className="font-medium text-primary-700 text-sm"
-					>
+				<div className="space-y-[6px]">
+					<Label htmlFor="database-id" className="text-[13px] text-primary-400">
 						Database ID
 					</Label>
 					<div className="rounded-md bg-primary-50 px-3 py-2 font-mono text-primary-400 text-sm">
@@ -118,11 +101,10 @@ export function EditDatabaseSidebar() {
 					</div>
 				</div>
 
-				{/* Database Name */}
-				<div className="space-y-2">
+				<div className="space-y-[6px]">
 					<Label
 						htmlFor="database-name"
-						className="font-medium text-primary-700 text-sm"
+						className="text-[13px] text-primary-400"
 					>
 						Database Name
 					</Label>
@@ -135,11 +117,10 @@ export function EditDatabaseSidebar() {
 					/>
 				</div>
 
-				{/* Host */}
-				<div className="space-y-2">
+				<div className="space-y-[6px]">
 					<Label
 						htmlFor="database-host"
-						className="font-medium text-primary-700 text-sm"
+						className="text-[13px] text-primary-400"
 					>
 						Host
 					</Label>
@@ -148,15 +129,14 @@ export function EditDatabaseSidebar() {
 						value={formData.host}
 						onChange={(e) => handleInputChange("host", e.target.value)}
 						placeholder="Enter host URL"
-						className="w-full font-mono text-sm"
+						className="w-full text-sm"
 					/>
 				</div>
 
-				{/* Status */}
-				<div className="space-y-2">
+				<div className="space-y-[6px]">
 					<Label
 						htmlFor="database-status"
-						className="font-medium text-primary-700 text-sm"
+						className="text-[13px] text-primary-300"
 					>
 						Status
 					</Label>
@@ -177,46 +157,29 @@ export function EditDatabaseSidebar() {
 					</Select>
 				</div>
 
-				{/* Last Activity - Read only */}
-				<div className="space-y-2">
+				<div className="space-y-[6px]">
 					<Label
 						htmlFor="last-activity"
-						className="font-medium text-primary-700 text-sm"
+						className="text-[13px] text-primary-400"
 					>
 						Last Activity
 					</Label>
-					<div className="rounded-md bg-primary-50 px-3 py-2 text-primary-400 text-sm">
+					<div className="rounded-md bg-primary-50 px-3 py-2 text-13px text-primary-400">
 						{formData.lastActivity}
 					</div>
 				</div>
 			</div>
 
-			{/* Footer Actions */}
-			<div className="border-primary-100 border-t p-6">
-				<div className="flex gap-3">
-					<Button
-						onClick={handleSave}
-						disabled={!hasChanges}
-						className="flex-1"
-						size="sm"
-					>
-						<Save className="mr-2 h-4 w-4" />
-						Save Changes
-					</Button>
-					<Button
-						variant="outline"
-						onClick={handleCancel}
-						size="sm"
-						className="flex-1"
-					>
+			<div className="rounded-b-xl border-primary-100 border-t bg-primary-25 p-6">
+				<div className="flex w-full items-center justify-between gap-3">
+					<Button variant="outline" onClick={handleCancel} size="sm">
 						Cancel
 					</Button>
+
+					<Button onClick={handleSave} disabled={!hasChanges} size="sm">
+						Save Database
+					</Button>
 				</div>
-				{hasChanges && (
-					<p className="mt-2 text-center text-amber-600 text-xs">
-						You have unsaved changes
-					</p>
-				)}
 			</div>
 		</div>
 	);
