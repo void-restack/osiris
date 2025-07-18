@@ -16,7 +16,7 @@ export function McpListPagination({
 	totalResults: number;
 }) {
 	return (
-		<div className=" bottom-0 flex h-12 w-full items-center justify-between border-t px-6 text-[#A3A3A3]">
+		<div className="flex h-12 w-full items-center justify-between border-t px-6 text-[#A3A3A3]">
 			<div>
 				<p>{totalResults} results</p>
 			</div>

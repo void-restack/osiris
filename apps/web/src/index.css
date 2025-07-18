@@ -193,6 +193,12 @@ body {
 	--color-danger-900: hsla(0, 36%, 18%, 1);
 	--color-danger-950: hsla(0, 27%, 15%, 1);
 
+	--color-badge-success-text: hsla(108, 96%, 40%, 1);
+	--color-badge-success: hsla(108, 96%, 40%, 0.1);
+
+	--color-checkbox-border: hsla(108, 96%, 34%, 1);
+	--color-checkbox-fill: hsla(108, 96%, 40%, 1);
+
 	/* custom shadows */
 	--inset-shadow-search:
 		0px 0px 0px 0.7px rgba(0, 0, 0, 0.06) inset, 0px 1px 1px 0px
@@ -202,6 +208,18 @@ body {
 		0px 1px 0px 0px rgba(255, 255, 255, 0.25) inset,
 		0px 0px 0px 1px rgba(0, 0, 0, 0.15) inset,
 		0px 1px 2px 0px rgba(0, 0, 0, 0.06);
+
+	--inset-shadow-outline-btn:
+		0px 0px 0px 1px hsla(0, 0%, 0%, 0.08) inset,
+		0px 1px 0px 0px hsla(0, 0%, 100%, 0.25) inset,
+		0px 1px 2px 0px hsla(0, 0%, 0%, 0.06);
+
+	--inset-shadow-credit-card:
+		0px 1px 2px 0px hsla(218, 29%, 5%, 0.02),
+		0px 1px 3px 0px hsla(218, 29%, 5%, 0.04),
+		0px 1px 1px -0.5px hsla(218, 29%, 5%, 0.05),
+		0px -0.5px 0.5px 0px hsla(218, 29%, 5%, 0.1) inset,
+		0px 0px 0px 1px hsla(0, 0%, 0%, 0.02);
 }
 
 @layer base {

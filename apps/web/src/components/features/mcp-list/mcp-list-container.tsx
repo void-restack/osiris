@@ -61,33 +61,101 @@ export function McpListContainer() {
 			isVerified: false,
 			credits: 100,
 		},
+		{
+			title: "Calendar Manager",
+			description: "Manage your calendar and schedule meetings efficiently",
+			tags: [
+				{
+					tag: "Productivity",
+				},
+				{
+					tag: "Premium",
+				},
+			],
+			icon: "/test/calander.svg",
+			userHandle: "@calendartech/calendar-mcp",
+			isVerified: false,
+			credits: 100,
+		},
+		{
+			title: "Calendar Manager",
+			description: "Manage your calendar and schedule meetings efficiently",
+			tags: [
+				{
+					tag: "Productivity",
+				},
+				{
+					tag: "Premium",
+				},
+			],
+			icon: "/test/calander.svg",
+			userHandle: "@calendartech/calendar-mcp",
+			isVerified: false,
+			credits: 100,
+		},
+		{
+			title: "Calendar Manager",
+			description: "Manage your calendar and schedule meetings efficiently",
+			tags: [
+				{
+					tag: "Productivity",
+				},
+				{
+					tag: "Premium",
+				},
+			],
+			icon: "/test/calander.svg",
+			userHandle: "@calendartech/calendar-mcp",
+			isVerified: false,
+			credits: 100,
+		},
+		{
+			title: "Calendar Manager",
+			description: "Manage your calendar and schedule meetings efficiently",
+			tags: [
+				{
+					tag: "Productivity",
+				},
+				{
+					tag: "Premium",
+				},
+			],
+			icon: "/test/calander.svg",
+			userHandle: "@calendartech/calendar-mcp",
+			isVerified: false,
+			credits: 100,
+		},
 	];
 
 	return (
-		<div className="flex h-full flex-col gap-4">
-			<div className="h-[72px] px-6" />
-			<div className="flex w-full items-center justify-between px-6">
+		<div className="flex min-h-0 flex-1 flex-col gap-3">
+			<div className="flex w-full items-center justify-between border-b border-b-primary-100 px-6 py-4 font-medium text-xl">
 				<h3 className="w-full font-medium text-[#171717] text-xl">All MCPs</h3>
 				<div className="flex w-max items-center justify-end gap-2">
 					<McpViewToggle />
 					<McpFilters />
 				</div>
 			</div>
-			<Separator />
-			<div className="flex flex-col gap-4 px-6">
-				{mcpView === "directory" ? (
-					<McpCardList cards={mockData} />
-				) : (
-					<McpTable data={mockData} />
-				)}
+			<div className="flex min-h-0 flex-1 flex-col">
+				<div className="flex-1 overflow-auto">
+					<div className="px-6">
+						{mcpView === "directory" ? (
+							<McpCardList cards={mockData} />
+						) : (
+							<McpTable data={mockData} />
+						)}
+					</div>
+				</div>
+				<div className="absolute bottom-0 flex h-12 w-full items-center overflow-hidden rounded-b-xl bg-primary-00 py-6">
+					<McpListPagination
+						totalPages={10}
+						currentPage={1}
+						onPageChange={() => {}}
+						resultsPerPage={10}
+						totalResults={100}
+					/>
+				</div>
 			</div>
-			<McpListPagination
-				totalPages={10}
-				currentPage={1}
-				onPageChange={() => {}}
-				resultsPerPage={10}
-				totalResults={100}
-			/>
 		</div>
 	);
 }

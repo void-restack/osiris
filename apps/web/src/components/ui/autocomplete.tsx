@@ -1,8 +1,7 @@
-"use client";
-
 import { Command as CommandPrimitive } from "cmdk";
-import { LoaderCircle } from "lucide-react";
+import { LoaderCircle, Search } from "lucide-react";
 import * as React from "react";
+import { Button } from "@/components/ui/button";
 import {
 	Command,
 	CommandEmpty,
@@ -36,6 +35,11 @@ interface AutocompleteProps<T extends AutocompleteItem> {
 	disabled?: boolean;
 	value?: string;
 	onValueChange?: (value: string) => void;
+	showSearchButton?: boolean;
+	onSearchButtonClick?: () => void;
+	bottomLeftContent?: React.ReactNode;
+	bottomRightContent?: React.ReactNode;
+	popularItems?: React.ReactNode;
 }
 
 export function Autocomplete<T extends AutocompleteItem>({
@@ -46,7 +50,6 @@ export function Autocomplete<T extends AutocompleteItem>({
 	loading = false,
 	debounceMs = 300,
 	emptyText = "No results found.",
-	footerText,
 	renderItem,
 	getItemValue = (item) => item.value,
 	getItemLabel = (item) => item.label,
@@ -54,6 +57,11 @@ export function Autocomplete<T extends AutocompleteItem>({
 	disabled = false,
 	value: controlledValue,
 	onValueChange,
+	showSearchButton = true,
+	onSearchButtonClick,
+	bottomLeftContent,
+	bottomRightContent,
+	popularItems,
 }: AutocompleteProps<T>) {
 	const [open, setOpen] = React.useState(false);
 	const [internalLoading, setInternalLoading] = React.useState(false);
@@ -64,14 +72,12 @@ export function Autocomplete<T extends AutocompleteItem>({
 
 	const isLoading = loading || internalLoading;
 
-	// Sync with controlled value
 	React.useEffect(() => {
 		if (controlledValue !== undefined && controlledValue !== search) {
 			setSearch(controlledValue);
 		}
 	}, [controlledValue]);
 
-	// Handle search
 	React.useEffect(() => {
 		if (debouncedSearch && debouncedSearch.length >= minSearchLength) {
 			setInternalLoading(true);
@@ -105,6 +111,10 @@ export function Autocomplete<T extends AutocompleteItem>({
 			inputRef.current?.blur();
 			setOpen(false);
 		}
+		if (event.key === "Enter" && showSearchButton) {
+			event.preventDefault();
+			onSearchButtonClick?.();
+		}
 	}
 
 	function handleSelect(selectedValue: string) {
@@ -123,8 +133,11 @@ export function Autocomplete<T extends AutocompleteItem>({
 	const defaultRenderItem = (item: T, query: string) => {
 		const label = getItemLabel(item);
 		return (
-			<div className="flex flex-col">
+			<div className="flex items-center space-x-2">
+				<div className="size-4 rounded-md bg-purple-400" />
 				<span>{getHighlightedText(label, query)}</span>
+				<span> - </span>
+				<span className="text-primary-400">oauth descriptions</span>
 			</div>
 		);
 	};
@@ -133,68 +146,96 @@ export function Autocomplete<T extends AutocompleteItem>({
 		open && debouncedSearch && debouncedSearch.length >= minSearchLength;
 
 	return (
-		<Command shouldFilter={false} className="overflow-visible">
-			<CommandPrimitive.Input
-				ref={inputRef}
-				placeholder={placeholder}
-				value={search}
-				onInput={(e) => handleValueChange(e.currentTarget.value)}
-				onKeyDown={handleKeyDown}
-				onFocus={() => setOpen(true)}
-				onBlur={() => setOpen(false)}
-				disabled={disabled}
-				className={cn(
-					"flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:font-medium file:text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
-					"placeholder:font-light",
-					className,
-				)}
-			/>
-			<div className="relative">
-				{shouldShowResults && (
-					<CommandList className="absolute top-1.5 z-50 w-full rounded-md border border-border bg-background">
-						{isLoading ? (
-							<CommandLoading>
-								<LoaderCircle className="h-4 w-4 animate-spin text-muted-foreground" />
-							</CommandLoading>
-						) : (
-							<>
-								<CommandEmpty>{emptyText}</CommandEmpty>
-								<CommandGroup>
-									{items.map((item, i) => (
-										<CommandItem
-											key={`${getItemValue(item)}-${i}`}
-											value={getItemValue(item)}
-											onSelect={handleSelect}
-											onMouseDown={(e) => {
-												e.preventDefault();
-												e.stopPropagation();
-											}}
-											className="cursor-pointer"
-										>
-											{renderItem
-												? renderItem(item, debouncedSearch)
-												: defaultRenderItem(item, debouncedSearch)}
-										</CommandItem>
-									))}
-								</CommandGroup>
-							</>
-						)}
-						{footerText && (
-							<div className="border-border border-t bg-muted/50 px-2 py-0.5 text-[10px] text-muted-foreground">
-								<p>{footerText}</p>
-							</div>
-						)}
-					</CommandList>
-				)}
-			</div>
-		</Command>
+		<div
+			className={cn(
+				"mx-auto flex w-full flex-col gap-3 rounded-[18px] bg-primary-25 p-4 shadow-[inset_0_1px_2px_0_rgba(0,0,0,0.05)] drop-shadow-[0_1px_1px_rgba(0,0,0,0.08)] sm:max-w-[496px] md:max-w-[720px]",
+				className,
+			)}
+		>
+			<Command shouldFilter={false} className="overflow-visible">
+				<div className="relative h-[84px]">
+					<CommandPrimitive.Input
+						ref={inputRef}
+						placeholder={placeholder}
+						value={search}
+						onInput={(e) => handleValueChange(e.currentTarget.value)}
+						onKeyDown={handleKeyDown}
+						onFocus={() => setOpen(true)}
+						onBlur={() => setOpen(false)}
+						disabled={disabled}
+						className="w-full resize-none rounded-[12px] border border-none bg-primary-00 p-2 text-primary-700 placeholder:text-primary-300 focus:outline-none focus:ring-0"
+					/>
+					{showSearchButton && (
+						<Button
+							onClick={onSearchButtonClick}
+							onMouseDown={(e) => {
+								e.preventDefault();
+							}}
+							className="-translate-y-1/7 absolute inset-shadow-search-btn top-1/2 right-3"
+						>
+							<span>Search</span>
+							<Search className="ml-1 h-4 w-4" />
+						</Button>
+					)}
+				</div>
+
+				<div className="relative">
+					{shouldShowResults && (
+						<CommandList className="absolute top-1.5 z-50 w-full rounded-md border border-border bg-background">
+							{popularItems ? (
+								<>
+									<span className="mb-2 px-3 py-2 text-[13px] text-primary-400">
+										Popular
+									</span>
+									<div className="px-3">{popularItems}</div>
+									<div className="mt-3 border-primary-100 border-t border-dashed" />
+								</>
+							) : null}
+							{isLoading ? (
+								<CommandLoading>
+									<LoaderCircle className="h-4 w-4 animate-spin text-muted-foreground" />
+								</CommandLoading>
+							) : (
+								<>
+									<CommandEmpty>{emptyText}</CommandEmpty>
+									<CommandGroup>
+										{items.map((item, i) => (
+											<CommandItem
+												key={`${getItemValue(item)}-${i}`}
+												value={getItemValue(item)}
+												onSelect={handleSelect}
+												onMouseDown={(e) => {
+													e.preventDefault();
+													e.stopPropagation();
+												}}
+												className="cursor-pointer"
+											>
+												{renderItem
+													? renderItem(item, debouncedSearch)
+													: defaultRenderItem(item, debouncedSearch)}
+											</CommandItem>
+										))}
+									</CommandGroup>
+								</>
+							)}
+						</CommandList>
+					)}
+				</div>
+			</Command>
+
+			{(bottomLeftContent || bottomRightContent) && (
+				<div className="flex justify-between">
+					<div className="flex">{bottomLeftContent}</div>
+					<div className="flex p-0">{bottomRightContent}</div>
+				</div>
+			)}
+		</div>
 	);
 }
 
 function getHighlightedText(text: string, query: string) {
 	if (!query) return text;
 
-	// Escape special characters in the query for regex
 	const escapedQuery = query
 		.split(" ")
 		.filter((word) => word.length > 0)
@@ -202,10 +243,8 @@ function getHighlightedText(text: string, query: string) {
 
 	if (escapedQuery.length === 0) return text;
 
-	// Create a regex pattern to match the query words
 	const regex = new RegExp(`(${escapedQuery.join("|")})`, "gi");
 
-	// Replace matching words with a span element for highlighting
 	return text.split(regex).map((part, index) =>
 		regex.test(part) ? (
 			<span key={index} className="font-semibold">

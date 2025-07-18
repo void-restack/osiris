@@ -1,6 +1,8 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
+import { McpListContainer } from "@/components/features/mcp-list/mcp-list-container";
+import { McpSearchBox } from "@/components/features/mcp-search/mcp-search-box";
 import { packageQueries } from "@/lib/queries";
 
 const packagesSearchSchema = z.object({
@@ -9,7 +11,7 @@ const packagesSearchSchema = z.object({
 	publisherId: z.string().optional(),
 });
 
-export const Route = createFileRoute("/hub/mcp")({
+export const Route = createFileRoute("/_hub/mcp/")({
 	validateSearch: packagesSearchSchema,
 	loaderDeps: ({ search }) => ({ search }),
 	loader: ({ context: { queryClient }, deps }) =>
@@ -35,16 +37,11 @@ function RouteComponent() {
 		}),
 	);
 	return (
-		<div>
-			<h1>Packages</h1>
-			<div className="grid gap-4">
-				{packages.data.map((pkg) => (
-					<div key={pkg.packageId} className="rounded border p-4">
-						<h3>{pkg.name}</h3>
-						<p>{pkg.description}</p>
-					</div>
-				))}
+		<main>
+			<div className="flex flex-1 flex-col pt-4">
+				<McpSearchBox />
+				<McpListContainer />
 			</div>
-		</div>
+		</main>
 	);
 }

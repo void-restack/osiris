@@ -25,6 +25,7 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import type { McpCardProps } from "./mcp-card";
+import { McpListPagination } from "./mcp-list-pagination";
 
 interface McpTableRow extends McpCardProps {
 	credits?: number | "FREE";
@@ -104,7 +105,7 @@ export const columns: ColumnDef<McpTableRow>[] = [
 				);
 			}
 			return (
-				<span className="flex items-center gap-1 rounded bg-green-100 px-3 py-1 font-semibold text-[#2DCA04] text-xs">
+				<span className="flex w-max items-center gap-1 rounded bg-green-100 px-3 py-1 font-semibold text-[#2DCA04] text-xs">
 					<Eye className="h-4 w-4 text-green-500" />
 					{credits}
 				</span>
