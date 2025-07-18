@@ -252,11 +252,8 @@ Add your MCP to Claude Desktop by updating your configuration:
 {
   "mcpServers": {
     "my-first-mcp": {
-      "command": "node",
-      "args": ["path/to/my-first-mcp/dist/index.js"],
-      "env": {
-        "NODE_ENV": "production"
-      }
+      "type": "streamable-http",
+	  "url": "http://localhost:3000/mcp?deploymentId=my-first-mcp"
     }
   }
 }
@@ -351,16 +348,16 @@ When you're ready to deploy:
 ## Next Steps
 
 <Cards>
-  <Card title="🔍 Authentication Deep Dive" href="/docs/sdk/authentication">
+  <Card title="🔍 Authentication Deep Dive" href="/authenticators">
     Learn about multi-service OAuth patterns and security
   </Card>
-  <Card title="🗄️ Database Integration" href="/docs/sdk/database">
+  <Card title="🗄️ Database Integration" href="/sdk#database-adapters">
     Master persistent state with database adapters
   </Card>
-  <Card title="🛡️ Add Policy Enforcement" href="/docs/policy-engine">
+  <Card title="🛡️ Add Policy Enforcement" href="/policy-engine">
     Secure Web3 transactions with smart policies
   </Card>
-  <Card title="📚 Browse Examples" href="/docs/examples">
+  <Card title="📚 Browse Examples" href="/examples">
     See real-world MCP implementations and patterns
   </Card>
 </Cards>
