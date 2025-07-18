@@ -2,9 +2,13 @@
 	"title": "Documentation",
 	"pages": [
 		"index",
+		"quickstart",
+		"core-concepts",
 		"sdk",
-		"policy-engine",
 		"authenticators",
+		"policy-engine",
+		"knowledge-and-memory",
+		"deployment-marketplace",
 		"examples/index",
 		"roadmap"
 	]

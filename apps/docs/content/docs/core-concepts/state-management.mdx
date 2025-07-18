@@ -1,0 +1,779 @@
+---
+title: State Management
+description: Persistent, user-specific state management across conversations with multiple database adapters
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Card, Cards } from 'fumadocs-ui/components/card';
+
+**State Management** in Osiris enables MCPs to maintain persistent, user-specific data across conversations, sessions, and even different AI platforms. Unlike traditional stateless MCPs, Osiris MCPs remember user preferences, conversation history, and application state.
+
+## Why Stateful MCPs Matter
+
+Traditional MCPs are stateless—they lose all context between conversations:
+
+<div className="grid grid-cols-1 md:grid-cols-2 gap-6 my-6">
+  <div className="border rounded-lg p-4">
+    <h4 className="font-semibold mb-3">🔄 **Traditional MCPs**</h4>
+    <ul className="text-sm space-y-2">
+      <li>• No memory between conversations</li>
+      <li>• Can't learn user preferences</li>
+      <li>• Must re-authenticate every session</li>
+      <li>• No persistent workflows</li>
+      <li>• Lose conversation context</li>
+    </ul>
+  </div>
+  
+  <div className="border rounded-lg p-4 bg-green-50 dark:bg-green-900/20">
+    <h4 className="font-semibold mb-3">💾 **Osiris Stateful MCPs**</h4>
+    <ul className="text-sm space-y-2">
+      <li>• Remember user preferences and settings</li>
+      <li>• Maintain conversation context across sessions</li>
+      <li>• Store work-in-progress data</li>
+      <li>• Build long-term user profiles</li>
+      <li>• Enable complex multi-step workflows</li>
+    </ul>
+  </div>
+</div>
+
+## Database Adapters
+
+Osiris supports multiple database backends for different use cases:
+
+<Cards>
+  <Card title="🐘 PostgreSQL" description="Production-ready relational database">
+    **Best for:** Complex queries, ACID transactions, structured data
+    
+    **Use cases:** User profiles, transactional data, analytics
+  </Card>
+  
+  <Card title="🍃 MongoDB" description="Flexible document database">
+    **Best for:** JSON documents, rapid development, flexible schemas
+    
+    **Use cases:** User preferences, conversation logs, dynamic content
+  </Card>
+  
+  <Card title="⚡ Redis" description="High-performance in-memory cache">
+    **Best for:** Session data, real-time features, caching
+    
+    **Use cases:** Active sessions, temporary data, fast lookups
+  </Card>
+  
+  <Card title="📱 SQLite" description="Embedded database for development">
+    **Best for:** Development, local storage, simple applications
+    
+    **Use cases:** Prototyping, single-user applications, testing
+  </Card>
+</Cards>
+
+## Setting Up State Management
+
+### Configuring Database Adapters
+
+Choose and configure your database adapter when creating your MCP:
+
+```typescript
+import { createMcpServer } from '@osiris-ai/sdk';
+import { PostgresDatabaseAdapter } from '@osiris-ai/postgres-sdk';
+import { MongoDatabaseAdapter } from '@osiris-ai/mongodb-sdk';
+import { RedisDatabaseAdapter } from '@osiris-ai/redis-sdk';
+import { SQLiteDatabaseAdapter } from '@osiris-ai/sqlite-sdk';
+
+// PostgreSQL for production
+const postgresAdapter = new PostgresDatabaseAdapter({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === 'production',
+  maxConnections: 20
+});
+
+// MongoDB for flexible schemas
+const mongoAdapter = new MongoDatabaseAdapter({
+  connectionString: process.env.MONGODB_URL,
+  database: 'mcp_data'
+});
+
+// Redis for sessions and caching
+const redisAdapter = new RedisDatabaseAdapter({
+  url: process.env.REDIS_URL,
+  keyPrefix: 'mcp:',
+  ttl: 3600 // 1 hour default TTL
+});
+
+// SQLite for development
+const sqliteAdapter = new SQLiteDatabaseAdapter({
+  filename: './mcp_data.db',
+  journal: 'WAL'
+});
+
+await createMcpServer({
+  name: "stateful-mcp",
+  version: "1.0.0",
+  auth: {
+    useHub: true,
+    hubConfig: {
+      baseUrl: "https://api.osirislabs.xyz/v1",
+      clientId: process.env.OAUTH_CLIENT_ID,
+      clientSecret: process.env.OAUTH_CLIENT_SECRET,
+    },
+    database: postgresAdapter // Choose your adapter
+  },
+  // ... rest of configuration
+});
+```
+
+## Accessing Database State
+
+### Basic Database Operations
+
+Access the database through the MCP context in your tools:
+
+```typescript
+import { tool } from '@osiris-ai/sdk';
+import { getAuthContext } from '@osiris-ai/sdk';
+import { z } from 'zod';
+
+export const saveUserPreference = tool({
+  name: 'save_user_preference',
+  description: 'Save a user preference for future conversations',
+  inputSchema: z.object({
+    key: z.string(),
+    value: z.any(),
+    category: z.string().optional()
+  }),
+  handler: async ({ key, value, category }, context) => {
+    const { token, context: authContext } = getAuthContext("osiris");
+    if (!token || !authContext) throw new Error("Not authenticated");
+    
+    // Access database through MCP context
+    const { database } = context;
+    
+    // Store user-specific preference
+    await database.store('user_preferences', {
+      userId: authContext.sessionId,
+      key,
+      value,
+      category: category || 'general',
+      updatedAt: new Date(),
+      createdAt: new Date()
+    });
+    
+    return {
+      content: [{
+        type: 'text',
+        text: `✅ Preference saved: ${key} = ${JSON.stringify(value)}`
+      }]
+    };
+  }
+});
+
+export const getUserPreference = tool({
+  name: 'get_user_preference',
+  description: 'Retrieve a user preference from previous conversations',
+  inputSchema: z.object({
+    key: z.string()
+  }),
+  handler: async ({ key }, context) => {
+    const { token, context: authContext } = getAuthContext("osiris");
+    if (!token || !authContext) throw new Error("Not authenticated");
+    
+    const { database } = context;
+    
+    // Query user-specific data
+    const preferences = await database.query('user_preferences', {
+      userId: authContext.sessionId,
+      key
+    });
+    
+    if (preferences.length === 0) {
+      return {
+        content: [{
+          type: 'text',
+          text: `❌ No preference found for key: ${key}`
+        }]
+      };
+    }
+    
+    return {
+      content: [{
+        type: 'text',
+        text: `Found preference: ${key} = ${JSON.stringify(preferences[0].value)}`
+      }]
+    };
+  }
+});
+```
+
+### Conversation Memory
+
+Store and retrieve conversation context across sessions:
+
+```typescript
+export const saveConversationContext = tool({
+  name: 'save_conversation_context',
+  description: 'Save conversation context for future reference',
+  inputSchema: z.object({
+    topic: z.string(),
+    summary: z.string(),
+    keyPoints: z.array(z.string()),
+    nextSteps: z.array(z.string()).optional()
+  }),
+  handler: async ({ topic, summary, keyPoints, nextSteps }, context) => {
+    const { token, context: authContext } = getAuthContext("osiris");
+    if (!token || !authContext) throw new Error("Not authenticated");
+    
+    const { database } = context;
+    
+    await database.store('conversation_memory', {
+      userId: authContext.sessionId,
+      sessionId: authContext.sessionId,
+      topic,
+      summary,
+      keyPoints,
+      nextSteps: nextSteps || [],
+      timestamp: new Date(),
+      lastAccessed: new Date()
+    });
+    
+    return {
+      content: [{
+        type: 'text',
+        text: `📝 Conversation context saved for topic: ${topic}`
+      }]
+    };
+  }
+});
+
+export const getConversationHistory = tool({
+  name: 'get_conversation_history',
+  description: 'Retrieve past conversation contexts',
+  inputSchema: z.object({
+    topic: z.string().optional(),
+    limit: z.number().default(5)
+  }),
+  handler: async ({ topic, limit }, context) => {
+    const { token, context: authContext } = getAuthContext("osiris");
+    if (!token || !authContext) throw new Error("Not authenticated");
+    
+    const { database } = context;
+    
+    const query = {
+      userId: authContext.sessionId,
+      ...(topic && { topic: { $regex: topic, $options: 'i' } })
+    };
+    
+    const conversations = await database.query('conversation_memory', query, {
+      sort: { timestamp: -1 },
+      limit
+    });
+    
+    if (conversations.length === 0) {
+      return {
+        content: [{
+          type: 'text',
+          text: '📭 No previous conversations found'
+        }]
+      };
+    }
+    
+    const summary = conversations.map(conv => 
+      `**${conv.topic}** (${conv.timestamp.toLocaleDateString()})\n` +
+      `Summary: ${conv.summary}\n` +
+      `Key Points: ${conv.keyPoints.join(', ')}`
+    ).join('\n\n');
+    
+    return {
+      content: [{
+        type: 'text',
+        text: `📚 **Conversation History:**\n\n${summary}`
+      }]
+    };
+  }
+});
+```
+
+## Advanced State Patterns
+
+### User Profiles and Learning
+
+Build comprehensive user profiles that improve over time:
+
+```typescript
+interface UserProfile {
+  userId: string;
+  preferences: {
+    communication_style: 'formal' | 'casual' | 'technical';
+    response_length: 'brief' | 'detailed' | 'comprehensive';
+    topics_of_interest: string[];
+    expertise_level: Record<string, 'beginner' | 'intermediate' | 'expert'>;
+  };
+  behavior_patterns: {
+    common_workflows: string[];
+    frequently_used_tools: string[];
+    peak_usage_hours: number[];
+  };
+  learning_history: {
+    successful_interactions: number;
+    error_patterns: string[];
+    improvement_areas: string[];
+  };
+  lastUpdated: Date;
+}
+
+export const updateUserProfile = tool({
+  name: 'update_user_profile',
+  description: 'Update user profile based on interaction patterns',
+  inputSchema: z.object({
+    interaction_type: z.string(),
+    success: z.boolean(),
+    feedback: z.string().optional(),
+    tool_used: z.string().optional()
+  }),
+  handler: async ({ interaction_type, success, feedback, tool_used }, context) => {
+    const { token, context: authContext } = getAuthContext("osiris");
+    if (!token || !authContext) throw new Error("Not authenticated");
+    
+    const { database } = context;
+    
+    // Get existing profile
+    const profiles = await database.query('user_profiles', {
+      userId: authContext.sessionId
+    });
+    
+    let profile: UserProfile;
+    if (profiles.length === 0) {
+      // Create new profile
+      profile = {
+        userId: authContext.sessionId,
+        preferences: {
+          communication_style: 'casual',
+          response_length: 'detailed',
+          topics_of_interest: [],
+          expertise_level: {}
+        },
+        behavior_patterns: {
+          common_workflows: [],
+          frequently_used_tools: [],
+          peak_usage_hours: []
+        },
+        learning_history: {
+          successful_interactions: 0,
+          error_patterns: [],
+          improvement_areas: []
+        },
+        lastUpdated: new Date()
+      };
+    } else {
+      profile = profiles[0] as UserProfile;
+    }
+    
+    // Update profile based on interaction
+    if (success) {
+      profile.learning_history.successful_interactions++;
+    } else {
+      profile.learning_history.error_patterns.push(interaction_type);
+    }
+    
+    if (tool_used) {
+      const tools = profile.behavior_patterns.frequently_used_tools;
+      const index = tools.indexOf(tool_used);
+      if (index === -1) {
+        tools.push(tool_used);
+      } else {
+        // Move to front (most recently used)
+        tools.splice(index, 1);
+        tools.unshift(tool_used);
+      }
+    }
+    
+    profile.lastUpdated = new Date();
+    
+    // Store updated profile
+    await database.upsert('user_profiles', 
+      { userId: authContext.sessionId }, 
+      profile
+    );
+    
+    return {
+      content: [{
+        type: 'text',
+        text: `✅ User profile updated. Successful interactions: ${profile.learning_history.successful_interactions}`
+      }]
+    };
+  }
+});
+```
+
+### Workflow State Management
+
+Manage complex multi-step workflows that span conversations:
+
+```typescript
+interface WorkflowState {
+  workflowId: string;
+  userId: string;
+  name: string;
+  currentStep: number;
+  totalSteps: number;
+  steps: Array<{
+    name: string;
+    status: 'pending' | 'in_progress' | 'completed' | 'failed';
+    data: any;
+    timestamp?: Date;
+  }>;
+  metadata: any;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export const startWorkflow = tool({
+  name: 'start_workflow',
+  description: 'Start a new multi-step workflow',
+  inputSchema: z.object({
+    workflowName: z.string(),
+    steps: z.array(z.string()),
+    initialData: z.any().optional()
+  }),
+  handler: async ({ workflowName, steps, initialData }, context) => {
+    const { token, context: authContext } = getAuthContext("osiris");
+    if (!token || !authContext) throw new Error("Not authenticated");
+    
+    const { database } = context;
+    const workflowId = `${authContext.sessionId}_${Date.now()}`;
+    
+    const workflow: WorkflowState = {
+      workflowId,
+      userId: authContext.sessionId,
+      name: workflowName,
+      currentStep: 0,
+      totalSteps: steps.length,
+      steps: steps.map(step => ({
+        name: step,
+        status: 'pending',
+        data: {}
+      })),
+      metadata: initialData || {},
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    // Mark first step as in progress
+    if (workflow.steps.length > 0) {
+      workflow.steps[0].status = 'in_progress';
+    }
+    
+    await database.store('workflows', workflow);
+    
+    return {
+      content: [{
+        type: 'text',
+        text: `🚀 Started workflow "${workflowName}" with ${steps.length} steps.\nWorkflow ID: ${workflowId}\nNext step: ${steps[0] || 'No steps defined'}`
+      }]
+    };
+  }
+});
+
+export const advanceWorkflow = tool({
+  name: 'advance_workflow',
+  description: 'Mark current step as complete and move to next step',
+  inputSchema: z.object({
+    workflowId: z.string(),
+    stepData: z.any().optional(),
+    success: z.boolean().default(true)
+  }),
+  handler: async ({ workflowId, stepData, success }, context) => {
+    const { token, context: authContext } = getAuthContext("osiris");
+    if (!token || !authContext) throw new Error("Not authenticated");
+    
+    const { database } = context;
+    
+    const workflows = await database.query('workflows', {
+      workflowId,
+      userId: authContext.sessionId
+    });
+    
+    if (workflows.length === 0) {
+      throw new Error(`Workflow ${workflowId} not found`);
+    }
+    
+    const workflow = workflows[0] as WorkflowState;
+    
+    // Update current step
+    const currentStep = workflow.steps[workflow.currentStep];
+    currentStep.status = success ? 'completed' : 'failed';
+    currentStep.data = stepData || {};
+    currentStep.timestamp = new Date();
+    
+    if (success && workflow.currentStep < workflow.totalSteps - 1) {
+      // Move to next step
+      workflow.currentStep++;
+      workflow.steps[workflow.currentStep].status = 'in_progress';
+    }
+    
+    workflow.updatedAt = new Date();
+    
+    await database.upsert('workflows', 
+      { workflowId, userId: authContext.sessionId }, 
+      workflow
+    );
+    
+    const isComplete = workflow.currentStep === workflow.totalSteps - 1 && success;
+    const nextStep = isComplete ? null : workflow.steps[workflow.currentStep];
+    
+    return {
+      content: [{
+        type: 'text',
+        text: isComplete 
+          ? `✅ Workflow "${workflow.name}" completed successfully!`
+          : `📋 Step "${currentStep.name}" ${success ? 'completed' : 'failed'}.\nNext: ${nextStep?.name || 'No more steps'}`
+      }]
+    };
+  }
+});
+```
+
+### Caching and Performance
+
+Use Redis for high-performance caching:
+
+```typescript
+export const getCachedData = tool({
+  name: 'get_cached_data',
+  description: 'Retrieve frequently accessed data from cache',
+  inputSchema: z.object({
+    cacheKey: z.string()
+  }),
+  handler: async ({ cacheKey }, context) => {
+    const { token, context: authContext } = getAuthContext("osiris");
+    if (!token || !authContext) throw new Error("Not authenticated");
+    
+    const { database } = context;
+    
+    // Try cache first (if using Redis adapter)
+    const userCacheKey = `${authContext.sessionId}:${cacheKey}`;
+    
+    try {
+      const cached = await database.get(userCacheKey);
+      if (cached) {
+        return {
+          content: [{
+            type: 'text',
+            text: `📦 From cache: ${JSON.stringify(cached)}`
+          }]
+        };
+      }
+    } catch (error) {
+      // Cache miss or not using Redis
+    }
+    
+    // Fallback to expensive operation
+    const data = await performExpensiveOperation(cacheKey);
+    
+    // Cache the result
+    try {
+      await database.set(userCacheKey, data, { ttl: 300 }); // 5 minutes
+    } catch (error) {
+      // Caching failed, continue anyway
+    }
+    
+    return {
+      content: [{
+        type: 'text',
+        text: `🔄 Fresh data: ${JSON.stringify(data)}`
+      }]
+    };
+  }
+});
+
+async function performExpensiveOperation(key: string): Promise<any> {
+  // Simulate expensive API call or computation
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  return { key, timestamp: new Date(), data: `processed_${key}` };
+}
+```
+
+## Database Configuration Examples
+
+### PostgreSQL with Connection Pooling
+
+```typescript
+import { PostgresDatabaseAdapter } from '@osiris-ai/postgres-sdk';
+
+const postgresAdapter = new PostgresDatabaseAdapter({
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false
+  },
+  pool: {
+    min: 2,
+    max: 20,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 2000
+  },
+  schema: 'mcp_data',
+  migrations: {
+    auto: true,
+    directory: './migrations'
+  }
+});
+```
+
+### MongoDB with Indexing
+
+```typescript
+import { MongoDatabaseAdapter } from '@osiris-ai/mongodb-sdk';
+
+const mongoAdapter = new MongoDatabaseAdapter({
+  connectionString: process.env.MONGODB_URL,
+  database: 'mcp_state',
+  options: {
+    maxPoolSize: 10,
+    serverSelectionTimeoutMS: 5000,
+    socketTimeoutMS: 45000,
+  },
+  indexes: [
+    { collection: 'user_preferences', index: { userId: 1, key: 1 }, unique: true },
+    { collection: 'conversation_memory', index: { userId: 1, timestamp: -1 } },
+    { collection: 'workflows', index: { workflowId: 1 }, unique: true }
+  ]
+});
+```
+
+### Redis for Session Management
+
+```typescript
+import { RedisDatabaseAdapter } from '@osiris-ai/redis-sdk';
+
+const redisAdapter = new RedisDatabaseAdapter({
+  url: process.env.REDIS_URL,
+  keyPrefix: 'mcp:session:',
+  ttl: 86400, // 24 hours
+  serialization: {
+    serialize: JSON.stringify,
+    deserialize: JSON.parse
+  },
+  retryDelayOnFailover: 100,
+  maxRetriesPerRequest: 3
+});
+```
+
+## Best Practices
+
+### 1. User-Specific Data Isolation
+
+Always include user identifiers in your queries:
+
+```typescript
+// ✅ Good - user-specific data
+await database.query('user_data', {
+  userId: authContext.sessionId,
+  category: 'preferences'
+});
+
+// ❌ Bad - could access other users' data
+await database.query('user_data', {
+  category: 'preferences'
+});
+```
+
+### 2. Graceful State Degradation
+
+Handle database failures gracefully:
+
+```typescript
+export const myTool = tool({
+  name: 'my_tool',
+  description: 'Tool with graceful state handling',
+  inputSchema: z.object({}),
+  handler: async (input, context) => {
+    const { database } = context;
+    
+    try {
+      const userData = await database.query('user_preferences', {
+        userId: authContext.sessionId
+      });
+      
+      // Use stored preferences
+      const prefs = userData[0]?.preferences || getDefaultPreferences();
+      
+    } catch (error) {
+      console.warn('Database unavailable, using defaults:', error);
+      
+      // Fallback to reasonable defaults
+      const prefs = getDefaultPreferences();
+    }
+    
+    // Continue with tool logic...
+  }
+});
+```
+
+### 3. Efficient Data Structures
+
+Design your data for common access patterns:
+
+```typescript
+// ✅ Good - optimized for lookups
+const userPreferences = {
+  userId: 'user123',
+  preferences: {
+    theme: 'dark',
+    language: 'en',
+    notifications: true
+  },
+  // Indexed fields
+  lastActive: new Date(),
+  version: 1
+};
+
+// ❌ Avoid - forces full scan
+const preferences = [
+  { key: 'theme', value: 'dark' },
+  { key: 'language', value: 'en' },
+  { key: 'notifications', value: true }
+];
+```
+
+### 4. Data Cleanup and Maintenance
+
+Implement cleanup for old data:
+
+```typescript
+export const cleanupOldData = tool({
+  name: 'cleanup_old_data',
+  description: 'Remove old conversation history and temporary data',
+  inputSchema: z.object({
+    daysToKeep: z.number().default(30)
+  }),
+  handler: async ({ daysToKeep }, context) => {
+    const { database } = context;
+    const { token, context: authContext } = getAuthContext("osiris");
+    
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);
+    
+    // Remove old conversation memory
+    await database.delete('conversation_memory', {
+      userId: authContext.sessionId,
+      timestamp: { $lt: cutoffDate }
+    });
+    
+    // Remove completed workflows older than cutoff
+    await database.delete('workflows', {
+      userId: authContext.sessionId,
+      updatedAt: { $lt: cutoffDate },
+      currentStep: { $gte: 0 } // completed workflows
+    });
+    
+    return {
+      content: [{
+        type: 'text',
+        text: `🧹 Cleaned up data older than ${daysToKeep} days`
+      }]
+    };
+  }
+});
+```
+
+---
+
+**Stateful MCPs unlock powerful capabilities** like learning user preferences, maintaining conversation context, and enabling complex workflows that span multiple sessions. Choose the right database adapter for your use case and design your state management with user privacy and performance in mind. 

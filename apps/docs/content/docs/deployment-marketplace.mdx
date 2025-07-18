@@ -1,0 +1,308 @@
+---
+title: Deployment & Marketplace
+description: Deploy your MCPs and earn through the Osiris marketplace
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Tabs, Tab } from 'fumadocs-ui/components/tabs'
+import { Steps, Step } from 'fumadocs-ui/components/steps'
+
+# Deployment & Marketplace
+
+Learn how to deploy your MCP servers and monetize them through the Osiris marketplace.
+
+## Overview
+
+The Osiris platform provides a complete ecosystem for MCP deployment and monetization:
+
+- **Build**: Create MCPs with the Osiris SDK
+- **Deploy**: Host your MCPs on external platforms  
+- **Monetize**: Earn credits through the marketplace
+- **Discover**: Find and use MCPs built by others
+
+<Callout type="info">
+Currently, Osiris doesn't provide native hosting. You'll need to deploy your MCPs on platforms like Vercel, Railway, or Heroku, then connect them to the Osiris marketplace.
+</Callout>
+
+## Deployment Workflow
+
+### 1. Create Your MCP
+
+First, create your MCP project using the Osiris CLI:
+
+```bash
+npx @osiris-ai/cli create-mcp
+```
+
+This generates a complete project structure with:
+- Authentication middleware configured
+- Database adapters
+- Example tools, prompts, and resources
+- Environment configuration
+- Build scripts
+
+### 2. Deploy to External Platform
+
+Since Osiris doesn't provide native hosting yet, deploy your MCP to any platform that supports Node.js:
+
+<Tabs items={['Vercel', 'Railway', 'Heroku', 'Netlify']}>
+  <Tab value="Vercel">
+    ```bash
+    # Install Vercel CLI
+    npm i -g vercel
+    
+    # Deploy your MCP
+    cd your-mcp-project
+    vercel --prod
+    ```
+    
+    Vercel will provide you with a deployment URL like `https://your-mcp.vercel.app`
+  </Tab>
+  
+  <Tab value="Railway">
+    ```bash
+    # Install Railway CLI
+    npm install -g @railway/cli
+    
+    # Login and deploy
+    railway login
+    railway init
+    railway up
+    ```
+    
+    Railway will provide a deployment URL like `https://your-mcp.railway.app`
+  </Tab>
+  
+  <Tab value="Heroku">
+    ```bash
+    # Install Heroku CLI and deploy
+    heroku create your-mcp-name
+    git push heroku main
+    ```
+    
+    Heroku will provide a URL like `https://your-mcp-name.herokuapp.com`
+  </Tab>
+  
+  <Tab value="Netlify">
+    ```bash
+    # Install Netlify CLI
+    npm install -g netlify-cli
+    
+    # Deploy
+    netlify deploy --prod
+    ```
+    
+    Netlify will provide a deployment URL
+  </Tab>
+</Tabs>
+
+### 3. Connect to Osiris Marketplace
+
+Once deployed, connect your MCP to the Osiris marketplace:
+
+```bash
+npx @osiris-ai/cli connect-mcp-auth
+```
+
+This command will:
+- Prompt for your deployed MCP URL
+- Configure authentication connections
+- Set up scopes and policies
+- Create a marketplace listing
+- Generate deployment credentials
+
+<Steps>
+  <Step>
+    Select the MCP package you want to deploy
+  </Step>
+  <Step>
+    Provide your deployed URL (e.g., `https://your-mcp.vercel.app`)
+  </Step>
+  <Step>
+    Choose authentication connections to link
+  </Step>
+  <Step>
+    Configure scopes and policies
+  </Step>
+  <Step>
+    Your MCP is now live in the marketplace!
+  </Step>
+</Steps>
+
+## Marketplace Features
+
+### Discovery & Installation
+
+Users can discover your MCP through:
+
+- **Search**: Semantic search across MCP descriptions and capabilities
+- **Categories**: Browse by type (Assistant, Productivity, Data, etc.)
+- **Filtering**: Filter by pricing, verification status, and features
+- **Recommendations**: AI-powered suggestions based on user needs
+
+### Monetization Models
+
+The Osiris marketplace supports flexible pricing:
+
+#### Per-Install Pricing
+Charge users a one-time fee to install your MCP:
+
+```typescript
+// Set install pricing in your MCP metadata
+{
+  pricing: {
+    install: 5.00  // $5.00 one-time fee
+  }
+}
+```
+
+#### Per-Deployment Pricing
+Charge for each deployment instance:
+
+```typescript
+{
+  pricing: {
+    deployment: 10.00  // $10.00 per deployment
+  }
+}
+```
+
+#### Per-Call Pricing
+Charge per API call or action:
+
+```typescript
+{
+  pricing: {
+    actions: {
+      "send_email": 0.10,      // $0.10 per email sent
+      "analyze_data": 0.50,    // $0.50 per analysis
+      "default": 0.01          // $0.01 for other actions
+    }
+  }
+}
+```
+
+#### Freemium Model
+Offer basic features for free with premium upgrades:
+
+```typescript
+{
+  pricing: {
+    install: 0,  // Free to install
+    actions: {
+      "basic_search": 0,       // Free basic features
+      "advanced_search": 0.25  // Paid premium features
+    }
+  }
+}
+```
+
+### Credit System
+
+The marketplace uses a credit-based payment system:
+
+- **1 Credit = $1 USD**
+- **Users** purchase credits to use MCPs
+- **Developers** earn credits from MCP usage and Knowledge Bases
+
+#### For Users
+- Purchase credits via Stripe or crypto
+- Credits are automatically deducted for MCP usage
+- Transparent pricing displayed upfront
+- Usage analytics and spending reports
+
+#### For Developers
+- Earn credits from MCP sales and usage
+- Real-time earnings dashboard
+- Automatic payouts to bank accounts or crypto wallets
+- Revenue analytics and user insights
+
+## Managing Deployments
+
+### Update Policies
+
+Modify deployment policies using the CLI:
+
+```bash
+npx @osiris-ai/cli update-mcp
+```
+
+This allows you to:
+- Update the MCP's metadata
+- Modify scope restrictions
+- Change authentication requirements
+- Update pricing models	(coming soon)
+
+### Monitor Usage
+
+Track your MCP performance:
+
+```bash
+npx @osiris-ai/cli list-mcp
+```
+
+Access detailed analytics via the [Osiris Hub dashboard](https://osirislabs.xyz):
+- Usage metrics and trends
+- Revenue and earnings
+- User feedback and ratings
+- Performance monitoring
+
+### Version Management
+
+Deploy new versions of your MCP:
+
+1. Update your code and deploy to your hosting platform
+2. Update the package version in your `osiris.json`
+3. Run `update-mcp` again with the new version
+
+The marketplace supports:
+- **Semantic versioning** (1.0.0, 1.1.0, etc.)
+- **Backward compatibility** indicators
+- **Migration guides** for breaking changes
+- **Rollback capabilities** for failed deployments
+
+## Best Practices
+
+### Security
+- Always validate and sanitize user inputs
+- Use proper authentication and authorization
+- Implement rate limiting for API endpoints
+- Keep dependencies updated
+- Be secure from prompt injection and PII leakage
+
+### User Experience
+- Provide clear description of the MCP's capabilities
+- Implement proper error handling and messaging
+
+## Upcoming Features
+
+<Callout type="warn">
+**We're Hiring!** 
+We're actively building native deployment infrastructure and looking for talented Backend and AI Engineers to join our team. Interested? Join our [Discord community](https://discord.gg/v4prpEyw) and let us know!
+</Callout>
+
+### Native Hosting (Coming Soon)
+- **One-click deployment** directly from the CLI
+- **Auto-scaling infrastructure** that grows with your MCP
+- **Built-in monitoring** and logging
+- **Edge deployment** for global performance
+- **Zero-config SSL** and custom domains
+
+## Getting Help
+
+### Documentation
+- [SDK Reference](/sdk) - Complete SDK documentation
+- [Authentication Guide](/authenticators) - Setting up auth providers
+- [Policy Engine](/policy-engine) - Configuring access controls
+
+### Community Support
+- [Discord Community](https://discord.gg/v4prpEyw) - Get help and share ideas
+- [GitHub Issues](https://github.com/osiris-labs/osiris) - Report bugs and request features
+- [Developer Forum](https://forum.osirislabs.xyz) - Technical discussions and best practices
+
+### Direct Support
+- **Email**: osiris@fetcch.xyz
+
+---
+
+Ready to deploy your first MCP? Start with our [Getting Started guide](/getting-started) or dive into the [SDK documentation](/sdk). 

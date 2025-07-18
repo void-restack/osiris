@@ -3,50 +3,113 @@ title: Authenticators
 description: All available authentication methods in the Osiris ecosystem
 ---
 
-Osiris provides multiple authentication methods to securely connect MCPs with external services and user wallets. Each authenticator is designed for specific use cases and security requirements.
+import { Callout } from 'fumadocs-ui/components/callout';
 
-## No Client IDs or Secrets Required
+Osiris provides multiple authentication methods to securely connect MCPs with external services and user wallets. All authentication is handled automatically through the Osiris Hub—**no client credentials or OAuth setup required**.
 
-Developers **do not need to acquire or manage any client IDs or secrets** for any authenticator. All authentication flows are securely handled by the Osiris Auth Hub:
+## Zero Configuration Authentication
 
-- **No manual setup** of OAuth credentials for Google, GitHub, Discord, etc.
-- **No risk** of leaking sensitive secrets in your codebase or deployment.
-- **Faster onboarding**—just use the Osiris SDK and everything works out of the box.
+Developers **do not need to acquire, configure, or manage any client IDs, secrets, or OAuth credentials**. Osiris handles everything:
 
-## Secure by Design: Auth Hub & Action Logging
+- ✅ **No OAuth setup**—All provider integrations are pre-configured
+- ✅ **No credential management**—Tokens are handled by the Hub
+- ✅ **No environment variables**—No secrets in your codebase
+- ✅ **Automatic token refresh**—Built-in token lifecycle management
+- ✅ **Scope validation**—User permissions enforced automatically
 
-- **All authentications and token management** are handled by the Osiris Auth Hub, providing a unified, secure, and up-to-date authentication layer for every MCP.
-- **Every action taken by an MCP is logged** and made visible to the user in a comprehensive dashboard.
-- **Users can review all actions** performed on their behalf, giving them full transparency and confidence in both the MCP and its developer.
-- **Developers benefit from user trust** and can focus on building features, not auth infrastructure.
+## How It Works
+
+1. **MCP Declaration**: Your MCP declares which services and scopes it needs
+2. **User Authentication**: Users authenticate through the Osiris Hub interface
+3. **Automatic Access**: Your MCP gets authenticated access through `getAuthContext()`
+4. **Action Execution**: All service calls are routed through the Hub action API
+
+## Authentication Context
+
+All authenticators work through the unified authentication context:
+
+```typescript
+import { getAuthContext } from '@osiris-ai/sdk';
+
+// Get authentication context in any tool
+const { token, context } = getAuthContext("osiris");
+
+if (!token || !context) {
+  return createErrorResponse("User not authenticated");
+}
+
+// Use Hub action API for service calls
+const response = await fetch(`https://api.osirislabs.xyz/v1/hub/action/${context.deploymentId}/gmail`, {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${token.access_token}`,
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    // Service-specific parameters
+  })
+});
+```
 
 ## OAuth Authenticators
 
-OAuth authenticators provide secure integration with third-party services using industry-standard OAuth 2.0 flows.
+OAuth authenticators provide secure integration with third-party services using industry-standard OAuth 2.0 flows handled by the Hub.
 
-### Google Authenticator
+<Callout type="success">
+The following authenticators are **currently available** and ready to use in your MCPs.
+</Callout>
+
+### Google Services
 
 Connect to Google services including Gmail, Calendar, Drive, and Sheets.
 
 ```typescript
-import { GoogleAuthenticator } from '@osiris-ai/sdk';
+import { createHubGmailClient } from '@osiris-ai/google-sdk';
+import { getAuthContext } from '@osiris-ai/sdk';
 
-const googleAuthenticator = new GoogleAuthenticator(
-    ['https://www.googleapis.com/auth/gmail.send', 'https://www.googleapis.com/auth/calendar'],
-    {
-        clientId: process.env.GOOGLE_CLIENT_ID,
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-        redirectUri: process.env.GOOGLE_REDIRECT_URI,
+// In your MCP tool
+server.tool(
+  'send_email',
+  'Send an email through Gmail',
+  {
+    to: z.string().email(),
+    subject: z.string(),
+    body: z.string()
+  },
+  async ({ to, subject, body }) => {
+    const { token, context } = getAuthContext("osiris");
+    if (!token || !context) {
+      return createErrorResponse("User not authenticated");
     }
+    
+    // Create authenticated Gmail client through Hub
+    const gmail = await createHubGmailClient({
+      hubBaseUrl: "https://api.osirislabs.xyz/v1",
+      token: token,
+      context: context
+    });
+    
+    // Send email with authenticated client
+    const result = await gmail.users.messages.send({
+      userId: 'me',
+      requestBody: { /* email data */ }
+    });
+    
+    return createSuccessResponse("Email sent", { messageId: result.data.id });
+  }
 );
 ```
 
-**Supported Scopes:**
-- `gmail.send` - Send emails
-- `gmail.readonly` - Read emails
-- `calendar` - Manage calendar events
-- `drive` - Access Google Drive files
-- `sheets` - Read and write Google Sheets
+**Available Scopes:**
+- `gmail:send` - Send emails
+- `gmail:read` - Read emails and attachments
+- `gmail:modify` - Full Gmail access
+- `calendar:read` - Read calendar events
+- `calendar:write` - Create and modify calendar events
+- `drive:read` - Read Google Drive files
+- `drive:write` - Create and modify Drive files
+- `sheets:read` - Read Google Sheets
+- `sheets:write` - Create and modify Sheets
 
 **Use Cases:**
 - Email automation and management
@@ -54,28 +117,57 @@ const googleAuthenticator = new GoogleAuthenticator(
 - Document and file management
 - Spreadsheet data analysis
 
-### GitHub Authenticator
+### GitHub Integration
 
 Integrate with GitHub repositories, issues, and pull requests.
 
 ```typescript
-import { GitHubAuthenticator } from '@osiris-ai/sdk';
+import { createHubGithubClient } from '@osiris-ai/github-sdk';
+import { getAuthContext } from '@osiris-ai/sdk';
 
-const githubAuthenticator = new GitHubAuthenticator(
-    ['repo', 'issues:write', 'pull_requests:write'],
-    {
-        clientId: process.env.GITHUB_CLIENT_ID,
-        clientSecret: process.env.GITHUB_CLIENT_SECRET,
-        redirectUri: process.env.GITHUB_REDIRECT_URI,
+server.tool(
+  'create_issue',
+  'Create a GitHub issue',
+  {
+    owner: z.string(),
+    repo: z.string(),
+    title: z.string(),
+    body: z.string()
+  },
+  async ({ owner, repo, title, body }) => {
+    const { token, context } = getAuthContext("osiris");
+    if (!token || !context) {
+      return createErrorResponse("User not authenticated");
     }
+    
+    // Create authenticated GitHub client through Hub
+    const github = await createHubGithubClient({
+      hubBaseUrl: "https://api.osirislabs.xyz/v1",
+      token: token,
+      context: context
+    });
+    
+    // Create issue with authenticated client
+    const issue = await github.rest.issues.create({
+      owner,
+      repo,
+      title,
+      body
+    });
+    
+    return createSuccessResponse("Issue created", { 
+      issueUrl: issue.data.html_url,
+      issueNumber: issue.data.number
+    });
+  }
 );
 ```
 
-**Supported Scopes:**
-- `repo` - Full repository access
-- `issues:write` - Create and manage issues
-- `pull_requests:write` - Create and manage pull requests
-- `user:email` - Access user email addresses
+**Available Scopes:**
+- `github:repo` - Full repository access
+- `github:issues:write` - Create and manage issues
+- `github:pull_requests:write` - Create and manage pull requests
+- `github:user:email` - Access user email addresses
 
 **Use Cases:**
 - Repository management and automation
@@ -83,28 +175,15 @@ const githubAuthenticator = new GitHubAuthenticator(
 - Code review and collaboration
 - CI/CD integration
 
-### Discord Authenticator
+### Discord Integration
 
 Connect to Discord servers and channels for community management.
 
-```typescript
-import { DiscordAuthenticator } from '@osiris-ai/sdk';
-
-const discordAuthenticator = new DiscordAuthenticator(
-    ['bot', 'messages.read', 'messages.write'],
-    {
-        clientId: process.env.DISCORD_CLIENT_ID,
-        clientSecret: process.env.DISCORD_CLIENT_SECRET,
-        redirectUri: process.env.DISCORD_REDIRECT_URI,
-    }
-);
-```
-
-**Supported Scopes:**
-- `bot` - Basic bot permissions
-- `messages.read` - Read messages in channels
-- `messages.write` - Send messages to channels
-- `guilds` - Access server information
+**Available Scopes:**
+- `discord:bot` - Basic bot permissions
+- `discord:messages:read` - Read messages in channels
+- `discord:messages:write` - Send messages to channels
+- `discord:guilds` - Access server information
 
 **Use Cases:**
 - Community management and moderation
@@ -112,27 +191,14 @@ const discordAuthenticator = new DiscordAuthenticator(
 - Bot interactions and commands
 - Server analytics and monitoring
 
-### Linear Authenticator
+### Linear Integration
 
 Integrate with Linear for project management and issue tracking.
 
-```typescript
-import { LinearAuthenticator } from '@osiris-ai/sdk';
-
-const linearAuthenticator = new LinearAuthenticator(
-    ['read', 'write'],
-    {
-        clientId: process.env.LINEAR_CLIENT_ID,
-        clientSecret: process.env.LINEAR_CLIENT_SECRET,
-        redirectUri: process.env.LINEAR_REDIRECT_URI,
-    }
-);
-```
-
-**Supported Scopes:**
-- `read` - Read access to Linear data
-- `write` - Create and update Linear issues
-- `admin` - Administrative access
+**Available Scopes:**
+- `linear:read` - Read access to Linear data
+- `linear:write` - Create and update Linear issues
+- `linear:admin` - Administrative access
 
 **Use Cases:**
 - Project management automation
@@ -140,28 +206,15 @@ const linearAuthenticator = new LinearAuthenticator(
 - Sprint planning and management
 - Team productivity analytics
 
-### Slack Authenticator
+### Slack Integration
 
 Connect to Slack workspaces for team communication and automation.
 
-```typescript
-import { SlackAuthenticator } from '@osiris-ai/sdk';
-
-const slackAuthenticator = new SlackAuthenticator(
-    ['channels:read', 'chat:write', 'users:read'],
-    {
-        clientId: process.env.SLACK_CLIENT_ID,
-        clientSecret: process.env.SLACK_CLIENT_SECRET,
-        redirectUri: process.env.SLACK_REDIRECT_URI,
-    }
-);
-```
-
-**Supported Scopes:**
-- `channels:read` - Read channel information
-- `chat:write` - Send messages to channels
-- `users:read` - Read user information
-- `files:write` - Upload files to Slack
+**Available Scopes:**
+- `slack:channels:read` - Read channel information
+- `slack:chat:write` - Send messages to channels
+- `slack:users:read` - Read user information
+- `slack:files:write` - Upload files to Slack
 
 **Use Cases:**
 - Team communication automation
@@ -169,27 +222,14 @@ const slackAuthenticator = new SlackAuthenticator(
 - File sharing and collaboration
 - Meeting and event coordination
 
-### Notion Authenticator
+### Notion Integration
 
 Integrate with Notion workspaces for knowledge management.
 
-```typescript
-import { NotionAuthenticator } from '@osiris-ai/sdk';
-
-const notionAuthenticator = new NotionAuthenticator(
-    ['read_content', 'insert_content', 'update_content'],
-    {
-        clientId: process.env.NOTION_CLIENT_ID,
-        clientSecret: process.env.NOTION_CLIENT_SECRET,
-        redirectUri: process.env.NOTION_REDIRECT_URI,
-    }
-);
-```
-
-**Supported Scopes:**
-- `read_content` - Read pages and databases
-- `insert_content` - Create new pages and entries
-- `update_content` - Update existing content
+**Available Scopes:**
+- `notion:read` - Read pages and databases
+- `notion:write` - Create and update content
+- `notion:all` - Full Notion workspace access
 
 **Use Cases:**
 - Knowledge base management
@@ -197,79 +237,329 @@ const notionAuthenticator = new NotionAuthenticator(
 - Project planning and tracking
 - Content creation and publishing
 
-## Wallet Authenticators
+## Coming Soon
 
-Wallet authenticators provide secure access to blockchain wallets with policy enforcement.
+<Callout type="info">
+The following authenticators are currently in development and will be available soon. Want to help prioritize which ones get built first? [Let us know!](https://github.com/osiris-labs/osiris/discussions)
+</Callout>
 
-### Turnkey Wallet
+The following authenticators are currently in development and will be available soon:
 
-Enterprise-grade wallet infrastructure with hardware-backed security.
+### Stripe Integration 🚧
+
+Connect to Stripe for payment processing and financial automation.
 
 ```typescript
-import { TurnkeyWallet } from '@osiris-ai/sdk';
+import { getAuthContext } from '@osiris-ai/sdk';
 
-const turnkeyAuthenticator = new TurnkeyWallet({
-    organizationId: process.env.TURNKEY_ORGANIZATION_ID,
-    apiPublicKey: process.env.TURNKEY_API_PUBLIC_KEY,
-    apiPrivateKey: process.env.TURNKEY_API_PRIVATE_KEY,
-    baseUrl: process.env.TURNKEY_BASE_URL
-});
+server.tool(
+  'create_payment_intent',
+  'Create a payment intent for processing',
+  {
+    amount: z.number(),
+    currency: z.string().default('usd'),
+    customer_email: z.string().email()
+  },
+  async ({ amount, currency, customer_email }) => {
+    const { token, context } = getAuthContext("osiris");
+    if (!token || !context) {
+      return createErrorResponse("User not authenticated");
+    }
+    
+    const response = await fetch(`https://api.osirislabs.xyz/v1/hub/action/${context.deploymentId}/stripe`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token.access_token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        endpoint: '/v1/payment_intents',
+        method: 'POST',
+        data: {
+          amount: amount * 100, // Convert to cents
+          currency,
+          metadata: { customer_email }
+        }
+      })
+    });
+    
+    const paymentIntent = await response.json();
+    return createSuccessResponse("Payment intent created", paymentIntent);
+  }
+);
 ```
+
+**Use Cases:**
+- E-commerce payment processing
+- Subscription management
+- Financial reporting and analytics
+- Customer billing automation
+
+### AWS Services Integration 🚧
+
+Integrate with Amazon Web Services for cloud automation and infrastructure management.
+
+**Use Cases:**
+- File storage and content management
+- Serverless function execution
+- Infrastructure monitoring
+- Cloud resource automation
+
+### Shopify Integration 🚧
+
+Connect to Shopify stores for e-commerce automation and management.
+
+**Use Cases:**
+- Order processing automation
+- Inventory management
+- Customer service automation
+- Sales analytics and reporting
+
+### Figma Integration 🚧
+
+Integrate with Figma for design collaboration and asset management.
+
+**Use Cases:**
+- Design review automation
+- Asset extraction and management
+- Collaboration workflow automation
+- Design system maintenance
+
+### Jira Integration 🚧
+
+Connect to Atlassian Jira for project management and issue tracking.
+
+**Use Cases:**
+- Issue creation and management
+- Project tracking automation
+- Sprint planning assistance
+- Development workflow integration
+
+### Zoom Integration 🚧
+
+Integrate with Zoom for video conferencing and meeting management.
+
+**Use Cases:**
+- Meeting scheduling automation
+- Recording management
+- Attendance tracking
+- Integration with calendar systems
+
+### Microsoft Teams Integration 🚧
+
+Connect to Microsoft Teams for enterprise communication and collaboration.
+
+**Use Cases:**
+- Team communication automation
+- Meeting coordination
+- File sharing and collaboration
+- Workflow notifications
+
+### Airtable Integration 🚧
+
+Integrate with Airtable for database management and workflow automation.
+
+**Use Cases:**
+- Database automation
+- Content management systems
+- Project tracking
+- Data analysis and reporting
+
+### X (Twitter) Integration 🚧
+
+Connect to X (formerly Twitter) for social media automation and content management.
+
+**Use Cases:**
+- Content publishing automation
+- Social media monitoring
+- Community management
+- Analytics and engagement tracking
+
+### Google Maps Integration 🚧
+
+Integrate with Google Maps for location services and geographic data.
+
+**Use Cases:**
+- Location-based services
+- Route planning and optimization
+- Geographic data analysis
+- Local business information
+
+## Wallet Authenticators
+
+Wallet authenticators provide secure access to blockchain wallets with automatic policy enforcement.
+
+<Callout type="success">
+Wallet authentication is **currently available** and production-ready.
+</Callout>
+
+### Turnkey Wallet Integration
+
+Enterprise-grade wallet infrastructure with hardware-backed security and policy enforcement.
+
+```typescript
+import { EVMWalletClient } from '@osiris-ai/web3-evm-sdk';
+import { getAuthContext } from '@osiris-ai/sdk';
+
+export class DeFiMCP {
+  private walletToSession: Record<string, string> = {};
+
+  configureServer(server: McpServer) {
+    // Get user's wallet addresses
+    server.tool(
+      'get_wallet_addresses',
+      'Get available wallet addresses',
+      {},
+      async () => {
+        const { token, context } = getAuthContext("osiris");
+        if (!token || !context) {
+          return createErrorResponse("User not authenticated");
+        }
+        
+        const walletClient = new EVMWalletClient(
+          "https://api.osirislabs.xyz/v1",
+          token.access_token,
+          context.deploymentId
+        );
+        
+        const walletRecords = await walletClient.getWalletRecords();
+        const addresses = walletRecords.map(record => 
+          record.accounts.addresses.map(addr => ({
+            address: addr.address,
+            chains: addr.chains
+          }))
+        ).flat();
+        
+        return createSuccessResponse("Wallet addresses retrieved", { addresses });
+      }
+    );
+
+    // Choose wallet for session
+    server.tool(
+      'choose_wallet',
+      'Select wallet address for this session',
+      { address: z.string() },
+      async ({ address }) => {
+        const { token, context } = getAuthContext("osiris");
+        if (!token || !context) {
+          return createErrorResponse("User not authenticated");
+        }
+        
+        // Store wallet selection for session
+        this.walletToSession[context.sessionId] = address;
+        
+        return createSuccessResponse("Wallet selected", { address });
+      }
+    );
+
+    // Execute blockchain transaction
+    server.tool(
+      'send_transaction',
+      'Send blockchain transaction with policy validation',
+      {
+        to: z.string(),
+        value: z.string(),
+        data: z.string().optional()
+      },
+      async ({ to, value, data }) => {
+        const { token, context } = getAuthContext("osiris");
+        if (!token || !context) {
+          return createErrorResponse("User not authenticated");
+        }
+        
+        const selectedWallet = this.walletToSession[context.sessionId];
+        if (!selectedWallet) {
+          return createErrorResponse("No wallet selected. Call choose_wallet first.");
+        }
+        
+        const walletClient = new EVMWalletClient(
+          "https://api.osirislabs.xyz/v1",
+          token.access_token,
+          context.deploymentId
+        );
+        
+        // Policy validation happens automatically in the Hub
+        const account = await walletClient.getViemAccount(selectedWallet, "evm:eip155:1");
+        const txHash = await walletClient.sendTransaction({
+          to,
+          value: BigInt(value),
+          data: data as `0x${string}`
+        });
+        
+        return createSuccessResponse("Transaction sent", { 
+          hash: txHash,
+          address: selectedWallet
+        });
+      }
+    );
+  }
+}
+```
+
+<Callout title="Automatic Policy Enforcement">
+**All wallet operations are automatically validated against user-defined policies:**
+- ✅ Transaction amount limits
+- ✅ Allowed recipient addresses
+- ✅ Smart contract interaction rules
+- ✅ Time-based restrictions
+- ✅ Multi-signature requirements
+
+Users set policies through the Osiris Hub, and all transactions are validated automatically.
+</Callout>
 
 **Features:**
 - Hardware-backed security with HSMs
 - Multi-signature wallet support
-- Policy engine integration
+- Automatic policy engine integration
 - Enterprise-grade compliance
+- Cross-chain support (Ethereum, Polygon, BSC, etc.)
 
 **Use Cases:**
 - DeFi protocol interactions
 - Token transfers and swaps
 - Smart contract deployment
 - Institutional trading
-
-**Policy Integration:**
-```typescript
-// Policy engine automatically validates transactions
-const { token, context } = getAuthContext("osiris");
-const client = new EVMWalletClient(hubBaseUrl, token.access_token, context.deploymentId, chainId);
-
-try {
-    const transaction = await client.signTransaction(abi, serializedTx, address);
-    console.log("✅ Transaction approved by policy engine");
-} catch (error) {
-    if (error.message.includes('policy')) {
-        console.log("🚫 Transaction blocked by wallet policy");
-    }
-}
-```
+- Cross-chain operations
 
 ## Secret Sharing Authenticators
 
-Secret sharing authenticators provide secure access to databases and APIs without exposing credentials.
+Secret sharing authenticators provide secure access to databases and APIs without exposing credentials to MCP developers.
 
-### PostgreSQL Secret Sharing
+### Database Access
 
-Secure database access with encrypted credential storage.
+Secure database access with encrypted credential storage handled by the Hub.
 
 ```typescript
-import { PostgresSecretSharingAuthenticator } from '@osiris-ai/sdk';
-
-const postgresAuthenticator = new PostgresSecretSharingAuthenticator();
-
-// Usage in MCP tools
-const context = getAuthContext();
-const response = await fetch(`https://api.osirislabs.xyz/v1/hub/action/${context.deploymentId}/postgres`, {
-    method: "POST",
-    headers: {
-        'Authorization': `Bearer ${context.token}`,
+server.tool(
+  'query_database',
+  'Execute database query with user credentials',
+  {
+    query: z.string(),
+    table: z.string()
+  },
+  async ({ query, table }) => {
+    const { token, context } = getAuthContext("osiris");
+    if (!token || !context) {
+      return createErrorResponse("User not authenticated");
+    }
+    
+    // Execute query through Hub action API
+    const response = await fetch(`https://api.osirislabs.xyz/v1/hub/action/${context.deploymentId}/postgres`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token.access_token}`,
         'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-        sql: `SELECT * FROM user_data WHERE user_id = $1`,
-        params: [context.userId]
-    })
-});
+      },
+      body: JSON.stringify({
+        sql: `SELECT * FROM ${table} WHERE user_id = $1 AND ${query}`,
+        params: [context.sessionId]
+      })
+    });
+    
+    const data = await response.json();
+    return createSuccessResponse("Query executed", data);
+  }
+);
 ```
 
 **Features:**
@@ -277,6 +567,13 @@ const response = await fetch(`https://api.osirislabs.xyz/v1/hub/action/${context
 - User-controlled access
 - Automatic connection management
 - Query parameter sanitization
+- Audit logging
+
+**Supported Databases:**
+- PostgreSQL
+- MongoDB  
+- Redis
+- SQLite
 
 **Use Cases:**
 - User data storage and retrieval
@@ -284,228 +581,66 @@ const response = await fetch(`https://api.osirislabs.xyz/v1/hub/action/${context
 - Configuration management
 - Audit logging
 
-## Authentication Flow
+## MCP Configuration
 
-### OAuth Flow
-
-1. **Authorization Request**: User is redirected to OAuth provider
-2. **User Consent**: User grants permissions to the MCP
-3. **Authorization Code**: Provider returns code to callback URL
-4. **Token Exchange**: MCP exchanges code for access/refresh tokens
-5. **Token Storage**: Tokens are securely stored in database
-6. **API Access**: Subsequent requests use stored tokens
+Configure your MCP to use Hub authentication:
 
 ```typescript
-// Automatic token management
-const context = getAuthContext();
-if (!context.tokens) {
-    throw new Error('No tokens available. Please authenticate first.');
-}
+import { createMcpServer } from '@osiris-ai/sdk';
+import { PostgresDatabaseAdapter } from '@osiris-ai/postgres-sdk';
 
-const gmail = createHubGmailClient({ hubBaseUrl: process.env.HUB_BASE_URL! });
-const emails = await gmail.users.messages.list({ userId: 'me' });
+await createMcpServer({
+  name: 'my-mcp',
+  version: '1.0.0',
+  auth: {
+    useHub: true,
+    hubConfig: {
+      baseUrl: process.env.HUB_BASE_URL,
+      clientId: process.env.OAUTH_CLIENT_ID,
+      clientSecret: process.env.OAUTH_CLIENT_SECRET,
+    },
+    database: new PostgresDatabaseAdapter({
+      connectionString: process.env.DATABASE_URL
+    })
+  },
+  server: {
+    port: 3001,
+    mcpPath: '/mcp',
+    callbackBasePath: '/callback',
+    baseUrl: process.env.MCP_BASE_URL
+  },
+  configure: (server) => {
+    // Register your tools here
+    myMCP.configureServer(server);
+  }
+});
 ```
 
-### Wallet Flow
+## User Experience
 
-1. **Wallet Request**: MCP requests wallet access
-2. **Policy Validation**: User's wallet policies are loaded
-3. **Transaction Creation**: MCP creates transaction
-4. **Policy Check**: Policy engine validates transaction
-5. **User Approval**: If required, user approves transaction
-6. **Execution**: Transaction is signed and broadcast
+### Authentication Flow
 
-```typescript
-// Policy-enforced wallet operations
-const { token, context } = getAuthContext("osiris");
-const client = new EVMWalletClient(hubBaseUrl, token.access_token, context.deploymentId, chainId);
+1. **User connects MCP**: Through Osiris Hub interface
+2. **Service selection**: User chooses which services to connect (Google, GitHub, etc.)
+3. **Permission granting**: User grants specific scopes through official OAuth flows
+4. **Policy setup**: User configures policies for wallet operations (optional)
+5. **Ready to use**: MCP can now access services on user's behalf
 
-// This will be automatically validated against user's policies
-const result = await client.signTransaction(abi, serializedTx, address);
-```
+### Action Transparency
 
-## Security Features
+- **Complete audit trail**: Every action taken by MCPs is logged
+- **User dashboard**: Users can view all actions in real-time
+- **Permission management**: Users can revoke access at any time
+- **Policy enforcement**: Automatic validation against user-defined rules
 
-### Multi-Tenant Isolation
+### Developer Benefits
 
-Each deployment has isolated authentication and data:
+- **Zero authentication code**: No OAuth flows to implement
+- **Automatic token management**: Refresh, retry, and error handling
+- **Built-in security**: Industry-standard encryption and validation
+- **User trust**: Transparent actions build confidence
+- **Faster development**: Focus on features, not auth infrastructure
 
-```typescript
-const context = getAuthContext();
-console.log('User ID:', context.userId);
-console.log('Deployment ID:', context.deploymentId);
+---
 
-// All operations are automatically scoped to the current user
-const userEmails = await fetchUserEmails(context.userId);
-```
-
-### Token Management
-
-- **Automatic Refresh**: OAuth tokens are automatically refreshed
-- **Secure Storage**: Tokens are encrypted at rest
-- **Scope Validation**: Only requested scopes are granted
-- **Expiration Handling**: Expired tokens trigger re-authentication
-
-### Policy Enforcement
-
-Wallet transactions are protected by user-defined policies:
-
-```typescript
-// User sets wallet policies to prevent:
-// - Transfers above daily limits
-// - Transactions to unknown addresses
-// - Excessive gas fees
-// - Unauthorized contract interactions
-```
-
-## Configuration
-
-### Environment Variables
-
-```bash
-# OAuth Credentials
-GOOGLE_CLIENT_ID=your-google-client-id
-GOOGLE_CLIENT_SECRET=your-google-client-secret
-GOOGLE_REDIRECT_URI=https://your-domain.com/callback/google
-
-GITHUB_CLIENT_ID=your-github-client-id
-GITHUB_CLIENT_SECRET=your-github-client-secret
-GITHUB_REDIRECT_URI=https://your-domain.com/callback/github
-
-DISCORD_CLIENT_ID=your-discord-client-id
-DISCORD_CLIENT_SECRET=your-discord-client-secret
-DISCORD_REDIRECT_URI=https://your-domain.com/callback/discord
-
-LINEAR_CLIENT_ID=your-linear-client-id
-LINEAR_CLIENT_SECRET=your-linear-client-secret
-LINEAR_REDIRECT_URI=https://your-domain.com/callback/linear
-
-SLACK_CLIENT_ID=your-slack-client-id
-SLACK_CLIENT_SECRET=your-slack-client-secret
-SLACK_REDIRECT_URI=https://your-domain.com/callback/slack
-
-NOTION_CLIENT_ID=your-notion-client-id
-NOTION_CLIENT_SECRET=your-notion-client-secret
-NOTION_REDIRECT_URI=https://your-domain.com/callback/notion
-
-# Turnkey Wallet
-TURNKEY_ORGANIZATION_ID=your-turnkey-org-id
-TURNKEY_API_PUBLIC_KEY=your-turnkey-public-key
-TURNKEY_API_PRIVATE_KEY=your-turnkey-private-key
-TURNKEY_BASE_URL=https://api.turnkey.com
-
-# Hub Configuration
-HUB_BASE_URL=https://hub.osiris.dev/v1
-DATABASE_URL=postgresql://user:pass@localhost:5432/mcp_db
-```
-
-### Creating Base Authenticators
-
-```typescript
-import { createBaseAuthenticators } from '@osiris-ai/sdk';
-
-const authenticators = await createBaseAuthenticators();
-
-// Available authenticators:
-// - authenticators.google
-// - authenticators.github
-// - authenticators.discord
-// - authenticators.linear
-// - authenticators.slack
-// - authenticators.notion
-// - authenticators.turnkey
-```
-
-## Best Practices
-
-### 1. Minimal Scopes
-
-Request only the scopes your MCP actually needs:
-
-```typescript
-// ✅ GOOD: Minimal scopes
-const scopes = ['gmail.send']; // Only send emails
-
-// ❌ BAD: Excessive scopes
-const scopes = ['gmail.full_access']; // Full Gmail access
-```
-
-### 2. Secure Credential Storage
-
-Never hardcode credentials in your application:
-
-```typescript
-// ✅ GOOD: Environment variables
-clientSecret: process.env.GOOGLE_CLIENT_SECRET
-
-// ❌ BAD: Hardcoded secrets
-clientSecret: "your-secret-here"
-```
-
-### 3. Error Handling
-
-Provide clear error messages for authentication failures:
-
-```typescript
-try {
-    const context = getAuthContext();
-    if (!context.tokens) {
-        throw new AuthContextError('Authentication required');
-    }
-} catch (error) {
-    if (error instanceof AuthContextError) {
-        return {
-            content: [{
-                type: 'text',
-                text: `🔐 Please authenticate: ${error.authorizationUrl}`
-            }],
-            isError: true
-        };
-    }
-}
-```
-
-### 4. Policy Configuration
-
-Set appropriate wallet policies for your use case:
-
-```typescript
-// For trading MCPs
-const tradingPolicy = new PolicyBuilder()
-    .allowTransfer(
-        { addressInList: trustedExchanges },
-        { bigIntMax: "1000000000000000000" } // 1 ETH max
-    )
-    .denyUnlimitedApprovals()
-    .build();
-```
-
-## Getting Credentials
-
-To use OAuth authenticators, you need to register your application with each service:
-
-1. **Google**: [Google Cloud Console](https://console.cloud.google.com/)
-2. **GitHub**: [GitHub Developer Settings](https://github.com/settings/developers)
-3. **Discord**: [Discord Developer Portal](https://discord.com/developers/applications)
-4. **Linear**: [Linear API Settings](https://linear.app/settings/api)
-5. **Slack**: [Slack API](https://api.slack.com/apps)
-6. **Notion**: [Notion Developers](https://developers.notion.com/)
-
-For Turnkey wallet access, contact [Turnkey](https://turnkey.com/) for enterprise setup.
-
-## Next Steps
-
-<Cards>
-  <Card title="SDK Documentation" href="/sdk">
-    Learn how to use authenticators in your MCPs
-  </Card>
-  <Card title="Policy Engine" href="/policy-engine">
-    Understand wallet security and transaction policies
-  </Card>
-  <Card title="Examples" href="/examples">
-    See authenticators in action with real MCPs
-  </Card>
-  <Card title="Roadmap" href="/roadmap">
-    See what's coming next and contribute ideas
-  </Card>
-</Cards> 
+**Ready to build?** Check out our [Authentication Context](/docs/core-concepts/authentication-context) guide to start using these authenticators in your MCP tools. 

@@ -16,13 +16,16 @@ The fastest way to get started is using the Osiris CLI:
 npm install -g @osiris-ai/cli
 
 # Register account and get credentials
-osiris register
+npx @osiris-ai/cli register
+
+# Create OAuth Client
+npx @osiris-ai/cli create-client
 
 # Connect authentication services
-osiris connect-auth
+npx @osiris-ai/cli connect-auth
 
 # Create your project
-osiris create-app
+npx @osiris-ai/cli create-app
 ```
 
 This creates a complete project with:
@@ -147,63 +150,171 @@ export function configureClient(server: McpServer) {
 
 ## Authentication Architecture
 
-Osiris SDK provides **dual-layer authentication** that secures both user access and LLM interactions:
+Osiris SDK provides **dual-layer authentication** that secures both user access and LLM interactions, with two distinct approaches: **Hub Authentication** and **Local Authentication**.
 
-### Layer 1: User ↔ MCP Authentication
+### Hub vs Local Authentication
 
-#### OAuth Authentication (Hub-Based)
+import { Tabs, TabsContent, TabsList, TabsTrigger } from 'fumadocs-ui/components/tabs';
+
+<Tabs defaultValue="hub">
+<TabsList>
+  <TabsTrigger value="hub">Hub Authentication</TabsTrigger>
+  <TabsTrigger value="local">Local Authentication</TabsTrigger>
+</TabsList>
+
+<TabsContent value="hub">
+
+#### Hub Authentication (Centralized)
+
+**Best for**: Production MCPs, marketplace distribution, simplified setup
+
+```typescript
+await createMcpServer({
+    name: 'my-mcp',
+    version: '1.0.0',
+    auth: {
+        useHub: true,
+        hubConfig: {
+            baseUrl: 'https://hub.osiris.dev/v1',
+            clientId: process.env.OAUTH_CLIENT_ID!,
+            clientSecret: process.env.OAUTH_CLIENT_SECRET!,
+        },
+        database: new PostgresDatabaseAdapter({
+            connectionString: process.env.DATABASE_URL!
+        })
+    }
+});
+```
+
+**How it works:**
+1. User authenticates once with Osiris Hub
+2. Hub manages all OAuth tokens centrally  
+3. MCPs receive tokens via hub's proxy system
+4. All API calls route through the hub
+5. Hub handles token refresh automatically
+
+**Benefits:**
+- ✅ **Single Sign-On**: One login for all MCPs
+- ✅ **Zero Token Management**: Hub handles everything
+- ✅ **Enterprise Security**: Secrets never touch your server
+- ✅ **Automatic Refresh**: No token expiry issues
+- ✅ **Marketplace Ready**: Built for distribution
+
+</TabsContent>
+
+<TabsContent value="local">
+
+#### Local Authentication (Direct)
+
+**Best for**: Internal tools, custom flows, maximum control
+
+```typescript
+import { GoogleAuthenticator } from '@osiris-ai/google-sdk';
+import { GitHubAuthenticator } from '@osiris-ai/github-sdk';
+import { PostgresSecretSharingAuthenticator } from '@osiris-ai/postgres-sdk';
+
+await createMcpServer({
+    name: 'my-mcp',
+    version: '1.0.0',
+    auth: {
+        useHub: false,
+        directAuth: {
+            google: new GoogleAuthenticator({
+                clientId: process.env.GOOGLE_CLIENT_ID!,
+                clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+                redirectUri: 'http://localhost:3000/google/callback',
+                allowedScopes: ['gmail.readonly', 'calendar.readonly']
+            }),
+            github: new GitHubAuthenticator({
+                clientId: process.env.GITHUB_CLIENT_ID!,
+                clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+                redirectUri: 'http://localhost:3000/github/callback',
+                allowedScopes: ['repo', 'user']
+            })
+        },
+        database: new PostgresDatabaseAdapter({
+            connectionString: process.env.DATABASE_URL!
+        })
+    }
+});
+```
+
+**How it works:**
+1. Users authenticate directly with each service
+2. MCP server manages tokens locally
+3. Direct API calls to service providers
+4. Local database stores credentials
+
+**Benefits:**
+- ✅ **Full Control**: Custom authentication logic
+- ✅ **No Dependencies**: Independent of external services
+- ✅ **Flexible Storage**: Choose your credential storage
+- ✅ **Custom Flows**: Build unique authentication experiences
+- ✅ **Enterprise Compliance**: Meet specific security requirements
+
+</TabsContent>
+</Tabs>
+
+### Layer 1: Service Authentication Types
+
+#### OAuth Authentication
 **Best for**: API integrations with Google, GitHub, Discord, etc.
 
 ```typescript
-// Automatically configured by CLI
-auth: {
-    useHub: true,
-    hubConfig: {
-        baseUrl: process.env.HUB_BASE_URL!,
-        clientId: process.env.OAUTH_CLIENT_ID!,
-        clientSecret: process.env.OAUTH_CLIENT_SECRET!,
-    }
-}
-
-// In your tools
+// Hub-based OAuth (recommended)
 const context = getAuthContext();
-const googleToken = context.getToken();
+const googleToken = context.getToken('google');
 const gmail = createHubGmailClient({ hubBaseUrl: process.env.HUB_BASE_URL! });
+
+// Local OAuth (direct control)
+const context = getAuthContext();
+const googleToken = context.getToken('google');
+const gmail = new GoogleClient({ accessToken: googleToken.access_token });
 ```
 
-**Security Model**: OAuth scopes define what your MCP can access
-- ✅ Centralized token management through hub
-- ✅ Automatic token refresh
-- ✅ User controls permissions via OAuth scopes
+**Security Model**: OAuth scopes define MCP access permissions
+- ✅ Industry-standard OAuth 2.0 flows
+- ✅ User controls permissions via scopes
+- ✅ Automatic or manual token refresh
 
 #### Secret Sharing (Direct Access)
 **Best for**: Database connections, API keys, internal services
 
 ```typescript
-// Set up via CLI: osiris connect-auth
+// Hub-based secrets
 const context = getAuthContext();
-// Access shared secrets securely
+const dbCredentials = context.getTokens('osiris');
+
+// Local secrets  
+// Currently not supported
 ```
 
-**Security Model**: Direct secret management
-- ✅ Encrypted storage
-- ✅ User-controlled access
+**Security Model**: Direct credential management
+- ✅ Encrypted storage and transmission
+- ✅ User-controlled access and sharing
+- ✅ Custom validation and connection testing
 
 #### Embedded Wallets (Policy Engine Security)
 **Best for**: Blockchain interactions, financial operations
 
 ```typescript
-// From Uniswap MCP example
+// Policy-enforced wallet interactions
 const { token, context } = getAuthContext("osiris");
-const client = new EVMWalletClient(hubBaseUrl, token.access_token, context.deploymentId, chainId);
+const client = new EVMWalletClient(
+    hubBaseUrl, 
+    token.access_token, 
+    context.deploymentId, 
+    chainId
+);
 const walletRecords = await client.getWalletRecords();
 const account = await client.getViemAccount(walletRecords[0].metadata.wallet.addresses[0]);
 ```
 
-**Security Model**: Policy engine enforced at wallet level
-- ✅ User sets policies in their wallet
-- ✅ MCP/LLM cannot execute invalid transactions
-- ✅ Policy rules prevent unauthorized actions
+**Security Model**: **Policy engine enforced at wallet level**
+- ✅ **User sets policies in their wallet**
+- ✅ **MCP/LLM cannot execute invalid transactions**  
+- ✅ **Hardware-backed wallet security**
+- ✅ **Multi-signature support**
 
 ### Layer 2: LLM ↔ MCP Authentication
 
@@ -217,6 +328,203 @@ The Osiris SDK provides clear error messages that LLMs can interpret to guide us
 - ✅ Simplified MCP routing and authentication 
 - ✅ Reduced LLM context requirements
 - ✅ Clear authentication guidance
+
+## Local Authentication APIs
+
+When using local authentication (`useHub: false`), the SDK automatically exposes REST APIs to help users authenticate and manage connections. These APIs enable building custom authentication UIs and workflows.
+
+### Session Management
+
+#### Create Authentication Session
+Start a new authentication session for connecting services:
+
+```http
+POST /deployments/sessions
+Content-Type: application/json
+
+{
+    "packageId": "my-gmail-mcp",
+    "name": "Gmail Integration", 
+    "description": "Access Gmail for email management"
+}
+```
+
+**Response:**
+```json
+{
+    "status": "success",
+    "sessionId": "550e8400-e29b-41d4-a716-446655440000",
+    "availableServices": [
+        {
+            "name": "google",
+            "type": "oauth", 
+            "displayName": "Google",
+            "description": "Google OAuth authentication",
+            "required": false
+        },
+        {
+            "name": "postgres",
+            "type": "secret",
+            "displayName": "PostgreSQL", 
+            "description": "Database connection",
+            "required": false
+        }
+    ],
+    "expiresAt": "2024-01-15T10:30:00Z"
+}
+```
+
+#### Get Session Status
+Check authentication progress and connected services:
+
+```http
+GET /deployments/sessions/{sessionId}
+```
+
+**Response:**
+```json
+{
+    "status": "success",
+    "data": {
+        "sessionId": "550e8400-e29b-41d4-a716-446655440000",
+        "name": "Gmail Integration",
+        "packageId": "my-gmail-mcp",
+        "connectedServices": [
+            {
+                "service": "google",
+                "status": "connected",
+                "userId": "user@gmail.com",
+                "connectedAt": "2024-01-15T10:25:00Z"
+            }
+        ],
+        "readyToCreate": true,
+        "expiresAt": "2024-01-15T10:30:00Z"
+    }
+}
+```
+
+### OAuth Authentication Flow
+
+#### Get Authorization URL
+Generate OAuth authorization URL for a service:
+
+```http
+GET /deployments/sessions/{sessionId}/auth/{service}/authorize
+```
+
+**Response:**
+```json
+{
+    "status": "success",
+    "data": {
+        "authUrl": "https://accounts.google.com/oauth/authorize?client_id=...",
+        "state": "550e8400-e29b-41d4-a716-446655440000"
+    }
+}
+```
+
+#### OAuth Callback
+The SDK automatically handles OAuth callbacks:
+
+```http
+GET /{service}/callback?code={auth_code}&state={session_id}
+```
+
+Users are redirected here after OAuth consent. The SDK processes the callback automatically.
+
+### Secret-Based Authentication
+
+#### Connect with Credentials
+For database connections and API keys:
+
+```http
+POST /deployments/sessions/{sessionId}/auth/{service}/connect
+Content-Type: application/json
+
+{
+    "host": "localhost",
+    "port": 5432,
+    "database": "myapp", 
+    "username": "appuser",
+    "password": "secretpass"
+}
+```
+
+**Response:**
+```json
+{
+    "status": "success",
+    "data": {
+        "session_id": "550e8400-e29b-41d4-a716-446655440000",
+        "service": "postgres",
+        "connectionTest": "passed"
+    }
+}
+```
+
+### Deployment Creation
+
+#### Finalize Deployment
+Create permanent deployment with all connected services:
+
+```http
+POST /deployments/sessions/{sessionId}/create
+```
+
+**Response:**
+```json
+{
+    "status": "success", 
+    "deploymentId": "deployment-123",
+    "connectedServices": ["google", "postgres"],
+    "mcpEndpoint": "http://localhost:3000/mcp"
+}
+```
+
+### Action Execution
+
+#### Execute MCP Actions
+Perform authenticated actions on behalf of users:
+
+```http
+POST /deployments/{deploymentId}/mcp/{service}/action
+Content-Type: application/json
+
+{
+    "method": "GET",
+    "url": "/gmail/v1/users/me/messages",
+    "data": {},
+    "service": "google"
+}
+```
+
+### Building Authentication UIs
+
+Use these APIs to build custom authentication interfaces:
+
+```typescript
+// React example for OAuth flow
+const startOAuthFlow = async (sessionId: string, service: string) => {
+    const response = await fetch(
+        `/deployments/sessions/${sessionId}/auth/${service}/authorize`
+    );
+    const { data } = await response.json();
+    
+    // Redirect user to OAuth provider
+    window.location.href = data.authUrl;
+};
+
+// Check authentication status
+const checkAuthStatus = async (sessionId: string) => {
+    const response = await fetch(`/deployments/sessions/${sessionId}`);
+    const { data } = await response.json();
+    
+    return {
+        connectedServices: data.connectedServices,
+        readyToCreate: data.readyToCreate
+    };
+};
+```
 
 ## Manual MCP Server Setup
 
@@ -618,94 +926,396 @@ DATABASE_URL=postgresql://user:pass@localhost:5432/mcp_db
 MCP_DEPLOYMENT_SECRET=your-deployment-secret
 ```
 
-## Best Practices
+## MCP Development Best Practices
 
-### 1. Use the CLI for Setup
+### 1. Choose the Right Authentication Approach
 
-**✅ RECOMMENDED**: Use the CLI for project setup
+<Callout type="info">
+**Decision Framework**: Hub for marketplace MCPs, Local for enterprise/custom solutions
+</Callout>
+
+#### Hub Authentication
+**Choose when:**
+- Building for marketplace distribution
+- Want simplified setup and maintenance
+- Need automatic token management
+- Targeting non-technical users
+
+```typescript
+// ✅ GOOD: Hub authentication for production MCPs
+auth: {
+    useHub: true,
+    hubConfig: {
+        baseUrl: 'https://hub.osiris.dev/v1',
+        clientId: process.env.OAUTH_CLIENT_ID!,
+        clientSecret: process.env.OAUTH_CLIENT_SECRET!,
+    }
+}
+```
+
+#### Local Authentication
+**Choose when:**
+- Building internal/enterprise tools
+- Need custom authentication flows
+- Have specific compliance requirements
+- Want maximum control over user data
+
+```typescript
+// ✅ GOOD: Local authentication for enterprise MCPs
+auth: {
+    useHub: false,
+    directAuth: {
+        google: new GoogleAuthenticator({...}),
+        postgres: new PostgresAuthenticator({...})
+    }
+}
+```
+
+### 2. Use the CLI for Initial Setup
+
+**✅ RECOMMENDED**: Always start with CLI-generated projects
 ```bash
+# Get properly configured authentication
 osiris register
 osiris connect-auth
 osiris create-app
 ```
 
-**❌ AVOID**: Manual credential management
+**❌ AVOID**: Manual credential management from scratch
 ```bash
-# Don't manually manage OAuth credentials
+# Don't manually configure OAuth without understanding security implications
 ```
 
-### 2. Choose the Right Authentication
+### 3. Handle Authentication Context Properly
 
-**OAuth** for external APIs:
-- ✅ Google, GitHub, Discord APIs
-- ✅ Centralized token management
-- ✅ User controls permissions
-
-**Embedded Wallets** for blockchain:
-- ✅ DeFi interactions, token transfers  
-- ✅ Policy engine prevents invalid transactions
-- ✅ Hardware-backed security
-
-### 3. Handle Context Properly
-
+#### Basic Context Validation
 ```typescript
-// ✅ GOOD: Check for auth context
+// ✅ GOOD: Always validate auth context
 const context = getAuthContext();
 if (!context.tokens) {
-    throw new Error('Authentication required');
+    throw new Error('Authentication required. Please connect your accounts first.');
 }
 
-// ✅ GOOD: Handle wallet context
-const { token, context } = getAuthContext("osiris");
-if (!token || !context) {
-    throw new Error("Wallet authentication required");
-}
+// ❌ BAD: Assuming context exists
+const context = getAuthContext();
+const googleToken = context.getToken('google'); // May throw
 ```
 
-### 4. Implement Stateful Patterns
-
+#### Service-Specific Authentication
 ```typescript
-// ✅ GOOD: Store user state for learning
-server.tool('smart_tool', 'Learns user patterns', schema, async (params) => {
+// ✅ GOOD: Handle service-specific auth
+server.tool('gmail_tool', 'Access Gmail', schema, async (params) => {
     const context = getAuthContext();
+    const googleToken = context.getToken('google');
     
-    // Load user history
-    const history = await getUserHistory(context.userId);
+    if (!googleToken) {
+        return {
+            content: [{
+                type: 'text',
+                text: '🔐 Please connect your Google account to use Gmail features.'
+            }],
+            isError: true
+        };
+    }
     
-    // Make decision based on history
-    const result = await makeDecision(params, history);
-    
-    // Store for future learning
-    await storeUserAction(context.userId, { 
-        params, 
-        result, 
-        timestamp: new Date() 
-    });
-    
-    return result;
+    // Use authenticated client
+    const gmail = createHubGmailClient({ hubBaseUrl: process.env.HUB_BASE_URL! });
+    // ... rest of implementation
 });
 ```
 
-### 5. Use Proper Error Messages
-
+#### Wallet Context for Blockchain Operations
 ```typescript
-// ✅ GOOD: Actionable error messages
+// ✅ GOOD: Handle wallet context for DeFi/crypto operations
+server.tool('swap_tokens', 'Swap tokens on Uniswap', schema, async (params) => {
+    const { token, context } = getAuthContext("osiris");
+    
+    if (!token || !context) {
+        return {
+            content: [{
+                type: 'text',
+                text: '🔐 Please connect your wallet to perform token swaps.'
+            }],
+            isError: true
+        };
+    }
+    
+    // Policy-enforced wallet operations
+    const client = new EVMWalletClient(hubBaseUrl, token.access_token, context.deploymentId, chainId);
+    // ... rest of implementation
+});
+```
+
+### 4. Implement Intelligent Stateful Patterns
+
+#### User Learning and Personalization
+```typescript
+// ✅ GOOD: Learn from user behavior
+server.tool('smart_email_assistant', 'AI email assistant', schema, async (params) => {
+    const context = getAuthContext();
+    
+    // Load user preferences and history
+    const userProfile = await getUserProfile(context.userId);
+    const emailHistory = await getEmailHistory(context.userId);
+    
+    // Make intelligent decisions based on data
+    const recommendation = await generateEmailRecommendation({
+        userProfile,
+        emailHistory,
+        currentRequest: params
+    });
+    
+    // Store interaction for future learning
+    await storeUserInteraction(context.userId, {
+        tool: 'smart_email_assistant',
+        input: params,
+        output: recommendation,
+        timestamp: new Date(),
+        feedback: null // Will be updated if user provides feedback
+    });
+    
+    return recommendation;
+});
+```
+
+#### Cross-Session State Management
+```typescript
+// ✅ GOOD: Maintain state across MCP sessions
+class StatefulMCP {
+    private userSessions = new Map<string, UserSession>();
+    
+    async initializeUserSession(userId: string) {
+        if (!this.userSessions.has(userId)) {
+            const session = await loadUserSession(userId);
+            this.userSessions.set(userId, session);
+        }
+        return this.userSessions.get(userId);
+    }
+    
+    configureServer(server: McpServer) {
+        server.tool('contextual_tool', 'Context-aware tool', schema, async (params) => {
+            const context = getAuthContext();
+            const session = await this.initializeUserSession(context.userId);
+            
+            // Use accumulated context for better responses
+            const result = await processWithContext(params, session.context);
+            
+            // Update session state
+            session.context.push({ input: params, output: result, timestamp: new Date() });
+            await saveUserSession(context.userId, session);
+            
+            return result;
+        });
+    }
+}
+```
+
+### 5. Error Handling and User Experience
+
+#### Actionable Error Messages
+```typescript
+// ✅ GOOD: Provide specific, actionable error messages
 catch (error) {
     if (error instanceof AuthContextError) {
         return {
             content: [{
                 type: 'text',
-                text: `🔐 Please authenticate: ${error.authorizationUrl}`
+                text: `🔐 Authentication required. Please visit: ${error.authorizationUrl}`
             }],
             isError: true
         };
     }
+    
+    if (error.code === 'INSUFFICIENT_PERMISSIONS') {
+        return {
+            content: [{
+                type: 'text',
+                text: `❌ Insufficient permissions. Please grant additional scopes: ${error.requiredScopes.join(', ')}`
+            }],
+            isError: true
+        };
+    }
+    
+    // Log detailed error for debugging
+    console.error('Tool execution error:', {
+        error: error.message,
+        stack: error.stack,
+        userId: context.userId,
+        tool: 'tool_name'
+    });
+    
+    return {
+        content: [{
+            type: 'text',
+            text: '❌ An error occurred. Please try again or contact support.'
+        }],
+        isError: true
+    };
 }
 
-// ❌ BAD: Generic error messages  
+// ❌ BAD: Generic, unhelpful errors
 catch (error) {
     return { content: [{ type: 'text', text: 'Error' }], isError: true };
 }
+```
+
+#### Graceful Degradation
+```typescript
+// ✅ GOOD: Provide alternative functionality when possible
+server.tool('smart_calendar', 'Calendar management', schema, async (params) => {
+    const context = getAuthContext();
+    const googleToken = context.getToken('google');
+    
+    if (!googleToken) {
+        // Fallback to read-only functionality or suggestions
+        return {
+            content: [{
+                type: 'text',
+                text: '📅 I can help you plan your calendar, but to create events I need access to your Google Calendar. Please connect your Google account for full functionality.'
+            }]
+        };
+    }
+    
+    // Full functionality with authentication
+    const calendar = createHubCalendarClient({ hubBaseUrl: process.env.HUB_BASE_URL! });
+    // ... rest of implementation
+});
+```
+
+### 6. Security Best Practices
+
+#### Scope Validation
+```typescript
+// ✅ GOOD: Validate required scopes before operations
+const validateGoogleScopes = (requiredScopes: string[]) => {
+    const context = getAuthContext();
+    const googleToken = context.getToken('google');
+    
+    if (!googleToken) return false;
+    
+    const userScopes = googleToken.scope?.split(' ') || [];
+    return requiredScopes.every(scope => userScopes.includes(scope));
+};
+
+server.tool('delete_emails', 'Delete emails', schema, async (params) => {
+    if (!validateGoogleScopes(['gmail.modify'])) {
+        return {
+            content: [{
+                type: 'text',
+                text: '❌ This operation requires additional permissions. Please reconnect with modify access.'
+            }],
+            isError: true
+        };
+    }
+    
+    // Proceed with delete operation
+});
+```
+
+#### Input Validation and Sanitization
+```typescript
+// ✅ GOOD: Validate and sanitize all inputs
+import { z } from 'zod';
+
+const emailSchema = z.object({
+    to: z.string().email(),
+    subject: z.string().max(998), // RFC 5322 limit
+    body: z.string().max(10000), // Reasonable limit
+    priority: z.enum(['low', 'normal', 'high']).optional()
+});
+
+server.tool('send_email', 'Send email', emailSchema, async (params) => {
+    // Zod validates automatically, but add business logic validation
+    if (params.body.includes('<script>')) {
+        throw new Error('Script tags are not allowed in email content');
+    }
+    
+    // Safe to proceed with validated data
+});
+```
+
+### 7. Performance and Scalability
+
+#### Efficient Token Management
+```typescript
+// ✅ GOOD: Cache frequently accessed data
+class PerformantMCP {
+    private tokenCache = new Map<string, { token: any, expires: Date }>();
+    
+    async getValidToken(service: string) {
+        const cacheKey = `${service}-${context.userId}`;
+        const cached = this.tokenCache.get(cacheKey);
+        
+        if (cached && cached.expires > new Date()) {
+            return cached.token;
+        }
+        
+        const context = getAuthContext();
+        const token = context.getToken(service);
+        
+        // Cache with expiry buffer
+        const expires = new Date(Date.now() + (token.expires_in - 300) * 1000);
+        this.tokenCache.set(cacheKey, { token, expires });
+        
+        return token;
+    }
+}
+```
+
+### 8. Testing and Development
+
+#### Mock Authentication for Testing
+```typescript
+// ✅ GOOD: Create mock authentication for tests
+if (process.env.NODE_ENV === 'test') {
+    // Override getAuthContext for testing
+    const mockContext = {
+        userId: 'test-user',
+        deploymentId: 'test-deployment',
+        tokens: new Map([
+            ['google', { access_token: 'mock-token', expires_in: 3600 }]
+        ]),
+        getToken: (service: string) => mockContext.tokens.get(service)
+    };
+    
+    // Use mock context in tests
+}
+```
+
+### 9. Documentation and Maintenance
+
+#### Document Authentication Requirements
+```typescript
+// ✅ GOOD: Clear documentation for each tool
+server.tool(
+    'gmail_search',
+    'Search Gmail messages (requires Gmail read access)',
+    {
+        query: { 
+            type: 'string', 
+            description: 'Search query (Gmail search syntax)' 
+        }
+    },
+    async (params) => {
+        // Implementation with clear authentication requirements
+    }
+);
+```
+
+#### Version Compatibility
+```typescript
+// ✅ GOOD: Handle API version changes gracefully
+const handleApiCall = async (endpoint: string, data: any) => {
+    try {
+        return await apiCall(endpoint, data);
+    } catch (error) {
+        if (error.status === 410) { // API deprecated
+            // Fall back to newer API or provide migration guidance
+            return await handleApiMigration(endpoint, data);
+        }
+        throw error;
+    }
+};
 ```
 
 ## Next Steps

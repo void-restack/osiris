@@ -1,0 +1,545 @@
+---
+title: Policy-Driven Development
+description: Secure wallet operations with intelligent policy enforcement for signTransaction, signMessage, and signTypedData
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Card, Cards } from 'fumadocs-ui/components/card';
+
+**Policy-Driven Development** enables users to define granular security rules for wallet operations, preventing unauthorized or dangerous transactions while allowing legitimate ones. Policies are enforced automatically before any wallet operation is executed.
+
+<Callout title="Wallet Operations Only">
+**Important**: Policy enforcement is **only active for wallet-based authentication**, not for OAuth or secret sharing. This includes operations like `signTransaction`, `signMessage`, `signTypedData`, and `signRawPayloads`.
+</Callout>
+
+## Why Wallet Policies Matter
+
+Unlike traditional APIs, blockchain transactions are:
+- **🔒 Irreversible** - Once confirmed, cannot be undone
+- **💰 Financial** - Directly involve user's assets and money
+- **🧩 Complex** - Smart contract interactions can have unexpected consequences
+- **⚠️ High-stakes** - Mistakes can result in total loss of funds
+
+Policy enforcement prevents MCPs and LLMs from:
+- 🚫 Transferring more than daily limits
+- 🚫 Sending to blocked/suspicious addresses  
+- 🚫 Paying excessive gas fees
+- 🚫 Interacting with unauthorized contracts
+- 🚫 Executing transactions during off-hours
+- 🚫 Signing malicious messages
+
+## Policy Structure
+
+Policies consist of two rule sets:
+
+```typescript
+interface Policy {
+  allow: Rule[];  // Conditions under which actions are permitted
+  deny: Rule[];   // Conditions under which actions are forbidden
+}
+```
+
+**Evaluation Logic:**
+1. ✅ Action must **NOT** match any `deny` rules
+2. ✅ Action must match **at least one** `allow` rule (if allow rules exist)
+3. ❌ If no allow rules exist, any action not denied is implicitly allowed
+
+## signTransaction Policies
+
+### Uniswap Swap Example
+
+Prevent unauthorized or excessive DeFi trading:
+
+```typescript
+const uniswapPolicy = {
+  allow: [
+    {
+      method: "signTransaction",
+      chain: { const: "evm:eip155:137" }, // Polygon only
+      contractAddress: { 
+        addressEq: "0xE592427A0AEce92De3Edee1F18E0157C05861564" // Uniswap V3 Router
+      },
+      decoded: {
+        functionName: { const: "exactInputSingle" },
+        args: {
+          lengthEq: 1,
+          "0": { // SwapParams struct
+            type: "object",
+            properties: {
+              amountIn: { 
+                bigIntMax: "1000000000000000000" // Max 1 ETH per swap
+              },
+              amountOutMinimum: {
+                bigIntMin: "1" // Must have minimum output protection
+              },
+              recipient: {
+                addressEq: "{{walletAddress}}" // Only to user's wallet
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  deny: [
+    {
+      method: "signTransaction",
+      decoded: {
+        functionName: { const: "exactInputSingle" },
+        args: {
+          "0": {
+            type: "object", 
+            properties: {
+              amountIn: {
+                bigIntMin: "10000000000000000000" // Deny > 10 ETH swaps
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+};
+```
+
+### ERC-20 Approval Policy
+
+Control token approvals to prevent unlimited access:
+
+```typescript
+const approvalPolicy = {
+  allow: [
+    {
+      method: "signTransaction",
+      decoded: {
+        functionName: { const: "approve" },
+        args: {
+          lengthEq: 2,
+          "0": { // spender address
+            addressIn: [
+              "0xE592427A0AEce92De3Edee1F18E0157C05861564", // Uniswap Router
+              "0x1F98431c8aD98523631AE4a59f267346ea31F984"  // Uniswap Factory
+            ]
+          },
+          "1": { // amount
+            bigIntMax: "1000000000000000000000" // Max 1000 tokens
+          }
+        }
+      }
+    }
+  ],
+  deny: [
+    {
+      method: "signTransaction", 
+      decoded: {
+        functionName: { const: "approve" },
+        args: {
+          "1": { 
+            // Deny unlimited approvals (max uint256)
+            eq: "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+          }
+        }
+      }
+    }
+  ]
+};
+```
+
+## signMessage Policies
+
+### Phishing Protection
+
+Prevent signing dangerous messages that could compromise accounts:
+
+```typescript
+const messagePolicy = {
+  allow: [
+    {
+      method: "signMessage",
+      payload: {
+        lengthEq: 1,
+        "0": {
+          type: "string",
+          minLength: 10,
+          maxLength: 500,
+          // Allow login messages
+          pattern: "^(Sign in to|Login to|Authenticate with)"
+        }
+      }
+    }
+  ],
+  deny: [
+    {
+      method: "signMessage",
+      payload: {
+        "0": {
+          anyOf: [
+            { stringContains: "private key" },
+            { stringContains: "seed phrase" },
+            { stringContains: "mnemonic" },
+            { stringContains: "transfer ownership" },
+            { stringContains: "give permission to drain" }
+          ]
+        }
+      }
+    }
+  ]
+};
+```
+
+### SIWE (Sign-In With Ethereum) Policy
+
+Allow only legitimate authentication messages:
+
+```typescript
+const siwePolicy = {
+  allow: [
+    {
+      method: "signMessage",
+      decoded: {
+        messageType: { const: "siwe" },
+        uri: { 
+          pattern: "^https://(app\\.mysite\\.com|localhost:3000)"
+        },
+        chainId: { 
+          enum: [1, 137, 42161] // Mainnet, Polygon, Arbitrum
+        },
+        issuedAt: {
+          // Message must be recent (within 5 minutes)
+          maxAge: 300
+        }
+      }
+    }
+  ],
+  deny: []
+};
+```
+
+## signTypedData Policies
+
+### Hyperliquid Trading Example
+
+Control perpetual trading on Hyperliquid with granular limits:
+
+```typescript
+const hyperliquidPolicy = {
+  allow: [
+    {
+      method: "signTypedData",
+      chain: { const: "evm:eip155:999" }, // Hyperliquid chain
+      decoded: {
+        verifiedOrder: {
+          type: { const: "order" },
+          orders: {
+            type: "array",
+            maxItems: 5,
+            items: {
+              type: "object",
+              properties: {
+                asset: { 
+                  enum: [0, 1, 2] // Only ETH, BTC, SOL
+                },
+                isBuy: { type: "boolean" },
+                limitPx: {
+                  // Price must be within 5% of market
+                  priceRangePercent: 5
+                },
+                sz: {
+                  // Max 1.0 in size per order
+                  maxValue: "1.0"
+                },
+                reduceOnly: { const: false }
+              }
+            }
+          },
+          totalNotionalUsd: {
+            maxValue: "1000.0" // Max $1000 per batch
+          },
+          riskLevel: {
+            enum: ["low", "medium"] // No high-risk orders
+          }
+        }
+      }
+    }
+  ],
+  deny: [
+    {
+      method: "signTypedData",
+      decoded: {
+        verifiedOrder: {
+          type: { const: "order" },
+          orders: {
+            type: "array",
+            items: {
+              properties: {
+                sz: {
+                  // Deny orders > 10.0 size
+                  minValue: "10.0"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+};
+```
+
+### EIP-712 Domain Restrictions
+
+Only allow signing for trusted applications:
+
+```typescript
+const eip712Policy = {
+  allow: [
+    {
+      method: "signTypedData",
+      payload: {
+        lengthEq: 1,
+        "0": {
+          type: "object",
+          properties: {
+            domain: {
+              type: "object",
+              properties: {
+                name: {
+                  enum: ["MyTrustedApp", "Uniswap", "OpenSea"]
+                },
+                verifyingContract: {
+                  addressIn: [
+                    "0x...", // Trusted contract addresses
+                    "0x..."
+                  ]
+                },
+                chainId: {
+                  enum: [1, 137] // Mainnet and Polygon only
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  deny: [
+    {
+      method: "signTypedData",
+      payload: {
+        "0": {
+          properties: {
+            domain: {
+              properties: {
+                name: {
+                  stringContains: "Phishing" // Block obvious scams
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+};
+```
+
+## Policy Implementation in MCPs
+
+### Setting Up Policy Enforcement
+
+When users connect wallets to your MCP, they can define policies during the connection process:
+
+```bash
+npx @osiris-ai/cli connect-mcp-auth
+# User will be prompted to set wallet policies for their MCP connection
+```
+
+### Using PolicyBuilder for Dynamic Policies
+
+Create policies programmatically using the PolicyBuilder:
+
+```typescript
+import { PolicyBuilder } from '@osiris-ai/policy-engine';
+
+const builder = new PolicyBuilder();
+
+// Allow specific token transfers
+builder.allowTransfer(
+  { addressEq: "0x..." }, // to address constraint
+  { bigIntMax: "1000000000000000000" } // max 1 ETH
+);
+
+// Allow safe approvals
+builder.allowApprove(
+  { addressIn: ["0x...", "0x..."] }, // trusted spenders
+  { bigIntMax: "1000000000000000000" } // max approval amount
+);
+
+// Deny unlimited approvals
+builder.denyUnlimitedApprovals();
+
+// Allow message signing with constraints
+builder.allowMessageSigning({
+  maxLength: 200,
+  stringNotContains: ["private key", "seed phrase"]
+});
+
+const policy = builder.build();
+```
+
+### Runtime Policy Validation
+
+The policy engine automatically validates transactions before signing:
+
+```typescript
+import { EVMWalletClient } from '@osiris-ai/web3-evm-sdk';
+import { getAuthContext } from '@osiris-ai/sdk';
+
+export const executeSwap = tool({
+  name: 'execute_swap',
+  description: 'Execute Uniswap token swap',
+  inputSchema: z.object({
+    tokenIn: z.string(),
+    tokenOut: z.string(), 
+    amountIn: z.string()
+  }),
+  handler: async ({ tokenIn, tokenOut, amountIn }) => {
+    const { token, context } = getAuthContext("osiris");
+    if (!token || !context) throw new Error("Not authenticated");
+    
+    const walletClient = new EVMWalletClient(
+      "https://api.osirislabs.xyz/v1",
+      token.access_token,
+      context.deploymentId
+    );
+    
+    // Prepare Uniswap transaction
+    const transaction = prepareSwapTransaction({
+      tokenIn, tokenOut, amountIn
+    });
+    
+    try {
+      // Policy engine automatically validates before signing
+      const signedTx = await walletClient.signTransaction(
+        UNISWAP_ABI,
+        transaction,
+        "evm:eip155:137", // Polygon
+        userWalletAddress
+      );
+      
+      return { success: true, txHash: signedTx };
+      
+    } catch (error: any) {
+      if (error.message.includes('Policy violation')) {
+        return {
+          content: [{
+            type: 'text',
+            text: `❌ Transaction blocked by policy: ${error.message}`
+          }]
+        };
+      }
+      throw error;
+    }
+  }
+});
+```
+
+## Advanced Policy Features
+
+### Gas Fee Protection
+
+```typescript
+const gasFeePolicy = {
+  deny: [
+    {
+      method: "signTransaction",
+      decoded: {
+        anyOf: [
+          { gasPrice: { bigIntMin: "100000000000" } }, // > 100 gwei
+          { maxFeePerGas: { bigIntMin: "100000000000" } }
+        ]
+      }
+    }
+  ]
+};
+```
+
+## Best Practices
+
+### 1. Start Restrictive, Loosen Gradually
+
+```typescript
+// Start with tight controls
+const restrictivePolicy = {
+  allow: [
+    {
+      method: "signTransaction",
+      contractAddress: { addressEq: "0x..." }, // Only one contract
+      decoded: {
+        functionName: { const: "deposit" }, // Only one function
+        args: {
+          "0": { bigIntMax: "100000000000000000" } // Small amounts
+        }
+      }
+    }
+  ]
+};
+```
+
+### 2. Use Allowlists for Critical Operations
+
+```typescript
+const allowlistPolicy = {
+  allow: [
+    {
+      method: "signTransaction",
+      contractAddress: {
+        addressIn: [
+          "0xE592427A0AEce92De3Edee1F18E0157C05861564", // Uniswap
+          "0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9"  // Aave
+        ]
+      }
+    }
+  ]
+};
+```
+
+### 3. Implement Emergency Stops
+
+```typescript
+const emergencyPolicy = {
+  deny: [
+    {
+      method: "signTransaction",
+      metadata: {
+        riskLevel: { const: "high" }
+      }
+    }
+  ]
+};
+```
+
+### 4. Combine Multiple Policy Types
+
+```typescript
+const comprehensivePolicy = {
+  allow: [
+    // Regular trading
+    uniswapPolicy.allow[0],
+    // Safe message signing  
+    messagePolicy.allow[0],
+    // Controlled typed data
+    hyperliquidPolicy.allow[0]
+  ],
+  deny: [
+    // Combine all deny rules
+    ...uniswapPolicy.deny,
+    ...messagePolicy.deny, 
+    ...hyperliquidPolicy.deny
+  ]
+};
+```
+
+---
+
+**Policy-driven development puts users in control** of their wallet security while enabling sophisticated DeFi and Web3 interactions through MCPs. Users define the rules, and the policy engine enforces them automatically. 

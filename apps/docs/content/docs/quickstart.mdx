@@ -1,0 +1,404 @@
+---
+title: Quickstart Guide
+description: Build your first authenticated MCP in 10 minutes using the Osiris CLI
+---
+
+import { Step, Steps } from 'fumadocs-ui/components/steps';
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Card, Cards } from 'fumadocs-ui/components/card';
+
+Get your first authenticated and stateful MCP running in under 10 minutes. This guide will take you from zero to a fully functional MCP that can be used in AI agents.
+
+<Callout title="What You'll Build">
+By the end of this quickstart, you'll have:
+- A fully authenticated MCP with OAuth integration
+- Stateful operations with persistent database storage  
+- Example tools, resources, and prompts
+- A development environment ready for customization
+</Callout>
+
+## Prerequisites
+
+- **Node.js 18+** and npm/yarn/pnpm installed
+- **A GitHub account** (for OAuth setup)
+- **5-10 minutes** of your time
+
+## Step-by-Step Guide
+
+<Steps>
+<Step>
+### Install the Osiris CLI
+
+Install the CLI globally or use npx:
+
+```bash
+# Install globally (recommended)
+npm install -g @osiris-ai/cli
+
+# Or use with npx (no installation needed)
+npx @osiris-ai/cli register
+```
+
+<Callout type="info">
+The CLI automatically handles OAuth setup, database configuration, and project scaffolding.
+</Callout>
+</Step>
+
+<Step>
+### Register Your Account
+
+Create your Osiris account:
+
+```bash
+npx @osiris-ai/cli register
+```
+
+This will:
+- 🔐 Create your secure Osiris account  
+- 🌐 Open browser for authentication
+- 💾 Save configuration locally (`~/.osiris/config.json`)
+- 🔑 Prepare your environment for OAuth clients
+
+You'll be guided through a simple web flow to complete registration.
+</Step>
+
+<Step>
+### Create OAuth Client
+
+Set up OAuth credentials for your MCPs:
+
+```bash
+npx @osiris-ai/cli create-client
+```
+
+This generates:
+- **Client ID** and **Client Secret** for OAuth flows
+- **Callback URLs** for authentication redirects
+- **Scopes** configuration for service access
+- **Environment setup** for your projects
+
+<Callout type="info">
+Your OAuth credentials are automatically saved and will be used for all your MCP projects.
+</Callout>
+</Step>
+
+<Step>
+### Connect Authentication Services
+
+Connect authentication methods to the Osiris Hub:
+
+```bash
+npx @osiris-ai/cli connect-auth
+```
+
+Choose from available authenticators (OAuth, secret sharing, and wallet-based):
+
+<div className="grid grid-cols-2 gap-4 my-4">
+  <div className="border rounded-lg p-4">
+    <h4 className="font-semibold mb-2">🔗 Productivity</h4>
+    <ul className="text-sm space-y-1">
+      <li>• **Google** (Gmail, Calendar, Drive)</li>
+      <li>• **GitHub** (repos, issues, PRs)</li>
+      <li>• **Linear** (projects, tasks)</li>
+      <li>• **Notion** (pages, databases)</li>
+      <li>• **Slack** (channels, messages)</li>
+    </ul>
+  </div>
+  <div className="border rounded-lg p-4">
+    <h4 className="font-semibold mb-2">🌐 Web3 & Data</h4>
+    <ul className="text-sm space-y-1">
+      <li>• **Turnkey** (secure wallets)</li>
+      <li>• **PostgreSQL** (databases)</li>
+      <li>• **MongoDB** (NoSQL)</li>
+      <li>• **Redis** (caching)</li>
+    </ul>
+  </div>
+</div>
+
+These authentication methods are stored securely in the Osiris Hub. You'll connect them to specific MCPs in the next steps with fine-grained scopes and policies.
+</Step>
+
+<Step>
+### Create Your MCP Project
+
+Generate a complete MCP project:
+
+```bash
+npx @osiris-ai/cli create-mcp
+```
+
+The CLI will prompt you for:
+- **Project name** (e.g., `my-first-mcp`)
+- **Language** (TypeScript or JavaScript)
+- **Database adapter** (PostgreSQL, MongoDB, Redis, SQLite)
+- **Authentication services** to include
+
+This generates a complete project structure:
+
+```
+my-first-mcp/
+├── 📄 package.json          # Dependencies and scripts
+├── 📄 .env                  # Auto-configured environment
+├── 📄 .env.example          # Environment template
+├── 📄 osiris.json          # Project configuration
+├── 📄 README.md            # Generated documentation
+├── 📄 tsconfig.json        # TypeScript configuration
+├── 📁 src/
+│   ├── index.ts            # MCP server entry point
+│   ├── client.ts           # Client configuration
+│   ├── tools/
+│   │   └── hello-world.ts  # Example tool
+│   ├── resources/
+│   │   └── hello-world.ts  # Example resource  
+│   ├── prompts/
+│   │   └── hello-world.ts  # Example prompt
+│   └── schema/
+│       └── index.ts        # Type definitions
+```
+</Step>
+
+<Step>
+### Start Development
+
+Navigate to your project and start the development server:
+
+```bash
+cd my-first-mcp
+npm install
+npm run dev
+```
+
+Your MCP server is now running at `http://localhost:3000` with:
+- ✅ Project structure and dependencies ready
+- ✅ Database connected and migrated  
+- ✅ Example tools, resources, and prompts
+- ✅ Hot reload for development
+
+<Callout type="info">
+**Next Step Required**: You still need to connect your hub authentication to this MCP with specific scopes and policies using `connect-mcp-auth`.
+</Callout>
+</Step>
+
+<Step>
+### Connect Hub Authentication to Your MCP
+
+Now create a secure, scoped connection between your hub authentication and your MCP:
+
+```bash
+npx @osiris-ai/cli connect-mcp-auth
+```
+
+This command will:
+- **Select your MCP project** from the list of created projects
+- **Choose hub authentication methods** to connect (from those you added with `connect-auth`)
+- **Set specific scopes** (e.g., Gmail read/write, GitHub repo access)
+- **Define policies** (spending limits for Web3, data access restrictions)
+- **Create secure tokens** with limited permissions for your MCP
+
+<Callout type="success">
+🎉 **Congratulations!** Your MCP now has secure, scoped access to user accounts through the Osiris Hub.
+</Callout>
+</Step>
+</Steps>
+
+## Test Your MCP
+
+### View Available Commands
+
+Use the CLI to inspect your setup:
+
+```bash
+# List connected authentication services in the hub
+npx @osiris-ai/cli list-auth
+
+# List your MCP projects  
+npx @osiris-ai/cli list-mcps
+
+# List active MCP-auth connections with scopes/policies
+npx @osiris-ai/cli list-connections
+```
+
+### Generated MCP Structure
+
+Your MCP includes these key components:
+
+<div className="grid grid-cols-1 md:grid-cols-2 gap-6 my-6">
+  <div className="border rounded-lg p-4">
+    <h4 className="font-semibold mb-3">🔧 **Tools** (Functions)</h4>
+    <p className="text-sm mb-2">Actions your MCP can perform:</p>
+    <ul className="text-xs space-y-1">
+      <li>• `hello_world()` - Example tool function</li>
+      <li>• Authentication context available</li>
+      <li>• Database access included</li>
+    </ul>
+  </div>
+  
+  <div className="border rounded-lg p-4">
+    <h4 className="font-semibold mb-3">📊 **Resources** (Data)</h4>
+    <p className="text-sm mb-2">Information your MCP provides:</p>
+    <ul className="text-xs space-y-1">
+      <li>• `hello_world` - Example resource</li>
+      <li>• User profile data</li>
+      <li>• Authentication status</li>
+    </ul>
+  </div>
+</div>
+
+### Test with Claude Desktop
+
+Add your MCP to Claude Desktop by updating your configuration:
+
+```json
+{
+  "mcpServers": {
+    "my-first-mcp": {
+      "command": "node",
+      "args": ["path/to/my-first-mcp/dist/index.js"],
+      "env": {
+        "NODE_ENV": "production"
+      }
+    }
+  }
+}
+```
+
+## Customize Your MCP
+
+### Add a New Tool
+
+Create a new tool with authentication:
+
+```typescript
+// src/tools/email-tool.ts
+import { createHubGmailClient } from '@osiris-ai/google-sdk';
+import { createMcpServer, getAuthContext } from '@osiris-ai/sdk';
+
+class GmailMCP {
+    configureServer(server) {
+        server.tool('send_email', 'Send an email through Gmail', {
+            to: { type: 'string', description: 'Recipient email' },
+            subject: { type: 'string', description: 'Email subject' },
+            body: { type: 'string', description: 'Email content' }
+        }, async ({ to, subject, body }) => {
+            const gmail = this.getGmailClient();
+            
+            const emailContent = [
+                `To: ${to}`,
+                `Subject: ${subject}`,
+                'MIME-Version: 1.0',
+                'Content-Type: text/plain; charset=UTF-8',
+                '',
+                body
+            ];
+            
+            const raw = Buffer.from(emailContent.join('\r\n'))
+                .toString('base64')
+                .replace(/\+/g, '-')
+                .replace(/\//g, '_');
+            
+            const result = await gmail.users.messages.send({
+                userId: 'me',
+                requestBody: { raw }
+            });
+            
+            return {
+                content: [{
+                    type: 'text',
+                    text: `✅ Email sent successfully! Message ID: ${result.data.id}`
+                }]
+            };
+        });
+    }
+}
+```
+
+### Connect to More Services
+
+Connect your hub authentication to your MCP with specific scopes and policies:
+
+```bash
+# Connect hub authentication to your MCP with controlled access
+npx @osiris-ai/cli connect-mcp-auth
+
+# Add more OAuth providers to the hub
+npx @osiris-ai/cli connect-auth
+```
+
+## Management & Deployment
+
+### Update MCP Authentication
+
+Update the authentication connection policies for your MCP:
+
+```bash
+npx @osiris-ai/cli update-mcp-auth
+```
+
+This allows you to:
+- Update OAuth scopes for your MCP's access
+- Modify policy restrictions (spending limits, etc.)
+- Change which hub authentication methods your MCP can use
+- Adjust permission levels and data access
+
+### Production Deployment
+
+When you're ready to deploy:
+
+1. **Build your MCP**: `npm run build`
+2. **Deploy to Osiris Hub**: Coming soon with `npx @osiris-ai/cli deploy`
+3. **Share with others**: MCPs will be available in the marketplace
+
+## Next Steps
+
+<Cards>
+  <Card title="🔍 Authentication Deep Dive" href="/docs/sdk/authentication">
+    Learn about multi-service OAuth patterns and security
+  </Card>
+  <Card title="🗄️ Database Integration" href="/docs/sdk/database">
+    Master persistent state with database adapters
+  </Card>
+  <Card title="🛡️ Add Policy Enforcement" href="/docs/policy-engine">
+    Secure Web3 transactions with smart policies
+  </Card>
+  <Card title="📚 Browse Examples" href="/docs/examples">
+    See real-world MCP implementations and patterns
+  </Card>
+</Cards>
+
+## CLI Command Reference
+
+Here's a quick reference of all available CLI commands:
+
+<div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-4">
+  <div className="border rounded-lg p-4">
+    <h4 className="font-semibold mb-2">🚀 **Setup Commands**</h4>
+    <ul className="text-sm space-y-1">
+      <li>• `register` - Create Osiris account</li>
+      <li>• `login` - Login to existing account</li>
+      <li>• `create-client` - Setup OAuth client</li>
+      <li>• `connect-auth` - Connect services to hub</li>
+    </ul>
+  </div>
+  
+  <div className="border rounded-lg p-4">
+    <h4 className="font-semibold mb-2">🔧 **Development Commands**</h4>
+    <ul className="text-sm space-y-1">
+      <li>• `create-mcp` - Generate MCP project</li>
+      <li>• `connect-mcp-auth` - Create scoped auth connection</li>
+      <li>• `update-mcp-auth` - Update scopes/policies</li>
+    </ul>
+  </div>
+  
+  <div className="border rounded-lg p-4">
+    <h4 className="font-semibold mb-2">📊 **Management Commands**</h4>
+    <ul className="text-sm space-y-1">
+      <li>• `list-auth` - Show hub authentication methods</li>
+      <li>• `list-mcps` - Show MCP projects</li>
+      <li>• `list-connections` - Show MCP-auth connections</li>
+    </ul>
+  </div>
+</div>
+
+---
+
+**🎯 Ready to build something amazing?** Start customizing your MCP or explore our [comprehensive SDK documentation](/docs/sdk) to unlock advanced features. 

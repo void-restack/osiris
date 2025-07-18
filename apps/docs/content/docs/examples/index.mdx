@@ -11,7 +11,8 @@ Explore real-world MCP implementations built with the Osiris SDK. These examples
 Email management with OAuth authentication
 
 ```typescript
-import { createMcpServer, getAuthContext, createHubGmailClient } from '@osiris-ai/sdk';
+import { createHubGmailClient } from '@osiris-ai/google-sdk';
+import { createMcpServer, getAuthContext } from '@osiris-ai/sdk';
 
 class GmailMCP {
     configureServer(server) {
@@ -159,54 +160,153 @@ class UniswapMCP {
 - Transaction limits and safety checks
 - Support for EVM chains
 
-### Hyperliquid Trader MCP
-Policy-enforced trading assistant
+### Hyperliquid Trading MCP
+Professional trading assistant with policy-enforced wallet security
 
 ```typescript
-export class HyperliquidTrader {
-    async executeMarketOrder(params: {
-        asset: 'ETH' | 'SOL';
-        amount: number;
-        side: 'buy' | 'sell';
-    }) {
+import { EVMWalletClient } from '@osiris-ai/web3-evm-sdk';
+import { createMcpServer, getAuthContext } from '@osiris-ai/sdk';
+
+export class HyperliquidMCP {
+    private hubBaseUrl: string;
+    private walletToSession: Record<string, string> = {};
+
+    constructor(hubBaseUrl: string) {
+        this.hubBaseUrl = hubBaseUrl;
+    }
+
+    configureServer(server: McpServer) {
+        // Wallet Management
+        server.tool('getUserAddresses', 'Get user wallet addresses', {}, 
+            () => this.getUserAddresses()
+        );
+
+        server.tool('chooseWallet', 'Select wallet for trading session', {
+            address: { type: 'string', description: 'Wallet address to use' }
+        }, ({ address }) => this.chooseWallet(address));
+
+        // Market Data
+        server.tool('getBalance', 'Get user balances (perp + spot)', {
+            address: { type: 'string', description: 'User wallet address' }
+        }, ({ address }) => this.getBalance(address));
+
+        server.tool('getPositions', 'Get current trading positions', {
+            address: { type: 'string', description: 'User wallet address' }
+        }, ({ address }) => this.getPositions(address));
+
+        server.tool('getSpotAndPerpPrices', 'Get real-time prices', {
+            symbol: { type: 'string', description: 'Trading symbol (e.g., ETH, BTC)' }
+        }, ({ symbol }) => this.getSpotAndPerpPrices(symbol));
+
+        server.tool('getOrderbook', 'Get orderbook depth', {
+            symbol: { type: 'string', description: 'Trading symbol' }
+        }, ({ symbol }) => this.getOrderbook(symbol));
+
+        // Trading Operations
+        server.tool('leveragePerpTrade', 'Execute leveraged perpetual trade', {
+            requestBody: {
+                type: 'object',
+                description: 'Hyperliquid order request with policy validation'
+            }
+        }, ({ requestBody }) => this.leveragePerpTrade(requestBody));
+
+        server.tool('placeTwapOrder', 'Place Time-Weighted Average Price order', {
+            requestBody: {
+                type: 'object', 
+                description: 'TWAP order configuration'
+            }
+        }, ({ requestBody }) => this.placeTwapOrder(requestBody));
+
+        server.tool('updateLeverage', 'Update position leverage', {
+            requestBody: {
+                type: 'object',
+                description: 'Leverage update request'
+            }
+        }, ({ requestBody }) => this.updateLeverage(requestBody));
+
+        server.tool('transferUsd', 'Transfer USD between accounts', {
+            requestBody: {
+                type: 'object',
+                description: 'USD transfer request'
+            }
+        }, ({ requestBody }) => this.transferUsd(requestBody));
+    }
+
+    // Core trading implementation with policy enforcement
+    async leveragePerpTrade(requestBody: any) {
         const { token, context } = getAuthContext("osiris");
         if (!token || !context) {
             throw new Error("Wallet authentication required");
         }
-        
+
+        const wallet = this.walletToSession[context.sessionId];
+        if (!wallet) {
+            throw new Error("No wallet selected. Use chooseWallet first.");
+        }
+
+        // Build Hyperliquid-specific signed payload
+        const nonce = Date.now();
+        const signTypedDataPayload = this.buildSignTypedDataPayload(
+            requestBody, 
+            nonce, 
+            false // isTestnet
+        );
+
+        // Policy engine validates transaction before signing
         const client = new EVMWalletClient(
-            this.hubBaseUrl, 
-            token.access_token, 
-            context.deploymentId, 
-            this.chainId
+            this.hubBaseUrl,
+            token.access_token,
+            context.deploymentId
         );
-        
-        // Policy engine automatically validates transaction
-        const transaction = await client.signTransaction(
-            abi, 
-            serializedTx, 
-            account.address
+
+        const signature = await client.signTypedData(
+            signTypedDataPayload,
+            "evm:eip155:999", // Hyperliquid chain
+            wallet,
+            {
+                operation: "leveragePerpTrade",
+                ordersCount: requestBody.orders.length,
+                rawAction: requestBody,
+                nonce: nonce
+            }
         );
-        
-        // Store trade for portfolio tracking
-        await this.storeTradeHistory(context.userId, {
-            asset: params.asset,
-            amount: params.amount,
-            side: params.side,
-            hash: transaction.hash,
-            timestamp: new Date()
-        });
-        
-        return transaction;
+
+        // Execute on Hyperliquid exchange
+        return await this.executeOnExchange(requestBody, signature, nonce);
     }
 }
 ```
 
-**Features:**
-- Asset restrictions (ETH and SOL only)
-- Order limits (market orders under $100)
-- Risk management through policy engine
-- Portfolio tracking with persistent state
+**Key Features:**
+
+#### **Wallet Integration**
+- **Embedded Wallets**: Turnkey-powered wallets with hardware security
+- **Policy Enforcement**: User-defined trading policies prevent unauthorized transactions
+- **Multi-Chain Support**: Optimized for Hyperliquid's unique chain requirements
+
+#### **Comprehensive Trading Suite**
+- **Perpetual Futures**: Leveraged trading with up to 50x leverage
+- **Spot Trading**: Direct token purchases and sales
+- **TWAP Orders**: Time-weighted average price execution
+- **Advanced Orders**: Stop-loss, take-profit, and conditional orders
+
+#### **Professional Market Data**
+- **Real-time Pricing**: Spot and perpetual prices with funding rates
+- **Order Book Depth**: Level 2 market data for price discovery
+- **Trade History**: Complete transaction and position tracking
+- **Portfolio Analytics**: P&L tracking and risk metrics
+
+#### **Risk Management**
+- **Position Limits**: User-configurable maximum position sizes
+- **Leverage Controls**: Asset-specific leverage restrictions
+- **Loss Prevention**: Automatic stop-loss policies
+- **Withdrawal Limits**: Daily/weekly withdrawal restrictions
+
+#### **Enterprise Security**
+- **Multi-Signature**: Optional multi-sig wallet requirements
+- **Policy Engine**: Granular transaction validation rules
+- **Audit Trail**: Complete transaction history and compliance logs
+- **Session Management**: Secure wallet selection per trading session
 
 ## Gaming MCPs
 

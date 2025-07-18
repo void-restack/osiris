@@ -1,0 +1,350 @@
+---
+title: Knowledge Bases & Memory
+description: Intelligent knowledge management and memory systems for AI agents and humans
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Cards, Card } from 'fumadocs-ui/components/card';
+
+
+{/*<img src="/knowledge-hub.png" alt="Knowledge Hub Architecture" />*/}
+
+
+<Callout type="warn">
+🚧 **Coming Soon**: Knowledge Bases and Memory systems are part of the upcoming `@osiris-ai/agent-sdk` release. The UI is currently in development. [Join our Discord](https://discord.gg/osiris) for early access updates and to provide feedback on the design!
+</Callout>
+
+Osiris provides intelligent knowledge management and memory systems that enable AI agents and humans to build, share, and monetize collective intelligence. Transform any content into structured knowledge that can be accessed everywhere.
+
+## 🧠 Knowledge Architecture
+
+### Knowledge Hierarchy
+
+Knowledge in Osiris follows a structured hierarchy:
+
+```
+Knowledge Base
+├── Knowledge Sources (Documents, Videos, URLs, etc.)
+	├── Knowledge Unit (Specific insights, mechanisms, processes)
+    ├── Knowledge Unit (Frameworks, analysis, data)
+    └── Knowledge Unit (Connections, implications)
+Memory Systems (Short-term, Long-term, Shared)
+```
+
+### LLM-Powered Knowledge Extraction
+
+Every piece of content is processed by advanced LLMs to extract high-value knowledge:
+
+- **Mechanism Identification**: How systems work and why they behave certain ways
+- **Insight Extraction**: Non-obvious patterns and counterintuitive findings  
+- **Evidence Integration**: Specific data, case studies, and supporting examples
+- **Framework Recognition**: Complete methodologies and problem-solving approaches
+- **Connection Mapping**: Relationships between concepts and domains
+
+## 📚 Knowledge Bases
+
+### Content Sources
+
+Create knowledge bases from diverse content types:
+
+<Cards>
+  <Card title="Documents" icon="📄">
+    PDF, Word, PowerPoint, Excel, RTF, Markdown, Plain Text
+  </Card>
+  <Card title="Web Content" icon="🌐">
+    URLs, blogs, articles, documentation, research papers
+  </Card>
+  <Card title="Videos" icon="🎥">
+    YouTube videos with automatic transcript extraction
+  </Card>
+  <Card title="Images" icon="🖼️">
+    PNG, JPEG, SVG with OCR and visual analysis
+  </Card>
+  <Card title="Structured Data" icon="📊">
+    JSON, YAML, XML, CSV spreadsheets
+  </Card>
+  <Card title="Direct Input" icon="✍️">
+    Manual text entry, copy-paste content
+  </Card>
+</Cards>
+
+### API Integration
+
+<Callout type="warn">
+🚧 **Coming Soon**: These APIs are part of the upcoming `@osiris-ai/agent-sdk` package.
+</Callout>
+
+```typescript
+import { createKnowledgeBase, addKnowledgeSource } from '@osiris-ai/agent-sdk';
+
+// Create a new knowledge base
+const knowledgeBase = await createKnowledgeBase({
+  name: "AI Research Compendium",
+  description: "Cutting-edge AI research papers and insights",
+  tags: ["artificial-intelligence", "research", "machine-learning"],
+  isPublic: true,
+  publicMetadata: {
+    price: 50 // Osiris credits
+  }
+});
+
+// Add various content sources
+await addKnowledgeSource(knowledgeBase.id, {
+  sourceType: 'url',
+  source: 'https://arxiv.org/abs/2023.12345'
+});
+
+await addKnowledgeSource(knowledgeBase.id, {
+  sourceType: 'youtube_url', 
+  source: 'https://youtube.com/watch?v=ai-lecture'
+});
+
+await addKnowledgeSource(knowledgeBase.id, {
+  sourceType: 'file',
+  file: researchPaper.pdf
+});
+```
+
+### Processing Pipeline
+
+<Callout type="info">
+All content processing happens automatically using Claude 3.5 Sonnet for maximum quality and insight extraction.
+</Callout>
+
+1. **Content Ingestion**: Files, URLs, and text are processed and normalized
+2. **LLM Analysis**: Advanced prompts extract high-value knowledge units  
+3. **Knowledge Units**: Structured insights with names, content, tags, and types
+4. **Indexing**: Full-text search and semantic indexing for retrieval
+5. **Ready for Use**: Knowledge becomes available across all Osiris tools
+
+### Knowledge Unit Types
+
+The LLM automatically categorizes extracted knowledge:
+
+- **🔧 Mechanism**: How systems or processes work internally
+- **🏗️ Framework**: Complete methodologies and approaches  
+- **💡 Insight**: Non-obvious patterns and discoveries
+- **📋 Process**: Step-by-step procedures and workflows
+- **📊 Analysis**: Deep examinations revealing patterns and causes
+
+### Example Knowledge Extraction
+
+**Source**: Research paper on distributed systems
+
+**Generated Knowledge Units**:
+```json
+[
+  {
+    "name": "CAP Theorem Trade-offs in Practice",
+    "content": "In distributed systems, the CAP theorem forces choosing between consistency and availability during network partitions. However, practical systems like Cassandra use tunable consistency levels, allowing applications to choose CP or AP behavior per operation. This enables optimizing for different use cases within the same system.",
+    "tags": ["distributed-systems", "cap-theorem", "consistency", "availability"],
+    "type": "mechanism"
+  },
+  {
+    "name": "Leader Election Consensus Algorithm",
+    "content": "Raft consensus algorithm achieves leader election through randomized timeouts. Followers wait random intervals (150-300ms) before becoming candidates. This prevents split votes and ensures exactly one leader emerges. The randomization is crucial - deterministic timeouts lead to perpetual splits.",
+    "tags": ["consensus", "raft", "leader-election", "algorithms"],
+    "type": "process"
+  }
+]
+```
+
+## 🧠 Memory Systems
+
+<Callout type="warn">
+🚧 **Coming Soon**: Memory systems are part of the upcoming `@osiris-ai/agent-sdk` release. [Join Discord](https://discord.gg/osiris) for development updates!
+</Callout>
+
+Osiris implements three types of memory for comprehensive AI agent cognition:
+
+### 1. Short-Term Memory
+
+**Purpose**: Immediate context and working memory for current tasks
+
+- **Conversation History**: Full dialogue context with users
+- **Active Tasks**: Current objectives and progress tracking  
+- **Session State**: Variables, preferences, and temporary data
+- **Recent Actions**: Cache of recent operations and results
+
+```typescript
+// Short-term memory automatically managed
+const conversation = await getConversationHistory("chat-id");
+const activeTasks = await getActiveTasks("task-id");
+```
+
+### 2. Long-Term Memory
+
+**Purpose**: Persistent knowledge and experience accumulation
+
+#### **Knowledge Graphs**
+- Semantic relationships between concepts
+- Cross-domain connections and patterns
+- Hierarchical concept organization
+- Knowledge graph mapping through Auth Hub connectors
+- Cross-platform behavior tracking via native clients
+
+#### **Factual Memory**  
+- Verified facts and data points
+- User preferences and behavior patterns
+- Domain-specific expertise accumulation
+
+#### **Episodic Memory**
+- Significant events and experiences
+- Problem-solving histories
+- Learning milestones and insights
+
+```typescript
+// Long-term memory integration
+const userProfile = await getLongTermProfile("user-id");
+const domainExpertise = await getKnowledgeGraph("machine-learning");
+const pastSolutions = await getEpisodicMemory({
+  domain: "software-architecture",
+  problemType: "scalability"
+});
+```
+
+### 3. Shared Contextual Memory
+
+**Purpose**: Collaborative intelligence and collective learning
+
+- **Team Memory**: Shared knowledge bases and experiences
+- **Organizational Intelligence**: Company-wide insights and practices
+- **Community Wisdom**: Crowdsourced solutions and patterns
+- **Cross-User Learning**: Anonymized patterns and optimizations
+- **Cross Agent Collaboration**: Shared knowledge and insights across agents
+
+```typescript
+// Shared memory access
+const teamKnowledge = await getSharedMemory({
+  scope: "team",
+  teamId: "team-id"
+});
+
+const communityInsights = await getSharedMemory({
+  scope: "community", 
+  domain: "defi-trading",
+  filter: "high-confidence"
+});
+```
+
+## 🌐 Osiris Extension
+
+<Callout type="warn">
+🚧 **Coming Soon**: The Osiris browser extension is currently in development. [Join our Discord](https://discord.gg/osiris) to get notified when it's available for beta testing!
+</Callout>
+
+### Universal Knowledge Access
+
+The upcoming Osiris browser extension will bring your knowledge bases and memory everywhere you work.
+
+**Key Features**:
+- **Context-Aware Suggestions**: Relevant knowledge appears based on current webpage
+- **Universal Search**: Access all knowledge bases from any browser tab
+- **Smart Capture**: One-click knowledge extraction from any content
+- **Memory Integration**: Short and long term memory integration through LLM clients
+- **Cross-Platform Sync**: Same knowledge available across all devices
+
+### Installation & Setup
+
+<Callout type="info">
+🚧 **Coming Soon**: Browser extension installation will be available from major extension stores once released.
+</Callout>
+
+```bash
+# Will be available from browser extension stores
+Chrome Web Store: "Osiris Knowledge Extension" (Coming Soon)
+Firefox Add-ons: "Osiris Universal Knowledge" (Coming Soon)  
+Safari Extensions: "Osiris Memory Assistant" (Coming Soon)
+```
+
+## 💰 Knowledge Marketplace
+
+<Callout type="warn">
+🚧 **Coming Soon**: The Knowledge Marketplace will launch alongside the `@osiris-ai/agent-sdk`. [Join Discord](https://discord.gg/osiris) for marketplace beta access!
+</Callout>
+
+### Monetizing Knowledge
+
+Transform your expertise into revenue streams:
+
+#### **Public Knowledge Bases**
+- Set prices in Osiris credits
+- Automatic licensing and access control
+- Revenue sharing with quality contributors
+- Usage analytics and earnings tracking
+
+#### **Subscription Models**
+- Premium knowledge tiers
+- Regular content updates
+- Exclusive access to specialized domains
+- Community features and discussions
+
+### Marketplace Features
+
+```typescript
+// Create marketable knowledge base
+const commercialBase = await createKnowledgeBase({
+  name: "Advanced DeFi Strategies",
+  description: "Professional trading strategies and risk management",
+  tags: ["defi", "trading", "professional"],
+  isPublic: true,
+  publicMetadata: {
+    price: 100, // Osiris credits
+    category: "finance",
+    difficulty: "advanced",
+    estimatedValue: "high"
+  }
+});
+```
+## 🚀 Getting Started
+
+<Callout type="success">
+💬 **Want Early Access?** [Join our Discord community](https://discord.gg/osiris) to get notified when the Agent SDK and Knowledge Management UI are ready for beta testing!
+</Callout>
+
+### Quick Start Guide (Coming Soon)
+
+1. **Create Knowledge Base**: Upload your first documents or URLs
+2. **Wait for Processing**: LLM extracts knowledge units automatically  
+3. **Explore Results**: Browse generated insights and knowledge units
+4. **Install Extension**: Get universal access across all your tools
+5. **Share & Monetize**: Make valuable knowledge public for credits
+
+### Best Practices
+
+#### **Content Selection**
+- Choose high-quality, authoritative sources
+- Include diverse perspectives and use cases
+- Focus on actionable insights and mechanisms
+- Provide sufficient context and examples
+
+#### **Knowledge Base Organization**
+- Use descriptive, searchable names and tags
+- Group related content in logical hierarchies
+- Regular updates and content refreshes
+- Clear documentation and usage guidelines
+
+#### **Monetization Strategy**
+- Price based on value and uniqueness
+- Provide preview samples and descriptions
+- Build reputation through quality content
+- Engage with community feedback and requests
+
+---
+
+**Ready to build your knowledge empire?** Start with our [Getting Started Guide](/docs/getting-started) and transform your expertise into intelligent, accessible knowledge that works everywhere.
+
+<Cards>
+  <Card title="SDK Integration" href="/docs/sdk">
+    Integrate knowledge bases into your MCPs and applications
+  </Card>
+  <Card title="API Reference" href="/docs/api">
+    Complete API documentation for knowledge management
+  </Card>
+  <Card title="Examples" href="/docs/examples">
+    See knowledge bases in action across different domains
+  </Card>
+  <Card title="Roadmap" href="/docs/roadmap">
+    Upcoming features and improvements to the knowledge system
+  </Card>
+</Cards> 

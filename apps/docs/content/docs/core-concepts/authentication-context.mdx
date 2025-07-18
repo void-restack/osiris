@@ -1,0 +1,619 @@
+---
+title: Authentication Context
+description: Access user data and authenticated clients seamlessly in your MCP tools, prompts, and resources
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Card, Cards } from 'fumadocs-ui/components/card';
+
+The **Authentication Context** is the core mechanism that provides your MCP tools, prompts, and resources with seamless access to authenticated user data and services. No manual token management, no complex OAuth flows—just direct access to user accounts.
+
+## How It Works
+
+When a user connects their accounts to the Osiris Hub and creates scoped connections to your MCP, the authentication context automatically provides:
+
+- ✅ **Authenticated service clients** (Gmail, GitHub, Discord, etc.)
+- ✅ **Access tokens** with proper scopes and refresh handling
+- ✅ **User context** (session ID, deployment ID, organization info)
+- ✅ **Database connections** with user-specific data access
+
+## Basic Usage
+
+### The `getAuthContext()` Function
+
+Every tool, prompt, and resource can access authentication context using the `getAuthContext()` function:
+
+```typescript
+import { getAuthContext } from '@osiris-ai/sdk';
+import { createSuccessResponse, createErrorResponse } from '../utils/types.js';
+import { z } from 'zod';
+
+// Tool registration in your MCP server configuration
+server.tool(
+  'my_authenticated_tool',
+  'A tool that accesses user data',
+  {
+    query: z.string()
+  },
+  async ({ query }) => {
+    try {
+      // Get authentication context
+      const { token, context } = getAuthContext("osiris");
+      
+      if (!token || !context) {
+        return createErrorResponse("User not authenticated");
+      }
+      
+      // Now you have access to:
+      // - token.access_token: OAuth access token
+      // - context.sessionId: User session identifier  
+      // - context.deploymentId: MCP deployment identifier
+      // - context.organizationId: User's organization
+      
+      return createSuccessResponse("Authentication context retrieved successfully", {
+        sessionId: context.sessionId,
+        deploymentId: context.deploymentId
+      });
+    } catch (error) {
+      return createErrorResponse(error);
+    }
+  }
+);
+```
+
+## Service Client Integration
+
+### Google Services (Gmail, Calendar, Drive)
+
+```typescript
+import { createHubGmailClient } from '@osiris-ai/google-sdk';
+import { getAuthContext } from '@osiris-ai/sdk';
+import { createSuccessResponse, createErrorResponse } from '../utils/types.js';
+import { z } from 'zod';
+
+// Register the send email tool
+server.tool(
+  'send_email',
+  'Send an email using Gmail',
+  {
+    to: z.string().email(),
+    subject: z.string(),
+    body: z.string()
+  },
+  async ({ to, subject, body }) => {
+    try {
+      const { token, context } = getAuthContext("osiris");
+      if (!token || !context) {
+        return createErrorResponse("User not authenticated");
+      }
+      
+      // Create authenticated Gmail client
+      const gmail = await createHubGmailClient({
+        hubBaseUrl: "https://api.osirislabs.xyz/v1",
+        token: token,
+        context: context
+      });
+      
+      // Send email with full authentication
+      const emailContent = [
+        `To: ${to}`,
+        `Subject: ${subject}`,
+        'MIME-Version: 1.0',
+        'Content-Type: text/plain; charset=UTF-8',
+        '',
+        body
+      ];
+      
+      const raw = Buffer.from(emailContent.join('\r\n'))
+        .toString('base64')
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_');
+      
+      const result = await gmail.users.messages.send({
+        userId: 'me',
+        requestBody: { raw }
+      });
+      
+      return createSuccessResponse(
+        `✅ Email sent successfully! Message ID: ${result.data.id}`,
+        { messageId: result.data.id, threadId: result.data.threadId }
+      );
+    } catch (error) {
+      return createErrorResponse(error);
+    }
+  }
+);
+```
+
+### GitHub Integration
+
+```typescript
+import { createHubGithubClient } from '@osiris-ai/github-sdk';
+import { getAuthContext } from '@osiris-ai/sdk';
+import { createSuccessResponse, createErrorResponse } from '../utils/types.js';
+import { z } from 'zod';
+
+// Register the create issue tool
+server.tool(
+  'create_github_issue',
+  'Create a GitHub issue',
+  {
+    owner: z.string(),
+    repo: z.string(),
+    title: z.string(),
+    body: z.string()
+  },
+  async ({ owner, repo, title, body }) => {
+    try {
+      const { token, context } = getAuthContext("osiris");
+      if (!token || !context) {
+        return createErrorResponse("User not authenticated");
+      }
+      
+      // Create authenticated GitHub client
+      const github = await createHubGithubClient({
+        hubBaseUrl: "https://api.osirislabs.xyz/v1",
+        token: token,
+        context: context
+      });
+      
+      // Create issue with user's GitHub account
+      const issue = await github.rest.issues.create({
+        owner,
+        repo,
+        title,
+        body
+      });
+      
+      return createSuccessResponse(
+        `✅ Issue created: ${issue.data.html_url}`,
+        { 
+          issueNumber: issue.data.number,
+          issueUrl: issue.data.html_url,
+          issueId: issue.data.id
+        }
+      );
+    } catch (error) {
+      return createErrorResponse(error);
+    }
+  }
+);
+```
+
+### Wallet Integration (Web3)
+
+```typescript
+import { EVMWalletClient } from '@osiris-ai/web3-evm-sdk';
+import { getAuthContext } from '@osiris-ai/sdk';
+import { createSuccessResponse, createErrorResponse } from '../utils/types.js';
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { z } from 'zod';
+
+export class Web3MCP {
+  private hubBaseUrl: string;
+  private walletToSession: Record<string, string> = {};
+
+  constructor(hubBaseUrl: string) {
+    this.hubBaseUrl = hubBaseUrl;
+  }
+
+  public configureServer(server: McpServer): void {
+    // Get available wallet addresses
+    server.tool(
+      'get_user_addresses',
+      'Get user wallet addresses - call this first to see available wallets',
+      {},
+      async () => {
+        try {
+          const { token, context } = getAuthContext("osiris");
+          if (!token || !context) {
+            return createErrorResponse("User not authenticated");
+          }
+          
+          const walletClient = new EVMWalletClient(
+            this.hubBaseUrl,
+            token.access_token,
+            context.deploymentId
+          );
+          
+          const walletRecords = await walletClient.getWalletRecords();
+          if (walletRecords.length === 0) {
+            return createErrorResponse("No wallet records found");
+          }
+          
+          const addresses = walletRecords.map((record) =>
+            record.accounts.addresses.map((address) => ({
+              address: address.address,
+              chains: address.chains,
+              walletRecordId: record.id
+            }))
+          ).flat();
+          
+          return createSuccessResponse(
+            "Available wallet addresses retrieved",
+            { addresses }
+          );
+        } catch (error) {
+          return createErrorResponse(error);
+        }
+      }
+    );
+
+    // Choose wallet for session
+    server.tool(
+      'choose_wallet',
+      'Choose a wallet address for this session - required before performing wallet operations',
+      {
+        address: z.string()
+      },
+      async ({ address }) => {
+        try {
+          const { token, context } = getAuthContext("osiris");
+          if (!token || !context) {
+            return createErrorResponse("User not authenticated");
+          }
+          
+          const walletClient = new EVMWalletClient(
+            this.hubBaseUrl,
+            token.access_token,
+            context.deploymentId
+          );
+          
+          const walletRecords = await walletClient.getWalletRecords();
+          const walletRecord = walletRecords.find((record) =>
+            record.accounts.addresses.some((addr) =>
+              addr.address.toLowerCase() === address.toLowerCase()
+            )
+          );
+          
+          if (!walletRecord) {
+            return createErrorResponse("Wallet address not found in user records");
+          }
+          
+          // Store wallet selection for this session
+          this.walletToSession[context.sessionId] = address;
+          
+          return createSuccessResponse(
+            "Wallet selected for session",
+            { 
+              address,
+              walletRecordId: walletRecord.id,
+              sessionId: context.sessionId
+            }
+          );
+        } catch (error) {
+          return createErrorResponse(error);
+        }
+      }
+    );
+
+    // Get wallet balance
+    server.tool(
+      'get_wallet_balance',
+      'Get wallet balance for the selected wallet address',
+      {
+        tokenAddress: z.string().optional()
+      },
+      async ({ tokenAddress }) => {
+        try {
+          const { token, context } = getAuthContext("osiris");
+          if (!token || !context) {
+            return createErrorResponse("User not authenticated");
+          }
+          
+          // Check if wallet is selected for this session
+          const selectedWallet = this.walletToSession[context.sessionId];
+          if (!selectedWallet) {
+            return createErrorResponse(
+              "No wallet selected. Please call 'choose_wallet' first with a wallet address."
+            );
+          }
+          
+          // Your wallet balance logic here...
+          
+          return createSuccessResponse(
+            "Wallet balance retrieved",
+            { 
+              address: selectedWallet,
+              balance: "0.0" // Implement actual balance logic
+            }
+          );
+        } catch (error) {
+          return createErrorResponse(error);
+        }
+      }
+    );
+  }
+}
+```
+
+<Callout title="Important: Wallet Session Management">
+**For Web3/wallet operations, users must first choose a wallet address for their session:**
+
+1. **Get Available Wallets**: Call `get_user_addresses` to see all connected wallet addresses
+2. **Choose Wallet**: Call `choose_wallet` with the desired address to set it for the current session  
+3. **Perform Operations**: Now you can call other wallet tools like `get_wallet_balance`, `swap`, etc.
+
+This pattern is required because users can have multiple wallet addresses, and the MCP needs to know which one to use for operations.
+</Callout>
+
+## Database Access
+
+The authentication context provides access to user-specific database storage through the Hub's action API:
+
+```typescript
+import { getAuthContext } from '@osiris-ai/sdk';
+import { createSuccessResponse, createErrorResponse } from '../utils/types.js';
+import { z } from 'zod';
+
+// Register tool in your MCP configure function
+export function configureServer(server: McpServer) {
+  server.tool(
+    'save_preference',
+    'Save user preference to database',
+    {
+      key: z.string(),
+      value: z.string()
+    },
+    async ({ key, value }) => {
+      try {
+        const { token, context } = getAuthContext("osiris");
+        if (!token || !context) {
+          return createErrorResponse("User not authenticated");
+        }
+        
+        // Access database through Hub action API
+        const databaseUrl = `https://api.osirislabs.xyz/v1/hub/action/${context.deploymentId}/postgres`;
+        const sqlQuery = `
+          INSERT INTO user_preferences (user_id, key, value, updated_at) 
+          VALUES ($1, $2, $3, $4)
+          ON CONFLICT (user_id, key) 
+          DO UPDATE SET value = $3, updated_at = $4
+        `;
+        
+        const response = await fetch(databaseUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token.access_token}`
+          },
+          body: JSON.stringify({
+            sql: sqlQuery,
+            params: [context.sessionId, key, value, new Date().toISOString()]
+          })
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Database operation failed: ${response.statusText}`);
+        }
+        
+        return createSuccessResponse(
+          `✅ Preference saved: ${key} = ${value}`,
+          { key, value, userId: context.sessionId }
+        );
+      } catch (error) {
+        return createErrorResponse(error);
+      }
+    }
+  );
+}
+```
+
+### Database Action API Format
+
+All database operations go through the Hub action API:
+
+- **URL**: `/hub/action/${context.deploymentId}/postgres`
+- **Method**: `POST`
+- **Headers**: Include `Authorization: Bearer ${token.access_token}`
+- **Body**: 
+  ```json
+  {
+    "method": "POST",
+    "url": "/postgres", 
+    "data": {
+      "sql": "SELECT * FROM table WHERE id = $1",
+      "params": ["value1"]
+    }
+  }
+  ```
+
+## Context Properties
+
+The authentication context provides these key properties:
+
+<div className="grid grid-cols-1 md:grid-cols-2 gap-6 my-6">
+  <div className="border rounded-lg p-4">
+    <h4 className="font-semibold mb-3">🔑 **Token Properties**</h4>
+    <ul className="text-sm space-y-1">
+      <li>• `access_token` - OAuth access token</li>
+      <li>• `refresh_token` - Token for renewal</li>
+      <li>• `expires_at` - Token expiration</li>
+      <li>• `scopes` - Granted permissions</li>
+    </ul>
+  </div>
+  
+  <div className="border rounded-lg p-4">
+    <h4 className="font-semibold mb-3">📊 **Context Properties**</h4>
+    <ul className="text-sm space-y-1">
+      <li>• `sessionId` - User session identifier</li>
+      <li>• `deploymentId` - MCP deployment ID</li>
+      <li>• `organizationId` - User's organization</li>
+      <li>• `userId` - Unique user identifier</li>
+    </ul>
+  </div>
+</div>
+
+## Error Handling
+
+Osiris automatically handles token refresh and authentication errors. You only need to check for the presence of authentication context:
+
+```typescript
+import { createErrorResponse } from '../utils/types.js';
+
+server.tool(
+  'my_tool',
+  'Tool with simple authentication check',
+  {},
+  async () => {
+    try {
+      const { token, context } = getAuthContext("osiris");
+      
+      if (!token || !context) {
+        return createErrorResponse("User not authenticated");
+      }
+      
+      // Your tool logic here...
+      // Osiris handles token refresh automatically
+      
+    } catch (error) {
+      return createErrorResponse(error);
+    }
+  }
+);
+```
+
+<Callout title="Automatic Token Management">
+**Osiris handles all token management automatically:**
+- ✅ Token refresh when expired
+- ✅ Error messages with authentication guidance
+- ✅ Scope validation and error responses
+- ✅ User-friendly authentication prompts
+
+You only need to check `if (!token || !context)` in your tools.
+</Callout>
+
+## Scoped Access
+
+<Callout title="Security Through Scopes">
+Authentication context only provides access to services and scopes that were explicitly granted during the `connect-mcp-auth` process. If your MCP tries to access a service or scope that wasn't granted, the request will fail with an authorization error.
+</Callout>
+
+For example, if your MCP was granted only `gmail:read` scope, attempting to send emails will fail:
+
+```typescript
+// ✅ This works - reading emails
+const messages = await gmail.users.messages.list({ userId: 'me' });
+
+// ❌ This fails - sending requires 'gmail:send' scope  
+await gmail.users.messages.send({ /* ... */ }); // Error: Insufficient scope
+```
+
+## Tool Registration Pattern
+
+Here's the complete pattern for registering tools in your MCP:
+
+```typescript
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { getAuthContext } from '@osiris-ai/sdk';
+import { createSuccessResponse, createErrorResponse } from './utils/types.js';
+import { z } from 'zod';
+
+export class MyMCP {
+  private hubBaseUrl: string;
+
+  constructor(hubBaseUrl: string) {
+    this.hubBaseUrl = hubBaseUrl;
+  }
+
+  public configureServer(server: McpServer): void {
+    // Register your tools
+    server.tool(
+      'tool_name',
+      'Tool description',
+      {
+        param1: z.string(),
+        param2: z.number().optional()
+      },
+      async ({ param1, param2 }) => {
+        try {
+          const { token, context } = getAuthContext("osiris");
+          if (!token || !context) {
+            return createErrorResponse("User not authenticated");
+          }
+
+          // Your tool implementation here...
+          
+          return createSuccessResponse("Operation completed", { 
+            result: "success" 
+          });
+        } catch (error) {
+          return createErrorResponse(error);
+        }
+      }
+    );
+  }
+}
+```
+
+## Resources and Prompts
+
+Authentication context works the same way in resources and prompts:
+
+```typescript
+// Resource example - registration would be similar with server.resource()
+const getUserProfile = async () => {
+  const { token, context } = getAuthContext("osiris");
+  if (!token || !context) {
+    return { content: "Not authenticated" };
+  }
+  
+  // Return user-specific profile data
+  return {
+    content: `User Session: ${context.sessionId}`,
+    mimeType: 'text/plain'
+  };
+};
+
+// Prompt example - registration would be similar with server.prompt()
+const getPersonalizedPrompt = async () => {
+  const { token, context } = getAuthContext("osiris");
+  
+  return {
+    content: `You are helping user ${context?.sessionId || 'anonymous'}. 
+              Be personalized and helpful based on their authenticated account data.`
+  };
+};
+```
+
+## Best Practices
+
+### 1. Always Check Authentication
+
+```typescript
+const { token, context } = getAuthContext("osiris");
+if (!token || !context) {
+  return createErrorResponse("User not authenticated");
+}
+```
+
+### 2. Handle Token Refresh Automatically
+
+The Osiris Hub automatically handles token refresh—you don't need to manage this manually.
+
+### 3. Use Appropriate Error Messages
+
+Provide helpful error messages when authentication fails:
+
+```typescript
+if (!token) {
+  return createAuthErrorResponse(
+    '🔐 Please connect your Google account using: npx @osiris-ai/cli connect-mcp-auth'
+  );
+}
+```
+
+### 4. Respect Scope Limitations
+
+Only attempt operations that are within your granted scopes. Check the `token.scopes` array if needed.
+
+### 5. Use Proper Response Helpers
+
+Always use the response helper functions:
+- `createSuccessResponse(message, data)` for successful operations
+- `createErrorResponse(error, data)` for general errors  
+- `createAuthErrorResponse(message, details)` for authentication errors
+
+---
+
+**The authentication context makes building authenticated MCPs effortless**—no OAuth flows, no token management, just direct access to user data with proper security and scoping. 
