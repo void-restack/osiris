@@ -6,6 +6,7 @@ description: Build your first authenticated MCP in 10 minutes using the Osiris C
 import { Step, Steps } from 'fumadocs-ui/components/steps';
 import { Callout } from 'fumadocs-ui/components/callout';
 import { Card, Cards } from 'fumadocs-ui/components/card';
+import { Files, File, Folder } from 'fumadocs-ui/components/files';
 
 Get your first authenticated and stateful MCP running in under 10 minutes. This guide will take you from zero to a fully functional MCP that can be used in AI agents.
 
@@ -135,26 +136,30 @@ The CLI will prompt you for:
 
 This generates a complete project structure:
 
-```
-my-first-mcp/
-├── 📄 package.json          # Dependencies and scripts
-├── 📄 .env                  # Auto-configured environment
-├── 📄 .env.example          # Environment template
-├── 📄 osiris.json          # Project configuration
-├── 📄 README.md            # Generated documentation
-├── 📄 tsconfig.json        # TypeScript configuration
-├── 📁 src/
-│   ├── index.ts            # MCP server entry point
-│   ├── client.ts           # Client configuration
-│   ├── tools/
-│   │   └── hello-world.ts  # Example tool
-│   ├── resources/
-│   │   └── hello-world.ts  # Example resource  
-│   ├── prompts/
-│   │   └── hello-world.ts  # Example prompt
-│   └── schema/
-│       └── index.ts        # Type definitions
-```
+<Files>
+  <File name="package.json" hint="Dependencies and scripts" />
+  <File name=".env" hint="Auto-configured environment" />
+  <File name=".env.example" hint="Environment template" />
+  <File name="osiris.json" hint="Project configuration" />
+  <File name="README.md" hint="Generated documentation" />
+  <File name="tsconfig.json" hint="TypeScript configuration" />
+  <Folder name="src" defaultOpen>
+    <File name="index.ts" hint="MCP server entry point" />
+    <File name="client.ts" hint="Client configuration" />
+    <Folder name="tools">
+      <File name="hello-world.ts" hint="Example tool" />
+    </Folder>
+    <Folder name="resources">
+      <File name="hello-world.ts" hint="Example resource" />
+    </Folder>
+    <Folder name="prompts">
+      <File name="hello-world.ts" hint="Example prompt" />
+    </Folder>
+    <Folder name="schema">
+      <File name="index.ts" hint="Type definitions" />
+    </Folder>
+  </Folder>
+</Files>
 </Step>
 
 <Step>

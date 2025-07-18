@@ -55,26 +55,21 @@ const uniswapPolicy = {
   allow: [
     {
       method: "signTransaction",
-      chain: { const: "evm:eip155:137" }, // Polygon only
-      contractAddress: { 
-        addressEq: "0xE592427A0AEce92De3Edee1F18E0157C05861564" // Uniswap V3 Router
-      },
+      chain: "evm:eip155:137", // Polygon only
+      contractAddress: "0xE592427A0AEce92De3Edee1F18E0157C05861564", // Uniswap V3 Router
       decoded: {
-        functionName: { const: "exactInputSingle" },
+        functionName: "exactInputSingle",
         args: {
           lengthEq: 1,
           "0": { // SwapParams struct
-            type: "object",
-            properties: {
-              amountIn: { 
-                bigIntMax: "1000000000000000000" // Max 1 ETH per swap
-              },
-              amountOutMinimum: {
-                bigIntMin: "1" // Must have minimum output protection
-              },
-              recipient: {
-                addressEq: "{{walletAddress}}" // Only to user's wallet
-              }
+            amountIn: { 
+              bigIntMax: "1000000000000000000" // Max 1 ETH per swap
+            },
+            amountOutMinimum: {
+              bigIntMin: "1" // Must have minimum output protection
+            },
+            recipient: {
+              addressEq: "{{walletAddress}}" // Only to user's wallet
             }
           }
         }
@@ -85,14 +80,11 @@ const uniswapPolicy = {
     {
       method: "signTransaction",
       decoded: {
-        functionName: { const: "exactInputSingle" },
+        functionName: "exactInputSingle",
         args: {
           "0": {
-            type: "object", 
-            properties: {
-              amountIn: {
-                bigIntMin: "10000000000000000000" // Deny > 10 ETH swaps
-              }
+            amountIn: {
+              bigIntMin: "10000000000000000000" // Deny > 10 ETH swaps
             }
           }
         }
@@ -112,11 +104,11 @@ const approvalPolicy = {
     {
       method: "signTransaction",
       decoded: {
-        functionName: { const: "approve" },
+        functionName: "approve",
         args: {
           lengthEq: 2,
           "0": { // spender address
-            addressIn: [
+            addressInList: [
               "0xE592427A0AEce92De3Edee1F18E0157C05861564", // Uniswap Router
               "0x1F98431c8aD98523631AE4a59f267346ea31F984"  // Uniswap Factory
             ]
@@ -132,12 +124,9 @@ const approvalPolicy = {
     {
       method: "signTransaction", 
       decoded: {
-        functionName: { const: "approve" },
+        functionName: "approve",
         args: {
-          "1": { 
-            // Deny unlimited approvals (max uint256)
-            eq: "115792089237316195423570985008687907853269984665640564039457584007913129639935"
-          }
+          "1": "115792089237316195423570985008687907853269984665640564039457584007913129639935"
         }
       }
     }
@@ -159,7 +148,6 @@ const messagePolicy = {
       payload: {
         lengthEq: 1,
         "0": {
-          type: "string",
           minLength: 10,
           maxLength: 500,
           // Allow login messages
@@ -197,7 +185,7 @@ const siwePolicy = {
     {
       method: "signMessage",
       decoded: {
-        messageType: { const: "siwe" },
+        messageType: "siwe",
         uri: { 
           pattern: "^https://(app\\.mysite\\.com|localhost:3000)"
         },
@@ -226,38 +214,39 @@ const hyperliquidPolicy = {
   allow: [
     {
       method: "signTypedData",
-      chain: { const: "evm:eip155:999" }, // Hyperliquid chain
+      chain: "evm:eip155:42161", // Arbitrum
       decoded: {
         verifiedOrder: {
-          type: { const: "order" },
+          type: "order",
+          riskLevel: "low",
           orders: {
-            type: "array",
-            maxItems: 5,
-            items: {
-              type: "object",
-              properties: {
-                asset: { 
-                  enum: [0, 1, 2] // Only ETH, BTC, SOL
-                },
-                isBuy: { type: "boolean" },
-                limitPx: {
-                  // Price must be within 5% of market
-                  priceRangePercent: 5
-                },
-                sz: {
-                  // Max 1.0 in size per order
-                  maxValue: "1.0"
-                },
-                reduceOnly: { const: false }
-              }
+            lengthEq: 1,
+            "0": {
+              a: 0, // asset
+              b: true, // isBuy
+              p: {
+                lte: 2000.0 // price limit
+              },
+              r: false // reduceOnly
             }
-          },
-          totalNotionalUsd: {
-            maxValue: "1000.0" // Max $1000 per batch
-          },
-          riskLevel: {
-            enum: ["low", "medium"] // No high-risk orders
-          }
+			    }
+        }
+      }
+    },
+    {
+      method: "signTypedData",
+      decoded: {
+        verifiedOrder: {
+          type: "cancel"
+        }
+      }
+    },
+    {
+      method: "signTypedData",
+      decoded: {
+        verifiedOrder: {
+          type: "withdraw",
+          amount: { numericMax: 500 }
         }
       }
     }
@@ -267,18 +256,16 @@ const hyperliquidPolicy = {
       method: "signTypedData",
       decoded: {
         verifiedOrder: {
-          type: { const: "order" },
-          orders: {
-            type: "array",
-            items: {
-              properties: {
-                sz: {
-                  // Deny orders > 10.0 size
-                  minValue: "10.0"
-                }
-              }
-            }
-          }
+          riskLevel: "high"
+        }
+      }
+    },
+    {
+      method: "signTypedData",
+      decoded: {
+        verifiedOrder: {
+          type: "order",
+          leverage: { numericGt: 10 }
         }
       }
     }
@@ -298,24 +285,18 @@ const eip712Policy = {
       payload: {
         lengthEq: 1,
         "0": {
-          type: "object",
-          properties: {
-            domain: {
-              type: "object",
-              properties: {
-                name: {
-                  enum: ["MyTrustedApp", "Uniswap", "OpenSea"]
-                },
-                verifyingContract: {
-                  addressIn: [
-                    "0x...", // Trusted contract addresses
-                    "0x..."
-                  ]
-                },
-                chainId: {
-                  enum: [1, 137] // Mainnet and Polygon only
-                }
-              }
+          domain: {
+            name: {
+              enum: ["MyTrustedApp", "Uniswap", "OpenSea"]
+            },
+            verifyingContract: {
+              addressInList: [
+                "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D", // Uniswap Router
+                "0x495f947276749Ce646f68AC8c248420045cb7b5e"  // OpenSea Registry
+              ]
+            },
+            chainId: {
+              enum: [1, 137] // Mainnet and Polygon only
             }
           }
         }
@@ -327,13 +308,9 @@ const eip712Policy = {
       method: "signTypedData",
       payload: {
         "0": {
-          properties: {
-            domain: {
-              properties: {
-                name: {
-                  stringContains: "Phishing" // Block obvious scams
-                }
-              }
+          domain: {
+            name: {
+              stringContains: "Phishing" // Block obvious scams
             }
           }
         }
@@ -453,12 +430,10 @@ const gasFeePolicy = {
   deny: [
     {
       method: "signTransaction",
-      decoded: {
-        anyOf: [
-          { gasPrice: { bigIntMin: "100000000000" } }, // > 100 gwei
-          { maxFeePerGas: { bigIntMin: "100000000000" } }
-        ]
-      }
+      anyOf: [
+        { gasPrice: { bigIntMin: "100000000000" } }, // > 100 gwei
+        { maxFeePerGas: { bigIntMin: "100000000000" } }
+      ]
     }
   ]
 };
@@ -474,9 +449,9 @@ const restrictivePolicy = {
   allow: [
     {
       method: "signTransaction",
-      contractAddress: { addressEq: "0x..." }, // Only one contract
+      contractAddress: "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D", // Only one contract
       decoded: {
-        functionName: { const: "deposit" }, // Only one function
+        functionName: "deposit", // Only one function
         args: {
           "0": { bigIntMax: "100000000000000000" } // Small amounts
         }
@@ -494,7 +469,7 @@ const allowlistPolicy = {
     {
       method: "signTransaction",
       contractAddress: {
-        addressIn: [
+        addressInList: [
           "0xE592427A0AEce92De3Edee1F18E0157C05861564", // Uniswap
           "0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9"  // Aave
         ]
@@ -512,7 +487,7 @@ const emergencyPolicy = {
     {
       method: "signTransaction",
       metadata: {
-        riskLevel: { const: "high" }
+        riskLevel: "high"
       }
     }
   ]
