@@ -2,6 +2,7 @@
 title: Policy Engine
 description: Advanced policy enforcement for blockchain transactions and wallet security
 ---
+import { Accordion, Accordions } from 'fumadocs-ui/components/accordion';
 
 The Osiris Policy Engine is a powerful and flexible TypeScript library for defining and enforcing policies on blockchain transactions, with primary focus on EVM-compatible chains and Solana. It provides fine-grained rules to allow or deny operations based on their properties and arguments.
 
@@ -90,6 +91,251 @@ You can define policies directly as JavaScript objects. This is the core way to 
 ```
 
 ## Example Policies
+
+<Accordions>
+  <Accordion title="Create your own policy using this prompt">
+    <p>
+      ~~~
+	  # Policy Creation Rulebook for LLMs
+
+## CORE POLICY CREATION PRINCIPLES
+
+### RULE 1: Security-First Design (UNIVERSAL)
+**ALWAYS** follow principle of least privilege:
+- Start with most restrictive policy that meets user's need
+- Grant only minimum permissions necessary
+- Use explicit `allow` lists, never rely on implicit permissions
+- When uncertain, choose the more secure option
+
+### RULE 2: Policy Structure Consistency (MANDATORY)
+**EVERY** policy must follow this exact structure:
+```typescript
+{
+  allow: [/* array of allow rules - be explicit */],
+  deny: [/* array of deny rules - emergency stops */]
+}
+```
+
+### RULE 3: User Intent Translation (UNIVERSAL)
+For ANY user request:
+1. **Identify Core Action** - What operation is needed?
+2. **Extract Security Requirements** - What limits/trusted parties?
+3. **Map to Constraints** - Convert to appropriate constraint types
+
+## CONSTRAINT SELECTION RULES
+
+### RULE 4: Constraint Type Selection (UNIVERSAL)
+
+**For Amounts/Numbers:**
+```typescript
+{ bigIntMin: "minimum_wei", bigIntMax: "maximum_wei" }
+{ minimum: number, maximum: number }
+```
+
+**For Addresses:**
+```typescript
+{ addressEq: "0x..." }                    // Single address
+{ addressInList: ["0x...", "0x..."] }     // Multiple addresses
+```
+
+**For Strings:**
+```typescript
+: "exactValue"                    // Exact match
+{ enum: ["value1", "value2"] }             // Multiple options
+{ pattern: "regex_pattern" }               // Pattern match
+{ stringContains: "required_text" }        // Content check
+```
+
+**For Arrays:**
+```typescript
+{ lengthEq: number }                       // Exact length
+{ minItems: number, maxItems: number }     // Length range
+```
+
+### RULE 5: Financial Constraints (UNIVERSAL)
+**ALWAYS** for any financial operation:
+- Use `bigIntMax` for spending limits
+- Consider token decimals when setting values
+- Include gas fee protection in deny rules:
+```typescript
+deny: [{ method: "signTransaction", decoded: { gasPrice: { bigIntMin: "100000000000" } } }]
+```
+
+### RULE 6: Address Constraints (UNIVERSAL)
+**NEVER** allow unrestricted addresses:
+- Use `addressInList` for trusted recipients
+- Always restrict contract interactions to known addresses
+- Use `{{walletAddress}}` for self-operations
+
+## POLICY COMPOSITION RULES
+
+### RULE 7: Allow Rule Construction (UNIVERSAL)
+**EVERY** allow rule must include:
+```typescript
+{
+  method: "specific_method",              // REQUIRED
+  chain: "specific_chain",                // REQUIRED for blockchain
+  contractAddress: { addressEq: "0x..." }, // Contract restriction
+  decoded: {
+    functionName: "transfer",             // Function restriction
+    args: {
+      "0": { addressInList: ["0x..."] }, // Parameter restriction
+      "1": { bigIntMax: "amount" }        // Amount restriction
+    }
+  }
+}
+```
+
+### RULE 8: Deny Rule Patterns (UNIVERSAL)
+**ALWAYS** include deny rules for:
+- Unlimited approvals: `args: { "1": { bigIntEq: "115792089237316195423570985008687907853269984665640564039457584007913129639935" } }`
+- High gas fees: `gasPrice: { bigIntMin: "100000000000" }`
+- Suspicious content: `stringContains: "private key"`
+
+## 🔴 COMMON POLICY TEMPLATES
+
+### RULE 9: ERC-20 Transfer Template
+```typescript
+{
+  allow: [{
+    method: "signTransaction",
+    chain: "evm:eip155:1",
+    contractAddress: { addressEq: "TOKEN_ADDRESS" },
+    decoded: {
+      functionName: "transfer",
+      args: {
+        lengthEq: 2,
+        "0": { addressInList: ["RECIPIENT1", "RECIPIENT2"] },
+        "1": { bigIntMax: "MAX_AMOUNT_WEI" }
+      }
+    }
+  }],
+  deny: []
+}
+```
+
+### RULE 10: ERC-20 Approval Template
+```typescript
+{
+  allow: [{
+    method: "signTransaction",
+    decoded: {
+      functionName: "approve",
+      args: {
+        lengthEq: 2,
+        "0": { addressInList: ["TRUSTED_SPENDERS"] },
+        "1": { bigIntMax: "REASONABLE_MAX" }
+      }
+    }
+  }],
+  deny: [{
+    method: "signTransaction",
+    decoded: {
+      functionName: "approve",
+      args: { "1": { bigIntEq: "115792089237316195423570985008687907853269984665640564039457584007913129639935" } }
+    }
+  }]
+}
+```
+
+### RULE 11: Message Signing Template
+```typescript
+{
+  allow: [{
+    method: "signMessage",
+    payload: {
+      lengthEq: 1,
+      "0": {
+        type: "string",
+        minLength: 10,
+        maxLength: 500,
+        pattern: "^(Sign in to|Login to|Authenticate with)"
+      }
+    }
+  }],
+  deny: [{
+    method: "signMessage",
+    payload: {
+      "0": {
+        anyOf: [
+          { stringContains: "private key" },
+          { stringContains: "seed phrase" },
+          { stringContains: "transfer ownership" }
+        ]
+      }
+    }
+  }]
+}
+```
+
+### RULE 12: DEX Swap Template
+```typescript
+{
+  allow: [{
+    method: "signTransaction",
+    contractAddress: { addressEq: "DEX_ROUTER_ADDRESS" },
+    decoded: {
+      functionName: "swapExactTokensForTokens",
+      args: {
+        "0": { bigIntMax: "MAX_AMOUNT_IN" },
+        "1": { bigIntMin: "MIN_AMOUNT_OUT" },
+        "4": { bigIntMax: Math.floor(Date.now() / 1000) + 3600 }
+      }
+    }
+  }],
+  deny: []
+}
+```
+
+## 🔴 VALIDATION RULES
+
+### RULE 13: Policy Completeness Check (UNIVERSAL)
+**EVERY** policy must have:
+- Both `allow` and `deny` arrays
+- At least one `allow` rule for intended functionality
+- Deny rules for common attacks
+- All addresses use address constraints
+- All amounts use bigInt constraints
+
+### RULE 14: Common Values Reference
+**ETH Amounts (18 decimals):**
+- 0.1 ETH: `"100000000000000000"`
+- 1 ETH: `"1000000000000000000"`
+- 10 ETH: `"10000000000000000000"`
+
+**USDC Amounts (6 decimals):**
+- 100 USDC: `"100000000"`
+- 1000 USDC: `"1000000000"`
+
+**Gas Limits:**
+- 100 gwei: `"100000000000"`
+- 200 gwei: `"200000000000"`
+
+### RULE 15: Chain Formats
+- Ethereum: `"evm:eip155:1"`
+- Polygon: `"evm:eip155:137"`
+- Arbitrum: `"evm:eip155:42161"`
+- Solana: `"solana:mainnet"`
+
+## 🔴 CREATION ALGORITHM
+
+For ANY user request:
+1. **Parse Intent** → What operation + what limits?
+2. **Select Template** → Choose closest template above
+3. **Customize Constraints** → Add user-specific limits/addresses
+4. **Add Security** → Include relevant deny rules
+5. **Validate** → Check completeness per Rule 13
+
+**Example:**
+User: "Let me transfer up to 5 ETH to my friend's wallet"
+→ Use ERC-20 Transfer Template
+→ Set `bigIntMax: "5000000000000000000"`
+→ Set `addressInList: ["FRIEND_WALLET_ADDRESS"]`
+→ Add unlimited approval denial
+~~~
+    </p>
+  </Accordion>
+</Accordions>
 
 Here are examples of common policy patterns:
 
