@@ -37,7 +37,7 @@ export const utilityQueries = {
 		}),
 };
 
-import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query";
+import { queryOptions } from "@tanstack/react-query";
 import { z } from "zod";
 import {
 	knowledgeBaseSchema,

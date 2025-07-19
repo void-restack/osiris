@@ -1,194 +1,461 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { BadgeCheck, Link2, RefreshCcw } from "lucide-react";
+import { BadgeCheck, Grid3X3, Link2, List, RefreshCcw, ChevronDown } from "lucide-react";
+import { useState } from "react";
+import { flexRender, type ColumnDef } from "@tanstack/react-table";
 import {
-	AlertDialog,
-	AlertDialogAction,
-	AlertDialogCancel,
-	AlertDialogContent,
-	AlertDialogFooter,
-	AlertDialogHeader,
-	AlertDialogTitle,
-	AlertDialogTrigger,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Autocomplete } from "@/components/ui/autocomplete";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PermissionSelector } from "@/components/ui/permission-selector";
+import { DataTableToolbar } from "@/components/data-table/data-table-toolbar";
+import { Badge } from "@/components/ui/badge";
 import {
-	type Permission,
-	PermissionSelector,
-} from "@/components/ui/permission-selector";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { hubQueries } from "@/lib/queries";
+import { useSuspenseQuery } from "@tanstack/react-query";
+import { useDataTable } from "@/hooks/use-data-table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DataTablePagination } from "@/components/data-table/data-table-pagination";
 
-const samplePermissions: Permission[] = [
-	{ id: "read-emails", label: "Read Emails" },
-	{ id: "write-emails", label: "Write Emails" },
-	{ id: "reply-emails", label: "Reply to Emails" },
-	{ id: "send-emails", label: "Send Emails" },
-	{ id: "add-recipients", label: "Add recipients" },
-	{ id: "delete-emails", label: "Delete Emails" },
-	{ id: "manage-folders", label: "Manage Folders" },
-	{ id: "access-calendar", label: "Access Calendar" },
+interface AuthMethod {
+  clientId: string;
+  name: string;
+  description: string;
+  type: 'oauth' | 'secret_sharing' | 'embedded_wallet';
+  supportedScopes: string[];
+  supportedServices: string[];
+  metadata: Record<string, any>;
+  createdAt: string;
+  updatedAt: string;
+  embedding: null;
+}
+
+type ViewMode = 'grid' | 'table';
+type SortOption = 'latest' | 'relevant' | 'new' | 'scopes' | 'name';
+
+const sortOptions = [
+  { value: 'latest' as const, label: 'Latest' },
+  { value: 'relevant' as const, label: 'Relevant' },
+  { value: 'new' as const, label: 'New' },
+  { value: 'scopes' as const, label: 'Most Scopes' },
+  { value: 'name' as const, label: 'Name A-Z' },
+];
+
+const createColumns = (): ColumnDef<AuthMethod>[] => [
+  {
+    id: "name",
+    header: "Name",
+    accessorKey: "name",
+    cell: ({ row }) => (
+      <div className="flex items-center gap-3">
+        <div className="size-8 rounded-md bg-purple-400 flex items-center justify-center text-white font-bold text-sm capitalize">
+          {row.original.name.charAt(0)}
+        </div>
+        <div className="flex flex-col">
+          <span className="font-medium text-primary-800 capitalize">
+            {row.original.name}
+          </span>
+          <span className="text-primary-400 text-xs">{row.original.type}</span>
+        </div>
+      </div>
+    ),
+    enableHiding: false,
+  },
+  {
+    id: "description",
+    header: "Description",
+    accessorKey: "description",
+    cell: ({ row }) => (
+      <div className="text-primary-600 text-sm max-w-md truncate">
+        {row.original.description}
+      </div>
+    ),
+  },
+  {
+    id: "type",
+    header: "Type",
+    accessorKey: "type",
+    cell: ({ row }) => (
+      <Badge variant="secondary" className="capitalize">
+        {row.original.type.replace('_', ' ')}
+      </Badge>
+    ),
+    meta: {
+      variant: "select",
+      label: "Type",
+      options: [
+        { label: "OAuth", value: "oauth" },
+        { label: "Secret Sharing", value: "secret_sharing" },
+        { label: "Embedded Wallet", value: "embedded_wallet" },
+      ],
+    },
+  },
+  {
+    id: "scopes",
+    header: "Scopes",
+    accessorKey: "supportedScopes",
+    cell: ({ row }) => (
+      <span className="text-primary-400 text-sm">
+        {row.original.supportedScopes.length} scopes
+      </span>
+    ),
+  },
+  {
+    id: "actions",
+    header: "",
+    cell: ({ row }) => (
+      <div className="flex items-center gap-2">
+        <Button variant="ghost" size="sm" className="h-7 text-xs">
+          <Link2 className="size-3 mr-1" />
+          Connect
+        </Button>
+        <Link to={`/auth/${row.original.clientId}`}>
+          <Button variant="outline" size="sm" className="h-7 text-xs">
+            View
+          </Button>
+        </Link>
+      </div>
+    ),
+    enableSorting: false,
+  },
 ];
 
 export const Route = createFileRoute("/_hub/auth/")({
-	component: RouteComponent,
-	loader: () => ({
-		breadcrumb: "Authentication",
-	}),
+  component: RouteComponent,
+  loader: ({ context: { queryClient } }) => ({
+    queryData: queryClient.ensureQueryData(hubQueries.authMethodsOptions()),
+    breadcrumb: "Authentication",
+  }),
 });
 
 function RouteComponent() {
-	const countries = [
-		{ value: "us", label: "United States" },
-		{ value: "ca", label: "Canada" },
-		{ value: "uk", label: "United Kingdom" },
-		{ value: "de", label: "Germany" },
-		{ value: "fr", label: "France" },
-	];
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [sortBy, setSortBy] = useState<SortOption>('latest');
+  const { data: authMethods } = useSuspenseQuery(hubQueries.authMethodsOptions());
 
-	const searchCountries = (query: string) => {
-		return countries.filter((country) =>
-			country.label.toLowerCase().includes(query.toLowerCase()),
-		);
-	};
+  const columns = createColumns();
 
-	return (
-		<div>
-			<div className="flex flex-1 flex-col pt-4">
-				<div className="mx-auto mt-8 max-w-[496px] pb-14 text-center md:w-[496px]">
-					<h2 className="mb-2 font-medium text-xl leading-3 tracking-tight">
-						Search all authenticators
-					</h2>
-					<span className="text-primary-300 text-sm">
-						Search across various of authentication hubs on osiris
-					</span>
-				</div>
-				<div className="w-full px-4 md:px-0">
-					<Autocomplete
-						className="mt-6"
-						onSearch={searchCountries}
-						emptyText="No countries found."
-						footerText="Footer text"
-						bottomLeftContent={
-							<div className="flex items-center gap-3">
-								<div className="rounded-md bg-primary-50 p-1.5 text-xs">
-									Google
-								</div>
-								<div className="rounded-md bg-primary-50 p-1.5 text-xs">
-									Github
-								</div>
-							</div>
-						}
-						bottomRightContent={<></>}
-						popularItems={
-							<div className="flex w-full gap-2">
-								<div className="rounded-[6px] bg-primary-100 px-2 py-0.5 text-xs">
-									Github
-								</div>
-								<div className="rounded-[6px] bg-primary-100 px-2 py-0.5 text-xs">
-									Google
-								</div>
-							</div>
-						}
-					/>
-				</div>
-				<div className="flex w-full items-center justify-between border-b border-b-primary-100 px-6 py-4 font-medium text-xl">
-					<h4>All Hubs</h4>
-				</div>
-				<div className="grid w-full grid-cols-1 gap-6 p-6 md:grid-cols-2 lg:grid-cols-3">
-					<Link
-						to={`/auth/${123}`}
-						className="h-fit min-h-48 min-w-xs rounded-xl border border-primary-100 p-6"
-					>
-						<div className="mb-4 flex w-full items-start justify-between">
-							<div className="size-14 rounded-xl bg-purple-400" />
-							<AlertDialog>
-								<AlertDialogTrigger asChild>
-									<Button
-										variant="ghost"
-										className="flex h-fit items-center gap-1 rounded-[6px] bg-badge-success px-2 py-1 font-medium text-badge-success-text text-xs"
-									>
-										<Link2 /> Connect
-									</Button>
-								</AlertDialogTrigger>
-								<AlertDialogContent className="w-full max-w-[448px] rounded-[12px] border-primary-100 p-0">
-									<AlertDialogHeader className="border-b border-b-primary-100 px-4 py-3">
-										<AlertDialogTitle className="font-normal text-base text-primary-400">
-											Connect Gmail
-										</AlertDialogTitle>
-									</AlertDialogHeader>
-									<div className="w-full">
-										<div className="flex flex-col space-y-6">
-											<div className="flex items-center justify-between px-4">
-												<div className="flex">
-													<div className="size-10 rounded-lg bg-purple-400" />
-													<div className="-ml-3 size-10 rounded-lg bg-green-400" />
-													<div className="ml-2 flex flex-col">
-														<span className="text-primary-800 text-sm">
-															Piyush Jain
-														</span>
-														<span className="text-primary-300 text-xs">
-															piyushj03z@gmail.com
-														</span>
-													</div>
-												</div>
-												<div className="rounded-md border border-primary-300 p-1">
-													<RefreshCcw className="size-4 text-primary-300" />
-												</div>
-											</div>
+  const { table } = useDataTable({
+    data: authMethods,
+    columns,
+    pageCount: Math.ceil(authMethods.length / 10),
+  });
 
-											<div className="flex flex-col space-y-1.5 px-4 text-[13px] text-primary-400">
-												<label htmlFor="auth_hub_name">Auth Hub Name</label>
-												<Input type="text" placeholder="Work email 1" />
-											</div>
+  const searchAuthMethods = (query: string) => {
+    return authMethods.filter((method: AuthMethod) =>
+      method.name.toLowerCase().includes(query.toLowerCase()) ||
+      method.description.toLowerCase().includes(query.toLowerCase())
+    );
+  };
 
-											<div className="border-t border-t-primary-200 border-dashed" />
+  const sortAuthMethods = (methods: AuthMethod[]) => {
+    switch (sortBy) {
+      case 'latest':
+        return [...methods].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      case 'name':
+        return [...methods].sort((a, b) => a.name.localeCompare(b.name));
+      case 'scopes':
+        return [...methods].sort((a, b) => b.supportedScopes.length - a.supportedScopes.length);
+      case 'new':
+        return [...methods].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      case 'relevant':
+      default:
+        return methods;
+    }
+  };
 
-											<div className="flex flex-col px-4">
-												<div className="mb-4 flex flex-col">
-													<span>Allow Access</span>
-													<span className="text-[13px] text-primary-300">
-														Configure the data access for the MCPs
-													</span>
-												</div>
+  const GridView = () => {
+    const sortedMethods = sortAuthMethods(authMethods);
+    return (
+      <div className="grid w-full grid-cols-1 gap-6 p-6 md:grid-cols-2 lg:grid-cols-3">
+        {sortedMethods.map((method: AuthMethod) => (
+          <Link
+            key={method.clientId}
+            to={`/auth/${method.clientId}`}
+            className="h-fit min-h-48 min-w-xs rounded-xl border border-primary-100 p-6"
+          >
+            <div className="mb-4 flex w-full items-start justify-between">
+              <div className="size-14 rounded-xl bg-primary-300 flex items-center justify-center text-white font-bold text-lg capitalize">
+                {method.name.charAt(0)}
+              </div>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="flex h-fit items-center gap-1 rounded-[6px] bg-badge-success px-2 py-1 font-medium text-badge-success-text text-xs"
+                  >
+                    <Link2 /> Connect
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent className="w-full max-w-[448px] rounded-[12px] border-primary-100 p-0">
+                  <AlertDialogHeader className="border-b border-b-primary-100 px-4 py-3">
+                    <AlertDialogTitle className="font-normal text-base text-primary-400 capitalize">
+                      Connect {method.name}
+                    </AlertDialogTitle>
+                  </AlertDialogHeader>
+                  <div className="w-full">
+                    <div className="flex flex-col space-y-6">
+                      <div className="flex items-center justify-between px-4">
+                        <div className="flex">
+                          <div className="size-10 rounded-lg bg-purple-400" />
+                          <div className="-ml-3 size-10 rounded-lg bg-green-400" />
+                          <div className="ml-2 flex flex-col">
+                            <span className="text-primary-800 text-sm">
+                              Piyush Jain
+                            </span>
+                            <span className="text-primary-300 text-xs">
+                              piyushj03z@gmail.com
+                            </span>
+                          </div>
+                        </div>
+                        <div className="rounded-md border border-primary-300 p-1">
+                          <RefreshCcw className="size-4 text-primary-300" />
+                        </div>
+                      </div>
 
-												<PermissionSelector
-													permissions={samplePermissions}
-													placeholder="Search permissions..."
-												/>
-											</div>
-										</div>
-									</div>
-									<AlertDialogFooter className="flex w-full items-center rounded-b-[12px] border-t border-t-primary-100 bg-primary-25 px-4 py-3 sm:justify-between">
-										<AlertDialogCancel className="bg-primary-50">
-											Cancel
-										</AlertDialogCancel>
-										<AlertDialogAction className="inset-shadow-search-btn">
-											Save Authenticator
-										</AlertDialogAction>
-									</AlertDialogFooter>
-								</AlertDialogContent>
-							</AlertDialog>
-						</div>
-						<div className="justify-baseline mb-4 flex flex-col items-start">
-							<h4 className="inline items-center font-medium">
-								Contacts <BadgeCheck className="inline size-4" />
-							</h4>
-							<span className="text-primary-300 text-xs tracking-tight">
-								25+ Scopes
-							</span>
-						</div>
-						<p className="text-ellipsis text-primary-300 text-sm">
-							Store and retrieve user-specific memories to maintain context and
-							make informed decisions based on past interactions
-						</p>
-					</Link>
-				</div>
-			</div>
+                      <div className="flex flex-col space-y-1.5 px-4 text-[13px] text-primary-400">
+                        <label htmlFor="auth_hub_name">Auth Hub Name</label>
+                        <Input type="text" placeholder={`${method.name} connection`} />
+                      </div>
 
-			{/* could have shifted it in the route layout but we need different data for different routes here so need to keep it here with an extra div */}
-			<div className="absolute bottom-0 flex h-12 w-full items-center overflow-hidden rounded-b-xl bg-purple-200 p-6">
-				Bottom Bar
-			</div>
-		</div>
-	);
+                      <div className="border-t border-t-primary-200 border-dashed" />
+
+                      <div className="flex flex-col px-4">
+                        <div className="mb-4 flex flex-col">
+                          <span>Allow Access</span>
+                          <span className="text-[13px] text-primary-300">
+                            Configure the data access for the MCPs
+                          </span>
+                        </div>
+
+                        <PermissionSelector
+                          permissions={method.supportedScopes.map(scope => ({
+                            id: scope,
+                            label: scope.replace(/[_-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+                          }))}
+                          placeholder="Search permissions..."
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <AlertDialogFooter className="flex w-full items-center rounded-b-[12px] border-t border-t-primary-100 bg-primary-25 px-4 py-3 sm:justify-between">
+                    <AlertDialogCancel className="bg-primary-50">
+                      Cancel
+                    </AlertDialogCancel>
+                    <AlertDialogAction className="inset-shadow-search-btn">
+                      Save Authenticator
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+            <div className="justify-baseline mb-4 flex flex-col items-start">
+              <h4 className="inline items-center font-medium capitalize">
+                {method.name} <BadgeCheck className="inline size-4" />
+              </h4>
+              <span className="text-primary-300 text-xs tracking-tight">
+                {method.supportedScopes.length} Scopes • {method.type}
+              </span>
+            </div>
+            <p className="truncate text-primary-300 text-sm">
+              {method.description}
+            </p>
+          </Link>
+        ))}
+      </div>
+    )
+  };
+
+  return (
+    <div>
+      <div className="flex flex-1 flex-col pt-4">
+        <div className="mx-auto mt-8 max-w-[496px] pb-14 text-center md:w-[496px]">
+          <h2 className="mb-2 font-medium text-xl leading-3 tracking-tight">
+            Search all authenticators
+          </h2>
+          <span className="text-primary-300 text-sm">
+            Search across various of authentication hubs on osiris
+          </span>
+        </div>
+        <div className="w-full px-4 md:px-0">
+          <Autocomplete
+            className="mt-6"
+            onSearch={searchAuthMethods}
+            getItemValue={(item) => item.clientId}
+            getItemLabel={(item) => item.name}
+            emptyText="No auth methods found."
+            footerText="Footer text"
+            bottomLeftContent={
+              <div className="flex items-center gap-3">
+                {authMethods.slice(0, 2).map((method: AuthMethod) => (
+                  <div key={method.clientId} className="rounded-md bg-primary-50 p-1.5 text-xs capitalize">
+                    {method.name}
+                  </div>
+                ))}
+              </div>
+            }
+            bottomRightContent={<></>}
+            popularItems={
+              <div className="flex w-full gap-2">
+                {authMethods.slice(0, 3).map((method: AuthMethod) => (
+                  <div key={method.clientId} className="rounded-[6px] bg-primary-100 px-2 py-0.5 text-xs capitalize">
+                    {method.name}
+                  </div>
+                ))}
+              </div>
+            }
+            renderItem={(item) => (
+              <div className="flex items-center space-x-2 w-full">
+                <div className="size-4 rounded-md bg-purple-400 flex-shrink-0" />
+                <span className="flex-shrink-0">{item.name}</span>
+                <span className="flex-shrink-0"> - </span>
+                <span className="text-primary-400 truncate flex-1 min-w-0">{item.description}</span>
+              </div>
+            )}
+          />
+        </div>
+
+        <div className="flex w-full items-center justify-between border-b border-b-primary-100 px-6 py-4">
+          <h4 className="font-medium text-xl">All Hubs ({authMethods.length})</h4>
+          <div className="flex items-center gap-4">
+            {/* Table Toolbar - only show when in table view */}
+            {viewMode === 'table' && (
+              <div className="flex items-center">
+                <DataTableToolbar table={table} />
+              </div>
+            )}
+
+            {/* Sort Dropdown */}
+            {viewMode === "grid" && <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  Sort by: {sortOptions.find(opt => opt.value === sortBy)?.label}
+                  <ChevronDown className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {sortOptions.map((option) => (
+                  <DropdownMenuItem
+                    key={option.value}
+                    onClick={() => setSortBy(option.value)}
+                    className={sortBy === option.value ? "bg-accent" : ""}
+                  >
+                    {option.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>}
+
+
+            {/* View Toggle */}
+            <div className="flex rounded-lg border border-primary-200 p-1">
+              <Button
+                variant={viewMode === 'grid' ? 'default' : 'ghost'}
+                size="sm"
+                className="h-7 px-2"
+                onClick={() => setViewMode('grid')}
+              >
+                <Grid3X3 className="size-4" />
+              </Button>
+              <Button
+                variant={viewMode === 'table' ? 'default' : 'ghost'}
+                size="sm"
+                className="h-7 px-2"
+                onClick={() => setViewMode('table')}
+              >
+                <List className="size-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {viewMode === 'grid' ? (
+          <GridView />
+        ) : (
+          <div className="p-6">
+            <div className="w-full overflow-x-auto">
+              <div className="flex w-full flex-col gap-2.5">
+                {/* <DataTableToolbar table={table} /> */}
+                <div className="overflow-hidden rounded-md border w-full">
+                  <Table className="overflow-scroll w-full">
+                    <TableHeader>
+                      {table.getHeaderGroups().map((headerGroup) => (
+                        <TableRow key={headerGroup.id}>
+                          {headerGroup.headers.map((header) => (
+                            <TableHead
+                              key={header.id}
+                              colSpan={header.colSpan}
+                              className="h-10 font-medium text-[13px] text-primary-400"
+                            >
+                              {header.isPlaceholder ? null :
+                                flexRender(
+                                  header.column.columnDef.header,
+                                  header.getContext(),
+                                )}
+                            </TableHead>
+                          ))}
+                        </TableRow>
+                      ))}
+                    </TableHeader>
+                    <TableBody>
+                      {table.getRowModel().rows?.length ? (
+                        table.getRowModel().rows.map((row) => (
+                          <TableRow
+                            key={row.id}
+                            data-state={row.getIsSelected() && "selected"}
+                          >
+                            {row.getVisibleCells().map((cell) => (
+                              <TableCell
+                                key={cell.id}
+                                className="h-[56px]"
+                              >
+                                {flexRender(
+                                  cell.column.columnDef.cell,
+                                  cell.getContext(),
+                                )}
+                              </TableCell>
+                            ))}
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell
+                            colSpan={table.getAllColumns().length}
+                            className="h-24 text-center"
+                          >
+                            No results.
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="absolute bottom-0 flex h-12 w-full items-center overflow-hidden rounded-b-xl bg-primary-100 p-6">
+        {viewMode === 'table' ? (
+          <DataTablePagination table={table} />
+        ) : (
+          <span>OSIRIS</span>
+        )}
+      </div>
+    </div>
+  );
 }

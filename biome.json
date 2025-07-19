@@ -8,7 +8,7 @@
 	"files": {
 		"ignoreUnknown": false,
 		"includes": [
-			"**",
+			"!**/apps/docs/**",
 			"!**/.next",
 			"!**/dist",
 			"!**/.turbo",
