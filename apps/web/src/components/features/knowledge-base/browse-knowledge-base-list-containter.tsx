@@ -2,10 +2,11 @@ import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { BrowseKnowledgeBaseList } from "./browse-knowledge-base-list";
-import { KnowledgeBaseViewToggle } from "./knowledge-base-view-toggle";
 import { KnowledgeBaseFilters } from "./knowlege-base-filters";
+import { useNavigate } from "@tanstack/react-router";
 
 export function KnowledgeBaseListContainer() {
+	const navigate = useNavigate()
 	return (
 		<div className="flex min-h-0 flex-1 flex-col gap-3">
 			<div className="h-[72px] px-6" />
@@ -14,9 +15,16 @@ export function KnowledgeBaseListContainer() {
 					All Knowledge Hubs
 				</h3>
 				<div className="flex w-max items-center justify-end gap-4">
-					<KnowledgeBaseViewToggle />
+					{/* <KnowledgeBaseViewToggle /> */}
 					<KnowledgeBaseFilters />
-					<Button>
+					<Button
+					className="cursor-pointer"
+						onClick={() => {
+							navigate({
+								to: "/knowledge/new",
+							});
+						}}
+					>
 						Create Knowledge Base
 						<Plus />
 					</Button>

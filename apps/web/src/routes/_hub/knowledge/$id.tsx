@@ -1,3 +1,5 @@
+import { KnowledgeBaseDetailsHeader } from "@/components/features/knowledge-base/knowledge-base-details-header";
+import { KnowledgeHubTabs } from "@/components/features/knowledge-base/knowledge-base-tabs";
 import { createFileRoute } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_hub/knowledge/$id")({
@@ -5,5 +7,8 @@ export const Route = createFileRoute("/_hub/knowledge/$id")({
 });
 
 function RouteComponent() {
-	return <div>Hello "/_hub/knowledge/knowledge/$id"!</div>;
+	return <div className="w-full flex flex-col gap-y-[56px]">
+		<KnowledgeBaseDetailsHeader />
+		<KnowledgeHubTabs />
+  </div>;
 }
