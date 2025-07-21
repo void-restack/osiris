@@ -11,7 +11,7 @@ export function McpViewToggle() {
 	const inactiveClass = "!bg-transparent";
 
 	const handleViewChange = (value: "list" | "directory") => {
-		console.log(value);
+		if (value === mcpView) return;
 		setMcpView(value);
 	};
 

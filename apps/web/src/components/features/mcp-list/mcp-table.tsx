@@ -116,19 +116,26 @@ export const columns: ColumnDef<McpTableRow>[] = [
 
 interface McpTableProps {
 	data: McpTableRow[];
+	currentPage: number;
+	pageSize: number;
+	onPageChange: (page: number) => void;
 }
 
-export function McpTable({ data }: McpTableProps) {
+export function McpTable({ data, currentPage, pageSize, onPageChange }: McpTableProps) {
 	const [sorting, setSorting] = React.useState<SortingState>([]);
-	const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
-		[],
-	);
-	const [columnVisibility, setColumnVisibility] =
-		React.useState<VisibilityState>({});
+	const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
+	const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
 	const [rowSelection, setRowSelection] = React.useState({});
 
+	const totalResults = data.length;
+	const totalPages = Math.ceil(totalResults / pageSize);
+	const paginatedData = React.useMemo(() => {
+		const start = (currentPage - 1) * pageSize;
+		return data.slice(start, start + pageSize);
+	}, [data, currentPage, pageSize]);
+
 	const table = useReactTable({
-		data,
+		data: paginatedData,
 		columns,
 		onSortingChange: setSorting,
 		onColumnFiltersChange: setColumnFilters,
@@ -147,7 +154,7 @@ export function McpTable({ data }: McpTableProps) {
 	});
 
 	return (
-		<div className="rounded-md border border-[#F5F5F5]">
+		<div className="rounded-md border border-[#F5F5F5] h-full overflow-hidden">
 			<Table>
 				<TableHeader>
 					{table.getHeaderGroups().map((headerGroup) => (

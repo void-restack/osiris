@@ -1,4 +1,4 @@
-import { Separator } from "@/components/ui/separator";
+import React from "react";
 import { useAppStore } from "@/lib/store";
 import { McpCardList } from "./mcp-card-list";
 import { McpFilters } from "./mcp-filters";
@@ -8,6 +8,9 @@ import { McpViewToggle } from "./toggle-view";
 
 export function McpListContainer() {
 	const { mcpView } = useAppStore();
+
+	const [currentPage, setCurrentPage] = React.useState(1);
+	const pageSize = 10;
 
 	const mockData = [
 		{
@@ -127,6 +130,17 @@ export function McpListContainer() {
 		},
 	];
 
+	const totalResults = mockData.length;
+	const totalPages = Math.ceil(totalResults / pageSize);
+	const paginatedCards = React.useMemo(() => {
+		const start = (currentPage - 1) * pageSize;
+		return mockData.slice(start, start + pageSize);
+	}, [mockData, currentPage, pageSize]);
+
+	React.useEffect(() => {
+		setCurrentPage(1);
+	}, [mcpView]);
+
 	return (
 		<div className="flex min-h-0 flex-1 flex-col gap-3">
 			<div className="flex w-full items-center justify-between border-b border-b-primary-100 px-6 py-4 font-medium text-xl">
@@ -140,19 +154,23 @@ export function McpListContainer() {
 				<div className="flex-1 overflow-auto">
 					<div className="px-6">
 						{mcpView === "directory" ? (
-							<McpCardList cards={mockData} />
+							<McpCardList cards={paginatedCards} />
 						) : (
-							<McpTable data={mockData} />
+							<McpTable
+								data={mockData}
+								currentPage={currentPage}
+								pageSize={pageSize}
+								onPageChange={setCurrentPage}
+							/>
 						)}
 					</div>
 				</div>
 				<div className="absolute bottom-0 flex h-12 w-full items-center overflow-hidden rounded-b-xl bg-primary-00 py-6">
 					<McpListPagination
-						totalPages={10}
-						currentPage={1}
-						onPageChange={() => {}}
-						resultsPerPage={10}
-						totalResults={100}
+						totalPages={totalPages}
+						currentPage={currentPage}
+						onPageChange={setCurrentPage}
+						totalResults={totalResults}
 					/>
 				</div>
 			</div>
