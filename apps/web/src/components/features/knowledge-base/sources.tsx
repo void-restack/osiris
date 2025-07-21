@@ -13,11 +13,12 @@ import {
 	type VisibilityState,
 } from "@tanstack/react-table";
 import {
+	ChevronDown,
+	ChevronUp,
 	File,
 	FileDown,
 	FileText,
 	Link,
-	MoveUpRight,
 	PencilLine,
 } from "lucide-react";
 import * as React from "react";
@@ -67,11 +68,20 @@ const data: Source[] = [
 export const columns: ColumnDef<Source>[] = [
 	{
 		accessorKey: "id",
-		header: () => {
+		header: ({ column }) => {
 			return (
-				<h1 className="w-[42px] pr-3 text-right font-medium text-sm">#</h1>
+				<button
+					type="button"
+					className="w-[42px] pr-3 text-right font-medium text-sm flex items-center gap-1"
+					onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+				>
+					#
+					{column.getIsSorted() === "asc" && <span>▲</span>}
+					{column.getIsSorted() === "desc" && <span>▼</span>}
+				</button>
 			);
 		},
+		enableSorting: true,
 		cell: ({ row }) => (
 			<div className="text-right font-medium text-[#737373] text-sm">
 				{row.index + 1}
@@ -80,7 +90,20 @@ export const columns: ColumnDef<Source>[] = [
 	},
 	{
 		accessorKey: "name",
-		header: "Knowledge Source Name",
+		header: ({ column }) => (
+			<button
+				type="button"
+				className="font-normal text-primary-400 text-sm flex items-center gap-1"
+				onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+			>
+				Knowledge Source Name
+				{column.getIsSorted() === "asc" && <span>
+					<ChevronUp className="text-xs" /></span>}
+				{column.getIsSorted() === "desc" && <span>
+					<ChevronDown className="text-xs" /></span>}
+			</button>
+		),
+		enableSorting: true,
 		cell: ({ row }) => (
 			<div className="w-[500px] text-[#171717] text-sm capitalize">
 				{row.getValue("name")}
@@ -89,18 +112,36 @@ export const columns: ColumnDef<Source>[] = [
 	},
 	{
 		accessorKey: "unitsCount",
-		header: () => {
-			return <p className="">Units</p>;
-		},
+		header: ({ column }) => (
+			<button
+				type="button"
+				className="font-normal text-primary-400 text-sm flex items-center gap-1"
+				onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+			>
+				Units
+				{column.getIsSorted() === "asc" && <span>▲</span>}
+				{column.getIsSorted() === "desc" && <span>▼</span>}
+			</button>
+		),
+		enableSorting: true,
 		cell: ({ row }) => (
 			<div className="">{row.getValue("unitsCount")} Units</div>
 		),
 	},
 	{
 		accessorKey: "type",
-		header: () => {
-			return <p className="">Content Type</p>;
-		},
+		header: ({ column }) => (
+			<button
+				type="button"
+				className="font-normal text-primary-400 text-sm flex items-center gap-1"
+				onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+			>
+				Content Type
+				{column.getIsSorted() === "asc" && <span>▲</span>}
+				{column.getIsSorted() === "desc" && <span>▼</span>}
+			</button>
+		),
+		enableSorting: true,
 		cell: ({ row }) => (
 			<div className="flex h-6 w-max items-center gap-1.5 rounded-[6px] bg-[#1717170F] px-2 py-1.5 text-[#171717CC] text-sm">
 				{React.createElement(
@@ -116,6 +157,7 @@ export const columns: ColumnDef<Source>[] = [
 		header: () => {
 			<p className="" />;
 		},
+		enableSorting: false,
 		cell: () => {
 			return (
 				<div className="flex justify-end">
@@ -140,8 +182,18 @@ export function SourcesTable() {
 		React.useState<VisibilityState>({});
 	const [rowSelection, setRowSelection] = React.useState({});
 
+	// Pagination state
+	const [currentPage, setCurrentPage] = React.useState(1);
+	const pageSize = 10;
+	const totalResults = data.length;
+	const totalPages = Math.ceil(totalResults / pageSize);
+	const paginatedData = React.useMemo(() => {
+		const start = (currentPage - 1) * pageSize;
+		return data.slice(start, start + pageSize);
+	}, [currentPage, pageSize]);
+
 	const table = useReactTable({
-		data,
+		data: paginatedData,
 		columns,
 		onSortingChange: setSorting,
 		onColumnFiltersChange: setColumnFilters,
@@ -211,11 +263,10 @@ export function SourcesTable() {
 				</TableBody>
 			</Table>
 			<McpListPagination
-				totalPages={10}
-				currentPage={1}
-				onPageChange={() => {}}
-				resultsPerPage={10}
-				totalResults={100}
+				totalPages={totalPages}
+				currentPage={currentPage}
+				onPageChange={setCurrentPage}
+				totalResults={totalResults}
 			/>
 		</div>
 	);
