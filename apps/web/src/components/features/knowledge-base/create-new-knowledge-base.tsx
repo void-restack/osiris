@@ -1,10 +1,10 @@
 "use client";
 
+import React, { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 import {
 	AlertCircleIcon,
-	CircleUserRoundIcon,
 	Image,
-	ImageUpIcon,
 	Lock,
 	XIcon,
 	Zap,
@@ -16,16 +16,16 @@ import { Label } from "@/components/ui/label";
 import { useFileUpload } from "@/hooks/use-file-upload";
 import { cn } from "@/lib/utils";
 
-const Permisssions: SharePermissionCardProps[] = [
+const Permissions: SharePermissionCardProps[] = [
 	{
-		isSelected: true,
+		key: "private",
 		title: "Keep it Private",
 		description:
 			"Includes up to 10 users, 20 GB individual data and access to all features.",
 		Icon: <Lock className="size-3.5 stroke-primary-400" />,
 	},
 	{
-		isSelected: false,
+		key: "public",
 		title: "Make it Public",
 		description:
 			"Includes up to 10 users, 20 GB individual data and access to all features.",
@@ -34,57 +34,101 @@ const Permisssions: SharePermissionCardProps[] = [
 ];
 
 export function CreateNewKnowledgeBase() {
+	const [name, setName] = useState("");
+	const [description, setDescription] = useState("");
+	const [price, setPrice] = useState("");
+	const [permission, setPermission] = useState("private");
+	const [icon, setIcon] = useState<File | null>(null);
+	const [banner, setBanner] = useState<File | null>(null);
+
+	const mutation = useMutation({
+		mutationFn: async (data: any) => {
+			const formData = new FormData();
+			formData.append("name", data.name);
+			formData.append("description", data.description);
+			formData.append("price", data.price);
+			formData.append("permission", data.permission);
+			if (data.icon) formData.append("icon", data.icon);
+			if (data.banner) formData.append("banner", data.banner);
+			const res = await fetch("/api/knowledge-base", {
+				method: "POST",
+				body: formData,
+			});
+			if (!res.ok) throw new Error("Failed to create knowledge base");
+			return res.json();
+		},
+	});
+
+	const handleSave = () => {
+		mutation.mutate({
+			name,
+			description,
+			price,
+			permission,
+			icon,
+			banner,
+		});
+	};
+
 	return (
 		<section className="">
 			<div className="mb-10 items-center justify-between space-y-6 border border-b-primary-100 border-dashed px-8 py-[42px] md:flex md:space-y-0">
 				<div>
-					<h1 className="text-primary-800 text-xl">
-						Create a new Knowledge base
-					</h1>
-					<p className="text-primary-300 text-sm">
-						Create and upload a new knowledge base.
-					</p>
+					<h1 className="text-primary-800 text-xl">Create a new Knowledge base</h1>
+					<p className="text-primary-300 text-sm">Create and upload a new knowledge base.</p>
 				</div>
 				<div className="flex items-center gap-3">
 					<Button variant={"secondary"}>Cancel</Button>
-					<Button>Save Knowledge Base</Button>
+					<Button onClick={handleSave} disabled={mutation.status === "pending"}>
+						{mutation.status === "pending" ? "Saving..." : "Save Knowledge Base"}
+					</Button>
 				</div>
 			</div>
-			{/* Baisc Info FOrm */}
+			{/* Basic Info Form */}
 			<div className="mx-auto mt-[42px] flex w-full max-w-[488px] flex-col gap-y-8">
 				<div>
 					<h2 className="text-base text-primary-800">Add Basic info</h2>
-					<p className="text-primary-400 text-sm">
-						Start by filling in basic details
-					</p>
+					<p className="text-primary-400 text-sm">Start by filling in basic details</p>
 				</div>
 				<div className="flex w-full flex-col gap-y-6 border-primary-100 border-b border-dashed pb-8">
-					<AvatarUploader />
+					<AvatarUploader onChange={setIcon} />
 					<div className="flex w-full flex-col gap-y-1.5">
 						<Label required>Knowledge Base Name</Label>
-						<Input placeholder="Bill Gates Knowledge Base" type="text" />
+						<Input
+							placeholder="Bill Gates Knowledge Base"
+							type="text"
+							value={name}
+							onChange={e => setName(e.target.value)}
+						/>
 					</div>
 					<div className="flex w-full flex-col gap-y-1.5">
 						<Label required>Description</Label>
 						<Input
 							placeholder="Describe your knowledge base in a one liner"
 							type="text"
+							value={description}
+							onChange={e => setDescription(e.target.value)}
 						/>
 					</div>
-					<BannerUploader />
+					<BannerUploader onChange={setBanner} />
 				</div>
 			</div>
-			{/* Shareing Configuraiton */}
+			{/* Sharing Configuration */}
 			<div className="mx-auto mt-[42px] flex w-full max-w-[488px] flex-col gap-y-8">
 				<div>
 					<h2 className="text-base text-primary-800">Configure sharing</h2>
-					<p className="text-primary-400 text-sm">
-						Keep it to yourself or share it out with the world.
-					</p>
+					<p className="text-primary-400 text-sm">Keep it to yourself or share it out with the world.</p>
 				</div>
 				<div className="flex w-ful flex-col gap-y-6">
-					{Permisssions.map((permission) => (
-						<SharePermissionCard key={permission.title} {...permission} />
+					{Permissions.map((perm) => (
+						<SharePermissionCard
+							key={perm.key}
+							title={perm.title}
+							description={perm.description}
+							Icon={perm.Icon}
+							isSelected={permission === perm.key}
+							onClick={() => setPermission(perm.key)}
+						/>
 					))}
 				</div>
 				<div className="flex w-full flex-col gap-y-1.5">
@@ -97,16 +141,25 @@ export function CreateNewKnowledgeBase() {
 							type="text"
 							className="h-full w-full px-3 outline-none placeholder:text-primary-300 focus:border-none focus:ring-0"
 							placeholder="00"
+							value={price}
+							onChange={e => setPrice(e.target.value)}
 						/>
 						<p className="w-max shrink-0 text-primary-300 text-sm">~ $0.00</p>
 					</div>
 				</div>
 			</div>
+			{mutation.isError && (
+				<div className="text-red-500 mt-4">{(mutation.error as Error)?.message}</div>
+			)}
+			{mutation.isSuccess && (
+				<div className="text-green-600 mt-4">Knowledge base created!</div>
+			)}
 		</section>
 	);
 }
 
-function AvatarUploader() {
+// AvatarUploader and BannerUploader now accept onChange prop
+function AvatarUploader({ onChange }: { onChange: (file: File | null) => void }) {
 	const [
 		{ files, isDragging },
 		{
@@ -121,6 +174,13 @@ function AvatarUploader() {
 	] = useFileUpload({
 		accept: "image/*",
 	});
+
+	React.useEffect(() => {
+		// Only set File, not FileMetadata
+		const file = files[0]?.file instanceof File ? files[0].file : null;
+		onChange(file);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [files]);
 
 	const previewUrl = files[0]?.preview || null;
 
@@ -177,15 +237,13 @@ function AvatarUploader() {
 				<p className="text-primary-800 text-sm">
 					Upload Knowledge Base icon <span className="text-[#F03D3D]">*</span>
 				</p>
-				<p className="text-primary-400 text-sm">
-					SVG, PNG, JPG or GIF (max. 400x400px)
-				</p>
+				<p className="text-primary-400 text-sm">SVG, PNG, JPG or GIF (max. 400x400px)</p>
 			</div>
 		</div>
 	);
 }
 
-function BannerUploader() {
+function BannerUploader({ onChange }: { onChange: (file: File | null) => void }) {
 	const maxSizeMB = 5;
 	const maxSize = maxSizeMB * 1024 * 1024; // 5MB default
 
@@ -204,6 +262,13 @@ function BannerUploader() {
 		accept: "image/*",
 		maxSize,
 	});
+
+	React.useEffect(() => {
+		// Only set File, not FileMetadata
+		const file = files[0]?.file instanceof File ? files[0].file : null;
+		onChange(file);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [files]);
 
 	const previewUrl = files[0]?.preview || null;
 
@@ -244,9 +309,7 @@ function BannerUploader() {
 							</div>
 							<div className="text-center">
 								<p className="mb-1.5 text-sm">Upload banner</p>
-								<p className="text-primary-400 text-sm">
-									SVG, PNG, JPG or GIF (max. 400x400px)
-								</p>
+								<p className="text-primary-400 text-sm">SVG, PNG, JPG or GIF (max. 400x400px)</p>
 							</div>
 						</div>
 					)}
@@ -264,12 +327,8 @@ function BannerUploader() {
 					</div>
 				)}
 			</div>
-
 			{errors.length > 0 && (
-				<div
-					className="flex items-center gap-1 text-destructive text-xs"
-					role="alert"
-				>
+				<div className="flex items-center gap-1 text-destructive text-xs" role="alert">
 					<AlertCircleIcon className="size-3 shrink-0" />
 					<span>{errors[0]}</span>
 				</div>
@@ -279,10 +338,12 @@ function BannerUploader() {
 }
 
 type SharePermissionCardProps = {
-	isSelected: boolean;
+	key: string;
+	isSelected?: boolean;
 	title: string;
 	description: string;
 	Icon: React.ReactNode;
+	onClick?: () => void;
 };
 
 function SharePermissionCard(props: SharePermissionCardProps) {
@@ -292,9 +353,13 @@ function SharePermissionCard(props: SharePermissionCardProps) {
 				"h-[128px] cursor-pointer rounded-[12px] ring-2 ring-[#eeefee]",
 				props.isSelected && "ring-[#2DCA04]",
 			)}
+			onClick={props.onClick}
+			tabIndex={0}
+			role="button"
+			aria-pressed={props.isSelected}
 		>
 			<div className="flex h-14 w-full items-center gap-4 border-primary-100 border-b px-3">
-				{/* IOCN DIV  */}
+				{/* ICON DIV  */}
 				<div
 					style={{
 						boxShadow: `
@@ -310,9 +375,7 @@ function SharePermissionCard(props: SharePermissionCardProps) {
 				<p className="text-base text-primary-800">{props.title}</p>
 				{props.isSelected && <ICONS.bgCheck className="ml-auto size-4" />}
 			</div>
-			<p className="p-4 text-primary-400 text-sm drop-shadow-sm">
-				{props.description}
-			</p>
+			<p className="p-4 text-primary-400 text-sm drop-shadow-sm">{props.description}</p>
 		</div>
 	);
 }
