@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { BadgeCheck, Grid3X3, Link2, List, RefreshCcw, ChevronDown } from "lucide-react";
+import { BadgeCheck, Link2, RefreshCcw, ChevronDown } from "lucide-react";
 import { useState } from "react";
 import { flexRender, type ColumnDef } from "@tanstack/react-table";
 import {
@@ -29,6 +29,9 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { useDataTable } from "@/hooks/use-data-table";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { cn } from "@/lib/utils";
+import { ICONS } from "@/components/icons";
 
 interface AuthMethod {
   clientId: string;
@@ -36,6 +39,7 @@ interface AuthMethod {
   description: string;
   type: 'oauth' | 'secret_sharing' | 'embedded_wallet';
   supportedScopes: string[];
+  scopeDefinitions: Record<string, string>;
   supportedServices: string[];
   metadata: Record<string, any>;
   createdAt: string;
@@ -106,10 +110,10 @@ const createColumns = (): ColumnDef<AuthMethod>[] => [
   {
     id: "scopes",
     header: "Scopes",
-    accessorKey: "supportedScopes",
+    accessorKey: "scopeDefinitions",
     cell: ({ row }) => (
       <span className="text-primary-400 text-sm">
-        {row.original.supportedScopes.length} scopes
+        {Object.keys(row.original.scopeDefinitions).length} scopes
       </span>
     ),
   },
@@ -141,10 +145,18 @@ export const Route = createFileRoute("/_hub/auth/")({
   }),
 });
 
+const activeClass = "!bg-white data-[state=on]:!bg-white";
+const inactiveClass = "!bg-transparent";
+
 function RouteComponent() {
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [sortBy, setSortBy] = useState<SortOption>('latest');
   const { data: authMethods } = useSuspenseQuery(hubQueries.authMethodsOptions());
+
+  const handleViewChange = (value: "table" | "grid") => {
+    if (value === viewMode) return;
+    setViewMode(value);
+  };
 
   const columns = createColumns();
 
@@ -168,7 +180,8 @@ function RouteComponent() {
       case 'name':
         return [...methods].sort((a, b) => a.name.localeCompare(b.name));
       case 'scopes':
-        return [...methods].sort((a, b) => b.supportedScopes.length - a.supportedScopes.length);
+        // Updated to use scopeDefinitions length
+        return [...methods].sort((a, b) => Object.keys(b.scopeDefinitions).length - Object.keys(a.scopeDefinitions).length);
       case 'new':
         return [...methods].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       case 'relevant':
@@ -182,9 +195,9 @@ function RouteComponent() {
     return (
       <div className="grid w-full grid-cols-1 gap-6 p-6 md:grid-cols-2 lg:grid-cols-3">
         {sortedMethods.map((method: AuthMethod) => (
-          <Link
+          <div
             key={method.clientId}
-            to={`/auth/${method.clientId}`}
+            // to={`/auth/${method.clientId}`}
             className="h-fit min-h-48 min-w-xs rounded-xl border border-primary-100 p-6"
           >
             <div className="mb-4 flex w-full items-start justify-between">
@@ -231,23 +244,27 @@ function RouteComponent() {
                         <Input type="text" placeholder={`${method.name} connection`} />
                       </div>
 
-                      <div className="border-t border-t-primary-200 border-dashed" />
+                      {Object.keys(method.scopeDefinitions).length > 0 ? <div className="border-t border-t-primary-200 border-dashed" /> : null}
 
                       <div className="flex flex-col px-4">
-                        <div className="mb-4 flex flex-col">
-                          <span>Allow Access</span>
-                          <span className="text-[13px] text-primary-300">
-                            Configure the data access for the MCPs
-                          </span>
-                        </div>
+                        {Object.keys(method.scopeDefinitions).length > 0 ? (
+                          <>
+                            <div className="mb-4 flex flex-col">
+                              <span>Allow Access</span>
+                              <span className="text-[13px] text-primary-300">
+                                Configure the data access for the MCPs
+                              </span>
+                            </div>
+                            <PermissionSelector
+                              permissions={Object.entries(method.scopeDefinitions).map(([scope, label]) => ({
+                                id: scope,
+                                label: label
+                              }))}
+                              placeholder="Search permissions..."
+                            />
 
-                        <PermissionSelector
-                          permissions={method.supportedScopes.map(scope => ({
-                            id: scope,
-                            label: scope.replace(/[_-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
-                          }))}
-                          placeholder="Search permissions..."
-                        />
+                          </>
+                        ) : null}
                       </div>
                     </div>
                   </div>
@@ -267,13 +284,13 @@ function RouteComponent() {
                 {method.name} <BadgeCheck className="inline size-4" />
               </h4>
               <span className="text-primary-300 text-xs tracking-tight">
-                {method.supportedScopes.length} Scopes • {method.type}
+                {Object.keys(method.scopeDefinitions).length} Scopes • {method.type}
               </span>
             </div>
             <p className="truncate text-primary-300 text-sm">
               {method.description}
             </p>
-          </Link>
+          </div>
         ))}
       </div>
     )
@@ -361,24 +378,33 @@ function RouteComponent() {
 
 
             {/* View Toggle */}
-            <div className="flex rounded-lg border border-primary-200 p-1">
-              <Button
-                variant={viewMode === 'grid' ? 'default' : 'ghost'}
-                size="sm"
-                className="h-7 px-2"
-                onClick={() => setViewMode('grid')}
+            <ToggleGroup
+              className="rounded-[6px] bg-[#F5F5F5] p-[2px]"
+              type="single"
+              value={viewMode}
+              onValueChange={handleViewChange}
+            >
+              <ToggleGroupItem
+                value="table"
+                className={cn(
+                  "hover:!bg-white/90",
+                  viewMode === "table" ? activeClass : inactiveClass,
+                )}
               >
-                <Grid3X3 className="size-4" />
-              </Button>
-              <Button
-                variant={viewMode === 'table' ? 'default' : 'ghost'}
-                size="sm"
-                className="h-7 px-2"
-                onClick={() => setViewMode('table')}
+                <ICONS.list stroke={viewMode === "table" ? "#000000" : "#A3A3A3"} />
+              </ToggleGroupItem>
+              <ToggleGroupItem
+                value="grid"
+                className={cn(
+                  "hover:!bg-white/90",
+                  viewMode === "grid" ? activeClass : inactiveClass,
+                )}
               >
-                <List className="size-4" />
-              </Button>
-            </div>
+                <ICONS.directory
+                  stroke={viewMode === "grid" ? "#000000" : "#A3A3A3"}
+                />
+              </ToggleGroupItem>
+            </ToggleGroup>
           </div>
         </div>
 
