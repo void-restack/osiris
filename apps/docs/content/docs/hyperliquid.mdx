@@ -1,0 +1,121 @@
+---
+title: How to Create an MCP
+description: A step-by-step guide to creating a new Authenticated MCP using the Osiris CLI.
+---
+
+import { Step, Steps } from "fumadocs-ui/components/steps";
+import { Callout } from "fumadocs-ui/components/callout";
+
+<Steps>
+
+<Step>
+### 1. Install the Osiris CLI
+
+First, install the command-line interface globally on your system. This tool handles project scaffolding, authentication, and configuration.
+
+```bash
+npm install -g @osiris-ai/cli
+```
+
+</Step>
+
+<Step>
+### 2. Register Your Osiris Account
+
+Next, create your secure Osiris account. This command will open a browser window to complete the authentication process.
+
+```bash
+npx @osiris-ai/cli register
+```
+
+![register](/docs/register.png)
+
+</Step>
+
+<Step>
+### 3. Create an OAuth Client
+
+Generate the necessary Client ID and Secret that your MCPs will use for OAuth flows. The CLI manages these credentials for you automatically.
+
+```bash
+npx @osiris-ai/cli create-client
+```
+![create-client cli image](/docs/create-client-1.png)
+![create-client cli image](/docs/create-client-2.png)
+
+</Step>
+
+<Step>
+### 4. Connect Authentication Services to the Hub
+
+Add authentication methods (like Google, GitHub, Slack, etc.) to your central Osiris Hub. These can be securely connected to any of your MCPs later.
+
+```bash
+npx @osiris-ai/cli connect-auth
+```
+
+<ConnectAuthVideo />
+
+
+</Step>
+
+<Step>
+### 5. Create Your MCP Project
+
+Generate a complete MCP project structure. The CLI will prompt you for a project name, language (TypeScript/JavaScript), and database adapter.
+
+```bash
+npx @osiris-ai/cli create-mcp
+```
+
+<CreateClientVideo />
+
+</Step>
+
+<Step>
+### 6. Start the Development Server
+
+Navigate into your new project directory, install its dependencies, and start the local development server.
+
+```bash
+cd your-mcp-project-name
+npm install
+npm run dev
+```
+
+</Step>
+
+<Step>
+### 7. Connect Hub Authentication to Your MCP
+
+Finally, create a secure, scoped connection between the services in your hub and your newly created MCP. This command allows you to define specific permissions (e.g., Gmail read-only) for the MCP.
+
+```bash
+npx @osiris-ai/cli connect-mcp-auth
+```
+
+<ConnectMcpAuthVideo />
+
+</Step>
+<Step>
+### 8. Explore CLI Commands
+
+For more information on any command, you can use the `--help` flag. This provides a detailed list of all available options and subcommands.
+
+```bash
+# Get help for the main CLI
+npx @osiris-ai/cli --help
+
+# Get help for a specific command
+npx @osiris-ai/cli create-mcp --help
+```
+
+![help cli](/docs/help.png)
+</Step>
+
+</Steps>
+
+<Callout type="success" title="Setup Complete">
+  🎉 Your MCP is now created, running locally, and securely connected to your
+  chosen authentication services via the Osiris Hub.
+</Callout>
