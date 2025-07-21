@@ -1,129 +1,124 @@
 interface ApiOptions {
-	method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
-	body?: any;
-	headers?: Record<string, string>;
-	params?: Record<string, string>;
-	schema?: any;
+  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+  body?: any;
+  headers?: Record<string, string>;
+  params?: Record<string, string>;
+  schema?: any;
 }
 
 interface ApiResponse<T = any> {
-	status: "SUCCESS" | "FAILED";
-	data?: T;
-	error?: string;
-	message?: string;
+  status: "SUCCESS" | "FAILED";
+  data?: T;
+  error?: string;
+  message?: string;
 }
 
 class ApiError extends Error {
-	constructor(
-		public status: number,
-		public response: any,
-		message?: string,
-	) {
-		super(message || `API Error: ${status}`);
-		this.name = "ApiError";
-	}
+  constructor(
+    public status: number,
+    public response: any,
+    message?: string,
+  ) {
+    super(message || `API Error: ${status}`);
+    this.name = "ApiError";
+  }
 }
 
 async function api<T = any>(
-	endpoint: string,
-	options: ApiOptions = {},
+  endpoint: string,
+  options: ApiOptions = {},
 ): Promise<ApiResponse<T>> {
-	const { method = "GET", body, headers = {}, params = {}, schema } = options;
+  const { method = "GET", body, headers = {}, params = {}, schema } = options;
+  const baseUrl =
+    (
+      import.meta.env.VITE_API_BASE_URL || "https://api.osirislabs.xyz/v1"
+    ).replace(/\/$/, "") + "/";
+  const cleanEndpoint = endpoint.replace(/^\//, "");
+  const url = new URL(cleanEndpoint, baseUrl);
 
-	const baseUrl =
-		(
-			import.meta.env.VITE_API_BASE_URL || "https://api.osirislabs.xyz/v1"
-		).replace(/\/$/, "") + "/";
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      url.searchParams.append(key, String(value));
+    }
+  });
 
-	const cleanEndpoint = endpoint.replace(/^\//, "");
-	const url = new URL(cleanEndpoint, baseUrl);
+  const token = localStorage.getItem("access_token");
+  const requestHeaders: Record<string, string> = {
+    ...headers,
+  };
 
-	Object.entries(params).forEach(([key, value]) => {
-		if (value !== undefined && value !== null) {
-			url.searchParams.append(key, String(value));
-		}
-	});
+  if (token) {
+    requestHeaders.Authorization = `Bearer ${token}`;
+  }
 
-	const token = localStorage.getItem("access_token");
+  if (!(body instanceof FormData)) {
+    requestHeaders["Content-Type"] = "application/json";
+  }
 
-	const requestHeaders: Record<string, string> = {
-		...headers,
-	};
+  const requestInit: RequestInit = {
+    method,
+    headers: requestHeaders,
+    mode: "cors",
+    credentials: "include",
+  };
 
-	if (token) {
-		requestHeaders.Authorization = `Bearer ${token}`;
-	}
+  if (body && method !== "GET") {
+    if (body instanceof FormData) {
+      requestInit.body = body;
+    } else {
+      requestInit.body = JSON.stringify(body);
+    }
+  }
 
-	requestHeaders["Content-Type"] = "application/json";
+  try {
+    const response = await fetch(url.toString(), requestInit);
+    let data: any;
+    const contentType = response.headers.get("content-type");
 
-	const requestInit: RequestInit = {
-		method,
-		headers: requestHeaders,
-		mode: "cors",
-		credentials: "omit",
-	};
+    if (contentType?.includes("application/json")) {
+      data = await response.json();
+    } else {
+      data = await response.text();
+    }
 
-	if (body && method !== "GET") {
-		if (body instanceof FormData) {
-			requestInit.body = body;
-		} else {
-			requestInit.body = JSON.stringify(body);
-		}
-	}
+    if (response.status === 401) {
+      localStorage.removeItem("access_token");
+      localStorage.removeItem("refresh_token");
+      window.location.href = "/";
+      throw new ApiError(401, data, "Unauthorized");
+    }
 
-	try {
-		const response = await fetch(url.toString(), requestInit);
+    if (!response.ok) {
+      throw new ApiError(
+        response.status,
+        data,
+        data?.error || `HTTP ${response.status}`,
+      );
+    }
 
-		let data: any;
-		const contentType = response.headers.get("content-type");
+    if (schema && data) {
+      try {
+        schema.parse(data);
+      } catch (validationError) {
+        console.warn("API response validation failed:", validationError);
+      }
+    }
 
-		if (contentType?.includes("application/json")) {
-			data = await response.json();
-		} else {
-			data = await response.text();
-		}
-
-		if (response.status === 401) {
-			localStorage.removeItem("access_token");
-			localStorage.removeItem("refresh_token");
-			window.location.href = "/";
-			throw new ApiError(401, data, "Unauthorized");
-		}
-
-		if (!response.ok) {
-			throw new ApiError(
-				response.status,
-				data,
-				data?.error || `HTTP ${response.status}`,
-			);
-		}
-
-		if (schema && data) {
-			try {
-				schema.parse(data);
-			} catch (validationError) {
-				console.warn("API response validation failed:", validationError);
-			}
-		}
-
-		return data;
-	} catch (error) {
-		console.error("API Error:", error);
-
-		if (error instanceof ApiError) {
-			throw error;
-		}
-
-		if (error instanceof TypeError && error.message.includes("fetch")) {
-			throw new ApiError(0, null, "Network error - possible CORS issue");
-		}
-
-		throw new ApiError(
-			0,
-			null,
-			error instanceof Error ? error.message : "Network error",
-		);
-	}
+    return data;
+  } catch (error) {
+    console.error("API Error:", error);
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    if (error instanceof TypeError && error.message.includes("fetch")) {
+      throw new ApiError(0, null, "Network error - possible CORS issue");
+    }
+    throw new ApiError(
+      0,
+      null,
+      error instanceof Error ? error.message : "Network error",
+    );
+  }
 }
 
 export { api, ApiError };

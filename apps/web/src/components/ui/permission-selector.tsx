@@ -12,11 +12,13 @@ export type Permission = {
 type PermissionSelectorProps = {
   permissions: Permission[];
   placeholder?: string;
+  onSelectionChange?: (selectedPermissions: Permission[]) => void;
 };
 
 export function PermissionSelector({
   permissions,
   placeholder = "Search permissions...",
+  onSelectionChange,
 }: PermissionSelectorProps) {
   const [selectedPermissions, setSelectedPermissions] = useState<Permission[]>(
     [],
@@ -26,6 +28,10 @@ export function PermissionSelector({
 
   console.log("Permissions received:", permissions);
   console.log("Search query:", searchQuery);
+
+  useEffect(() => {
+    onSelectionChange?.(selectedPermissions);
+  }, [selectedPermissions, onSelectionChange]);
 
   const removeSelectedPermission = (id: string) => {
     setSelectedPermissions((prev) =>
@@ -49,13 +55,12 @@ export function PermissionSelector({
     );
   };
 
-  // Fixed filtering: search in both label and id, and handle empty search
   const filteredPermissions = permissions.filter((permission) => {
-    if (!searchQuery.trim()) return true; // Show all when no search query
+    if (!searchQuery.trim()) return true;
 
     const query = searchQuery.toLowerCase();
     return (
-      // permission.label.toLowerCase().includes(query) ||
+      permission.label.toLowerCase().includes(query) ||
       permission.id.toLowerCase().includes(query)
     );
   });
@@ -69,7 +74,6 @@ export function PermissionSelector({
     }
   }, [selectedPermissions]);
 
-  // Show message when no permissions are available at all
   if (permissions.length === 0) {
     return (
       <div className="w-full max-w-lg space-y-4">
@@ -108,7 +112,7 @@ export function PermissionSelector({
       {/* Selected Permissions */}
       {selectedPermissions.length > 0 && (
         <div className="mb-4">
-          <h3 className="mb-2 text-[13px]">Selected Permissions</h3>
+          <h3 className="mb-2 text-[13px]">Selected Permissions ({selectedPermissions.length})</h3>
           <div className="flex flex-wrap gap-2" ref={selectedsContainerRef}>
             {selectedPermissions.map((permission) => (
               <div

@@ -15,7 +15,7 @@ import {
 import { Autocomplete } from "@/components/ui/autocomplete";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { PermissionSelector } from "@/components/ui/permission-selector";
+import { PermissionSelector, type Permission } from "@/components/ui/permission-selector";
 import { DataTableToolbar } from "@/components/data-table/data-table-toolbar";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -25,6 +25,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { hubQueries } from "@/lib/queries";
+import { useCreateServiceConnectionMutation } from "@/lib/mutations";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { useDataTable } from "@/hooks/use-data-table";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -32,6 +33,7 @@ import { DataTablePagination } from "@/components/data-table/data-table-paginati
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "@/lib/utils";
 import { ICONS } from "@/components/icons";
+import { toast } from "sonner";
 
 interface AuthMethod {
   clientId: string;
@@ -148,6 +150,130 @@ export const Route = createFileRoute("/_hub/auth/")({
 const activeClass = "!bg-white data-[state=on]:!bg-white";
 const inactiveClass = "!bg-transparent";
 
+function AuthMethodDialog({ method }: { method: AuthMethod }) {
+  const [selectedScopes, setSelectedScopes] = useState<Permission[]>([]);
+  const [authHubName, setAuthHubName] = useState(`${method.name} connection`);
+
+  const createServiceConnection = useCreateServiceConnectionMutation();
+
+  const handleSaveAuthenticator = async () => {
+    if (Object.keys(method.scopeDefinitions).length > 0 && selectedScopes.length === 0) {
+      toast.error("Please select at least one permission");
+      return;
+    }
+
+    try {
+      await createServiceConnection.mutateAsync({
+        type: method.name, scopes: selectedScopes.map(scope => scope.id)
+      });
+
+    } catch (error) {
+      console.error("Authentication error:", error);
+      toast.error("Failed to start authentication process");
+    }
+  };
+
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button
+          variant="ghost"
+          className="flex h-fit items-center gap-1 rounded-[6px] bg-badge-success px-2 py-1 font-medium text-badge-success-text text-xs"
+        >
+          <Link2 /> Connect
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent className="w-full max-w-[448px] rounded-[12px] border-primary-100 p-0">
+        <AlertDialogHeader className="border-b border-b-primary-100 px-4 py-3">
+          <AlertDialogTitle className="font-normal text-base text-primary-400 capitalize">
+            Connect {method.name}
+          </AlertDialogTitle>
+        </AlertDialogHeader>
+        <div className="w-full">
+          <div className="flex flex-col space-y-6">
+            <div className="flex items-center justify-between px-4">
+              <div className="flex">
+                <div className="size-10 rounded-lg bg-purple-400" />
+                <div className="-ml-3 size-10 rounded-lg bg-green-400" />
+                <div className="ml-2 flex flex-col">
+                  <span className="text-primary-800 text-sm">
+                    Piyush Jain
+                  </span>
+                  <span className="text-primary-300 text-xs">
+                    piyushj03z@gmail.com
+                  </span>
+                </div>
+              </div>
+              <div className="rounded-md border border-primary-300 p-1">
+                <RefreshCcw className="size-4 text-primary-300" />
+              </div>
+            </div>
+
+            <div className="flex flex-col space-y-1.5 px-4 text-[13px] text-primary-400">
+              <label htmlFor="auth_hub_name">Auth Hub Name</label>
+              <Input
+                type="text"
+                value={authHubName}
+                onChange={(e) => setAuthHubName(e.target.value)}
+                placeholder={`${method.name} connection`}
+              />
+            </div>
+
+            <div className="border-t border-t-primary-200 border-dashed" />
+
+            <div className="flex flex-col px-4">
+              <div className="mb-4 flex flex-col">
+                <span>Allow Access</span>
+                <span className="text-[13px] text-primary-300">
+                  Configure the data access for the MCPs
+                </span>
+              </div>
+
+              {/* Handle different auth method types */}
+              {Object.keys(method.scopeDefinitions).length > 0 ? (
+                <PermissionSelector
+                  permissions={Object.entries(method.scopeDefinitions).map(([scope, label]) => ({
+                    id: scope,
+                    label: label
+                  }))}
+                  placeholder="Search permissions..."
+                  onSelectionChange={setSelectedScopes}
+                />
+              ) : (
+                <div className="py-8 text-center text-muted-foreground">
+                  <p className="text-sm">
+                    This service doesn't require specific permissions
+                  </p>
+                  <p className="text-xs mt-2">
+                    {method.type === 'secret_sharing'
+                      ? 'Secret-based authentication doesn\'t use OAuth scopes'
+                      : method.type === 'embedded_wallet'
+                        ? 'Wallet connections are managed automatically'
+                        : 'No permissions configured for this service'
+                    }
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+        <AlertDialogFooter className="flex w-full items-center rounded-b-[12px] border-t border-t-primary-100 bg-primary-25 px-4 py-3 sm:justify-between">
+          <AlertDialogCancel className="bg-primary-50">
+            Cancel
+          </AlertDialogCancel>
+          <AlertDialogAction
+            className="inset-shadow-search-btn"
+            onClick={handleSaveAuthenticator}
+            disabled={createServiceConnection.isPending}
+          >
+            {createServiceConnection.isPending ? "Connecting..." : "Save Authenticator"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
 function RouteComponent() {
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [sortBy, setSortBy] = useState<SortOption>('latest');
@@ -180,7 +306,6 @@ function RouteComponent() {
       case 'name':
         return [...methods].sort((a, b) => a.name.localeCompare(b.name));
       case 'scopes':
-        // Updated to use scopeDefinitions length
         return [...methods].sort((a, b) => Object.keys(b.scopeDefinitions).length - Object.keys(a.scopeDefinitions).length);
       case 'new':
         return [...methods].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -197,87 +322,13 @@ function RouteComponent() {
         {sortedMethods.map((method: AuthMethod) => (
           <div
             key={method.clientId}
-            // to={`/auth/${method.clientId}`}
             className="h-fit min-h-48 min-w-xs rounded-xl border border-primary-100 p-6"
           >
             <div className="mb-4 flex w-full items-start justify-between">
               <div className="size-14 rounded-xl bg-primary-300 flex items-center justify-center text-white font-bold text-lg capitalize">
                 {method.name.charAt(0)}
               </div>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    className="flex h-fit items-center gap-1 rounded-[6px] bg-badge-success px-2 py-1 font-medium text-badge-success-text text-xs"
-                  >
-                    <Link2 /> Connect
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent className="w-full max-w-[448px] rounded-[12px] border-primary-100 p-0">
-                  <AlertDialogHeader className="border-b border-b-primary-100 px-4 py-3">
-                    <AlertDialogTitle className="font-normal text-base text-primary-400 capitalize">
-                      Connect {method.name}
-                    </AlertDialogTitle>
-                  </AlertDialogHeader>
-                  <div className="w-full">
-                    <div className="flex flex-col space-y-6">
-                      <div className="flex items-center justify-between px-4">
-                        <div className="flex">
-                          <div className="size-10 rounded-lg bg-purple-400" />
-                          <div className="-ml-3 size-10 rounded-lg bg-green-400" />
-                          <div className="ml-2 flex flex-col">
-                            <span className="text-primary-800 text-sm">
-                              Piyush Jain
-                            </span>
-                            <span className="text-primary-300 text-xs">
-                              piyushj03z@gmail.com
-                            </span>
-                          </div>
-                        </div>
-                        <div className="rounded-md border border-primary-300 p-1">
-                          <RefreshCcw className="size-4 text-primary-300" />
-                        </div>
-                      </div>
-
-                      <div className="flex flex-col space-y-1.5 px-4 text-[13px] text-primary-400">
-                        <label htmlFor="auth_hub_name">Auth Hub Name</label>
-                        <Input type="text" placeholder={`${method.name} connection`} />
-                      </div>
-
-                      {Object.keys(method.scopeDefinitions).length > 0 ? <div className="border-t border-t-primary-200 border-dashed" /> : null}
-
-                      <div className="flex flex-col px-4">
-                        {Object.keys(method.scopeDefinitions).length > 0 ? (
-                          <>
-                            <div className="mb-4 flex flex-col">
-                              <span>Allow Access</span>
-                              <span className="text-[13px] text-primary-300">
-                                Configure the data access for the MCPs
-                              </span>
-                            </div>
-                            <PermissionSelector
-                              permissions={Object.entries(method.scopeDefinitions).map(([scope, label]) => ({
-                                id: scope,
-                                label: label
-                              }))}
-                              placeholder="Search permissions..."
-                            />
-
-                          </>
-                        ) : null}
-                      </div>
-                    </div>
-                  </div>
-                  <AlertDialogFooter className="flex w-full items-center rounded-b-[12px] border-t border-t-primary-100 bg-primary-25 px-4 py-3 sm:justify-between">
-                    <AlertDialogCancel className="bg-primary-50">
-                      Cancel
-                    </AlertDialogCancel>
-                    <AlertDialogAction className="inset-shadow-search-btn">
-                      Save Authenticator
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+              <AuthMethodDialog method={method} />
             </div>
             <div className="justify-baseline mb-4 flex flex-col items-start">
               <h4 className="inline items-center font-medium capitalize">
@@ -376,7 +427,6 @@ function RouteComponent() {
               </DropdownMenuContent>
             </DropdownMenu>}
 
-
             {/* View Toggle */}
             <ToggleGroup
               className="rounded-[6px] bg-[#F5F5F5] p-[2px]"
@@ -414,7 +464,6 @@ function RouteComponent() {
           <div className="p-6">
             <div className="w-full overflow-x-auto">
               <div className="flex w-full flex-col gap-2.5">
-                {/* <DataTableToolbar table={table} /> */}
                 <div className="overflow-hidden rounded-md border w-full">
                   <Table className="overflow-scroll w-full">
                     <TableHeader>
