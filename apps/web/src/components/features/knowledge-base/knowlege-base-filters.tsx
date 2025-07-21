@@ -49,7 +49,7 @@ export function SortByMenu() {
 					<ChevronUp className={cn("h-4 w-4", open && "rotate-180")} />
 				</Button>
 			</DropdownMenuTrigger>
-			<DropdownMenuContent className="w-56 bg-white backdrop-blur-sm">
+			<DropdownMenuContent className="w-32 bg-white backdrop-blur-sm">
 				<DropdownMenuCheckboxItem
 					checked={selected.value === "latest"}
 					onCheckedChange={() => setSelected(sortByOptions[0])}

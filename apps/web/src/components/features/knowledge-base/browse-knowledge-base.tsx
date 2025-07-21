@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 
 export function BrowseKnowledgeBase() {
 	return (
-		<div className="mx-auto mt-8 w-full pb-14 text-center">
+		<div className="mx-auto my-[72px] w-full text-center">
 			<h2 className="mb-2 font-medium text-xl leading-3 tracking-tight">
 				Browse Knowledge Hubs
 			</h2>

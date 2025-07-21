@@ -14,10 +14,7 @@ export function UnitsCard() {
         based on past interactions
       </p> */}
 			<div className="absolute inset-0 h-full w-full">
-				<img
-					src="/union.png"
-					className="h-full w-full bg-primary-00 object-fill"
-				/>
+				<img src="/union.png" className="h-full w-full object-cover" />
 			</div>
 			{/* <h1 className="line-clamp-1 relative z-10">
           Store and retrive user specific memoriess
