@@ -166,7 +166,7 @@ For a Web3 MCP to perform on-chain actions like signing transactions or messages
 
 The process is designed for security: your MCP never directly accesses the user's private keys. Instead, it uses the `EVMWalletClient` to send signature requests to the Osiris Hub, which then prompts the user for approval through their wallet interface.
 
-Here’s how to implement a tool that authenticates with the user's wallet to fetch their available addresses. This is the first step in creating a wallet-aware session.
+Here’s how to implement a tool that authenticates with the user's wallet to fetch their available addresses. The first step is to identify available wallets. The second is to select one for the current session.
 
 ```typescript
 import { EVMWalletClient } from '@osiris-ai/web3-evm-sdk';
@@ -218,6 +218,43 @@ async getUserAddresses() {
     } catch (error: any) {
         // Handle any errors during the process.
         logger.error('Failed to get user addresses.', { error: error.message });
+        return createErrorResponse(error);
+    }
+}
+
+/**
+ * Selects a specific wallet address for the current session.
+ * This allows the MCP to direct subsequent actions (like signing) to the correct wallet.
+ * @param address The wallet address to use for the session.
+ * @returns A success or error response.
+ */
+async chooseWallet(address: string): Promise<CallToolResult> {
+    try {
+        const { token, context } = getAuthContext("osiris");
+        if (!token || !context) throw new Error("No token or context found");
+        
+        const client = new EVMWalletClient(
+            this.hubBaseUrl,
+            token.access_token,
+            context.deploymentId
+        );
+
+        // Verify the chosen address belongs to the user.
+        const walletRecords = await client.getWalletRecords();
+        const walletRecord = walletRecords.find((wr) =>
+            wr.accounts.addresses.some(
+                (addr) => addr.address.toLowerCase() === address.toLowerCase()
+            )
+        );
+        if (!walletRecord) throw new Error("Wallet record not found for the given address.");
+
+        // Associate the chosen address with the current session ID.
+        this.walletToSession[context.sessionId] = address;
+        
+        return createSuccessResponse("Successfully chose wallet for the session.", {
+            walletRecordId: walletRecord.id
+        });
+    } catch (error: any) {
         return createErrorResponse(error);
     }
 }
