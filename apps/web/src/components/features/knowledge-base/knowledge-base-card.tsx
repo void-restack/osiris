@@ -2,14 +2,7 @@ import { Star } from "lucide-react";
 import { ICONS } from "@/components/icons";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-
-type KnowledgeBaseCardProps = {
-	title: string;
-	description: string;
-	banner: string;
-	link: string;
-	logo: string;
-};
+import type { KnowledgeBaseCardProps } from "./browse-knowledge-base-list";
 
 export function KnowledgeBaseCard({
 	title,
@@ -17,6 +10,11 @@ export function KnowledgeBaseCard({
 	logo,
 	link,
 	banner,
+	tags,
+	isVerified,
+	stars,
+	credits,
+	permission,
 }: KnowledgeBaseCardProps) {
 	return (
 		<section className="flex flex-col gap-y-4">
@@ -32,17 +30,19 @@ export function KnowledgeBaseCard({
 						<AvatarFallback className="text-2xl">B</AvatarFallback>
 					</Avatar>
 					<div className="absolute top-4 right-4 flex gap-2">
-						<KnowledgebaseStars />
-						<KnowledgebaseCredits credits={100} />
+						<KnowledgebaseStars stars={stars} />
+						<KnowledgebaseCredits credits={credits} />
 					</div>
 				</div>
 			</div>
 			<div className="px-3">
 				<h1 className="flex items-center gap-1 font-medium text-primary-800">
-					{title}{" "}
-					<span>
-						<ICONS.verifiedBadge />
-					</span>
+					{title}
+					{isVerified && (
+						<span>
+							<ICONS.verifiedBadge />
+						</span>
+					)}
 				</h1>
 				<p className="line-clamp-1 text-primary-300 text-sm">{description}</p>
 			</div>
@@ -50,7 +50,7 @@ export function KnowledgeBaseCard({
 	);
 }
 
-function KnowledgebaseStars() {
+function KnowledgebaseStars({ stars }: { stars: number }) {
 	return (
 		<div
 			className={cn(
@@ -59,7 +59,7 @@ function KnowledgebaseStars() {
 			)}
 		>
 			<Star className="size-4" />
-			<span>4.5</span>
+			<span>{stars}</span>
 		</div>
 	);
 }
