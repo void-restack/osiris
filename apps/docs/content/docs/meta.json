@@ -5,12 +5,12 @@
     "quickstart",
     "core-concepts",
     "sdk",
+    "guides",
     "authenticators",
     "policy-engine",
     "knowledge-and-memory",
     "deployment-marketplace",
     "examples/index",
-    "community-rfps",
-    "hyperliquid"
+    "community-rfps"
   ]
 }
