@@ -6,6 +6,7 @@ import { UserPopover } from "@/components/user-popover";
 import { ArrowRight, FileText, PlusIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { KnowledgeBaseCard } from "@/components/features/knowledge-base/knowledge-base-card";
+// import RuleBuilder from "@/components/rule-builder";
 
 export const Route = createFileRoute("/")({
   component: HomeComponent,
@@ -26,6 +27,10 @@ function HomeComponent() {
         </div>
         <UserPopover />
       </header>
+      {/* <div className="flex w-full items-center justify-center pt-20"> */}
+      {/*   <RuleBuilder /> */}
+      {/* </div> */}
+
       <div className="hidebar h-full w-full overflow-y-scroll pb-8">
         {isLoggedIn ?
           <div className="pt-10 px-8 flex w-full">

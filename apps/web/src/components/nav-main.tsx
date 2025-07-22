@@ -40,7 +40,7 @@ export function NavMain({
               <SidebarMenuButton
                 asChild
                 tooltip={item.title}
-                className="font-medium text-primary-300 hover:text-primary-800 active:text-primary-800"
+                className="font-medium"
               >
                 <Link to={item.url}>
                   {/* {item.icon} */}
