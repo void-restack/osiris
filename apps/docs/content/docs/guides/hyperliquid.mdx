@@ -288,7 +288,7 @@ dotenv.config();
 // --- Constants ---
 const logger = new McpLogger("hyperliquid-mcp", LOG_LEVELS.INFO);
 const HYPERLIQUID_API =
-  "[https://api.hyperliquid.xyz](https://api.hyperliquid.xyz)";
+  "https://api.hyperliquid.xyz";
 
 // --- Main Integration Class ---
 /**
@@ -379,6 +379,111 @@ export class HyperliquidClass {
     }
   }
 
+  /**
+	 * Generic wrapper for calling Osiris Action API to sign and execute exchange operations
+	 */
+	private async callActionAPI(action: any, metadata: any = {}) {
+		try {
+			const { token, context } = getAuthContext("osiris");
+			if (!token || !context) throw new Error("No token or context found");
+
+			...previous code
+
+			const client = new EVMWalletClient(
+				this.hubBaseUrl,
+				token.access_token,
+				context.deploymentId
+			);
+
+			const signature = await client.signTypedData(signTypedDataPayload, this.chain, this.walletToSession[context.sessionId] || "", {
+				...metadata,
+				rawAction: action,
+				nonce: nonce,
+				isTestnet: isTestnet
+			});
+
+			...
+
+      const exchangeResponse = await axios.post(`${HYPERLIQUID_API}/exchange`, JSON.stringify(exchangePayload, (_, v) => typeof v === 'bigint' ? v.toString() : v, 2), {
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+
+      if(exchangeResponse.status !== 200) {
+        throw new Error(`Exchange API call failed: ${exchangeResponse.data.error}`);
+      }
+      return exchangeResponse.data;
+    } catch (error: any) {
+      throw new Error(`Action API call failed: ${error.response ? JSON.stringify(error.response.data) : error.message}`);
+    }
+  }
+
+  /**
+	 * Approve token spending
+	 */
+	async approveToken(
+		tokenAddress: Address,
+		amount: bigint,
+	): Promise<CallToolResult> {
+		const { token, context } = getAuthContext("osiris")
+		if (!token || !context) {
+			throw new Error("No token or context found");
+		}
+		const publicClient = createPublicClient()
+
+    const client = new EVMWalletClient(this.hubBaseUrl, token.access_token, context.deploymentId);
+
+		const account = await client.getViemAccount(wallet, this.chain);
+		if (!account) {
+			const error = new Error("No account found, you need to choose a wallet first with chooseWallet");
+			error.name = "NoAccountFoundError";
+			return createErrorResponse(error);
+		}
+
+		try {
+			const walletClient = createWalletClient({
+				account: account,
+				chain: getChainFromId(this.chain).pc,
+				transport: http(this.rpcUrls[this.chain])
+			});
+
+			const preparedTx = await publicClient.prepareTransactionRequest({
+				chain: getChainFromId(this.chain).pc,
+				account: account,
+				to: tokenAddress,
+				abi: ERC20_ABI,
+				functionName: "approve",
+				args: [UNISWAP_V3_ROUTER_ADDRESS, amountInWei],
+				gas: 8000000n
+			})
+
+			const serializedTx = serializeTransaction({
+				...preparedTx,
+				data: encodeFunctionData({
+					abi: ERC20_ABI,
+					functionName: "approve",
+					args: [UNISWAP_V3_ROUTER_ADDRESS, amountInWei]
+				}),
+			} as any)
+			const signedTx = await client.signTransaction(ERC20_ABI, serializedTx, this.chain, account.address)
+
+			const hash = await walletClient.sendRawTransaction({
+				serializedTransaction: signedTx as `0x${string}`
+			})
+
+			return createSuccessResponse("Successfully approved token", {
+				hash: hash
+			});
+		} catch (error: any) {
+			if(error.response && error.response.data && error.response.data.error) {
+				return createErrorResponse(error.response.data.error);
+			}
+			const errorMessage = error.message || "Failed to approve token";
+			return createErrorResponse(errorMessage);
+		}
+	}
+
   // --- Tool Registration ---
 
   /**
@@ -401,6 +506,19 @@ export class HyperliquidClass {
       { address: z.string().describe("The user's public wallet address.") },
       ({ address }) => this.getBalance(address)
     );
+
+    server.tool(
+			"approveToken",
+			"Approve token spending",
+			{
+				tokenAddress: z.string(),
+				amount: z.string()
+			},
+			async ({ tokenAddress, amount }) => {
+				const allowance = await this.approveToken(tokenAddress as Address, BigInt(amount));
+				return allowance;
+			}
+		);
 
     logger.info("✅ Hyperliquid MCP tools registered successfully.");
   }
@@ -497,10 +615,7 @@ The official visual testing tool for MCP servers:
 
 ```bash
 # Test your server
-npx @modelcontextprotocol/inspector node build/index.js
-
-# With config and args
-npx @modelcontextprotocol/inspector --config config.json node build/index.js --debug
+npx @modelcontextprotocol/inspector
 ```
 
 Opens at `http://localhost:6274` with UI to:
@@ -510,19 +625,9 @@ Opens at `http://localhost:6274` with UI to:
 - See request/response logs
 - Export server configs
 
-#### 2. CLI Testing with JSON-RPC
+Or you can even use Postman to test this MCP, just select HTTP and enter the MCP URL
 
-Direct JSON-RPC testing via stdio:
-
-```bash
-# List tools
-echo '{"jsonrpc":"2.0","method":"tools/list","id":1}' | node build/index.js | jq
-
-# Call a tool
-echo '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"your_tool","arguments":{"param":"value"}},"id":2}' | node build/index.js | jq
-```
-
-#### 3. Client Integration
+#### 2. Client Integration
 
 Test with Claude Desktop by adding to your MCP config:
 
@@ -530,9 +635,8 @@ Test with Claude Desktop by adding to your MCP config:
 {
   "mcpServers": {
     "my-server": {
-      "command": "node",
-      "args": ["/absolute/path/to/build/index.js"],
-      "env": { "API_KEY": "your-key" }
+      "type": "streamable-http",
+      "url": "http://localhost:3000/mcp?deploymentId=<deploymentId>"
     }
   }
 }
