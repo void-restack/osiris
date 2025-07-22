@@ -1,4 +1,3 @@
-import { FolderPlus } from "lucide-react";
 import { ICONS } from "@/components/icons";
 
 export function GetStartedAlerts() {

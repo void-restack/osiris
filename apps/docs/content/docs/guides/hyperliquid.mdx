@@ -1,0 +1,567 @@
+---
+title: Quickstart to build Web3 MCPs
+description: A step-by-step guide to creating a new Authenticated MCP using the Osiris CLI.
+---
+
+import { Step, Steps } from "fumadocs-ui/components/steps";
+import { Callout } from "fumadocs-ui/components/callout";
+import { Files, File, Folder } from "fumadocs-ui/components/files";
+
+<Steps>
+
+<Step>
+### 1. Install the Osiris CLI
+
+First, install the command-line interface globally on your system. This tool handles project scaffolding, authentication, and configuration.
+
+```bash
+# Install globally (recommended)
+npm install -g @osiris-ai/cli
+
+# Or use with npx (no installation needed)
+npx @osiris-ai/cli register
+```
+
+</Step>
+
+<Step>
+### 2. Register Your Osiris Account
+
+Next, create your secure Osiris account. This command will open a browser window to complete the authentication process.
+
+```bash
+npx @osiris-ai/cli register
+```
+
+![register](/docs/register.png)
+
+</Step>
+
+<Step>
+### 3. Create an OAuth Client
+
+Generate the necessary Client ID and Secret that your MCPs will use for OAuth flows. The CLI manages these credentials for you automatically.
+
+```bash
+npx @osiris-ai/cli create-client
+```
+
+![create-client cli image](/docs/create-client-1.png)
+![create-client cli image](/docs/create-client-2.png)
+
+</Step>
+
+<Step>
+### 4. Connect Authentication Services to the Hub
+
+Add authentication methods (like Google, GitHub, Slack, etc.) to your central Osiris Hub. These can be securely connected to any of your MCPs later.
+
+For this example I am using Turnkey as my authenticator. Turnkey is an enterprise-grade wallet authenticator that provides secure access to blockchain wallets using hardware-backed security and a powerful policy engine.
+
+```bash
+npx @osiris-ai/cli connect-auth
+```
+
+<ConnectAuthVideo />
+
+These authentication methods are stored securely in the Osiris Hub. You'll connect them to specific MCPs in the next steps with fine-grained scopes and policies.
+
+</Step>
+
+<Step>
+### 5. Create Your MCP Project
+
+Generate a complete MCP project:
+
+```bash
+npx @osiris-ai/cli create-mcp
+```
+
+The CLI will prompt you for:
+
+- Project name (e.g., my-first-mcp)
+- Language (TypeScript or JavaScript)
+- Database adapter (PostgreSQL, MongoDB, Redis, SQLite)
+- Authentication services to include
+
+<CreateMCPVideo />
+
+This generates a complete project structure:
+
+<Files>
+  <Folder name="src" defaultOpen>
+    <File name="index.ts" hint="MCP server entry point" />
+    <File name="client.ts" hint="Client configuration" />
+    <Folder name="tools">
+      <File name="hello-world.ts" hint="Example tool" />
+    </Folder>
+    <Folder name="resources">
+      <File name="hello-world.ts" hint="Example resource" />
+    </Folder>
+    <Folder name="prompts">
+      <File name="hello-world.ts" hint="Example prompt" />
+    </Folder>
+    <Folder name="schema">
+      <File name="index.ts" hint="Type definitions" />
+    </Folder>
+  </Folder>
+  <File name="package.json" hint="Dependencies and scripts" />
+  <File name=".env" hint="Auto-configured environment" />
+  <File name=".env.example" hint="Environment template" />
+  <File name="osiris.json" hint="Project configuration" />
+  <File name="README.md" hint="Generated documentation" />
+  <File name="tsconfig.json" hint="TypeScript configuration" />
+</Files>
+
+</Step>
+
+<Step>
+### 6. Start the Development Server
+
+Navigate into your new project directory, install its dependencies, and start the local development server.
+
+```bash
+cd your-mcp-project-name
+npm install
+npm run dev
+```
+
+</Step>
+
+<Step>
+### 7. Connect Hub Authentication to Your MCP
+
+Finally, create a secure, scoped connection between the services in your hub and your newly created MCP. This command allows you to define specific permissions (e.g., Gmail read-only) for the MCP.
+
+```bash
+npx @osiris-ai/cli connect-mcp-auth
+```
+
+<ConnectMcpAuthVideo />
+
+</Step>
+<Step>
+### 8. Explore CLI Commands
+
+For more information on any command, you can use the `--help` flag. This provides a detailed list of all available options and subcommands.
+
+```bash
+# Get help for the main CLI
+npx @osiris-ai/cli --help
+
+# Get help for a specific command
+npx @osiris-ai/cli create-mcp --help
+```
+
+![help cli](/docs/help.png)
+
+</Step>
+
+<Step>
+### 9. Authenticating with Wallets
+
+For a Web3 MCP to perform on-chain actions like signing transactions or messages, it must securely interact with a user's wallet. This is handled by the `EVMWalletClient` from the `@osiris-ai/web3-evm-sdk` package.
+
+The process is designed for security: your MCP never directly accesses the user's private keys. Instead, it uses the `EVMWalletClient` to send signature requests to the Osiris Hub, which then prompts the user for approval through their wallet interface.
+
+Here’s how to implement a tool that authenticates with the user's wallet to fetch their available addresses. The first step is to identify available wallets. The second is to select one for the current session.
+
+```typescript
+import { EVMWalletClient } from '@osiris-ai/web3-evm-sdk';
+import { getAuthContext } from '@osiris-ai/sdk';
+import { createSuccessResponse, createErrorResponse } from '../utils/types.js';
+
+// This method would be inside your main integration class (e.g., HyperliquidClass)
+
+/**
+ * Fetches the user's EVM wallet addresses from the Osiris wallet service.
+ * This tool establishes the initial connection to the user's wallet.
+ * @returns A success or error response containing the user's addresses.
+ */
+async getUserAddresses() {
+    try {
+        // 1. Get the authentication context for the current request.
+        // This provides the necessary tokens to interact with the Hub securely.
+        const { token, context } = getAuthContext('osiris');
+        if (!token || !context) {
+            throw new Error('Authentication context not found.');
+        }
+
+        // 2. Initialize the EVMWalletClient.
+        // This client acts as a secure bridge to the user's wallet via the Osiris Hub.
+        const client = new EVMWalletClient(
+            this.hubBaseUrl,
+            token.access_token,
+            context.deploymentId
+        );
+
+        // 3. Call a method on the client to interact with the wallet.
+        // Here, we retrieve all wallet records associated with the user's account.
+        const walletRecords = await client.getWalletRecords();
+        if (walletRecords.length === 0) {
+            throw new Error('No wallet record found for the user.');
+        }
+
+        // 4. Format and return the wallet addresses.
+        // This list can then be used by the AI or user to select a specific
+        // address for subsequent transactions, effectively creating a "wallet session".
+        const addresses = walletRecords.flatMap((wr) =>
+            wr.accounts.addresses.map((a) => ({
+                chains: a.chains,
+                address: a.address,
+            }))
+        );
+
+        return createSuccessResponse('Successfully retrieved user addresses.', { addresses });
+    } catch (error: any) {
+        // Handle any errors during the process.
+        logger.error('Failed to get user addresses.', { error: error.message });
+        return createErrorResponse(error);
+    }
+}
+
+/**
+ * Selects a specific wallet address for the current session.
+ * This allows the MCP to direct subsequent actions (like signing) to the correct wallet.
+ * @param address The wallet address to use for the session.
+ * @returns A success or error response.
+ */
+async chooseWallet(address: string): Promise<CallToolResult> {
+    try {
+        const { token, context } = getAuthContext("osiris");
+        if (!token || !context) throw new Error("No token or context found");
+
+        const client = new EVMWalletClient(
+            this.hubBaseUrl,
+            token.access_token,
+            context.deploymentId
+        );
+
+        // Verify the chosen address belongs to the user.
+        const walletRecords = await client.getWalletRecords();
+        const walletRecord = walletRecords.find((wr) =>
+            wr.accounts.addresses.some(
+                (addr) => addr.address.toLowerCase() === address.toLowerCase()
+            )
+        );
+        if (!walletRecord) throw new Error("Wallet record not found for the given address.");
+
+        // Associate the chosen address with the current session ID.
+        this.walletToSession[context.sessionId] = address;
+
+        return createSuccessResponse("Successfully chose wallet for the session.", {
+            walletRecordId: walletRecord.id
+        });
+    } catch (error: any) {
+        return createErrorResponse(error);
+    }
+}
+```
+
+</Step>
+
+<Step>
+### 10. Putting It All Together - Complete Integration Example
+
+Here is the full source code for the Hyperliquid Web3 MCP. This example combines everything we've covered: defining an integration class, implementing tools using the Osiris SDK (`EVMWalletClient`) and external APIs, registering those tools, and bootstrapping the server.
+
+```typescript
+// --- Imports ---
+// Import necessary libraries and SDK components for the MCP server.
+import axios from "axios";
+import dotenv from "dotenv";
+import { z } from "zod";
+import { createMcpServer, getAuthContext } from "@osiris-ai/sdk";
+import { PostgresDatabaseAdapter } from "@osiris-ai/postgres-sdk";
+import { EVMWalletClient } from "@osiris-ai/web3-evm-sdk";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import {
+  createErrorResponse,
+  createSuccessResponse,
+  LOG_LEVELS,
+} from "../utils/types.js";
+import { McpLogger } from "../utils/logger.js";
+
+// Initialize environment variables from a .env file.
+dotenv.config();
+
+// --- Constants ---
+const logger = new McpLogger("hyperliquid-mcp", LOG_LEVELS.INFO);
+const HYPERLIQUID_API =
+  "[https://api.hyperliquid.xyz](https://api.hyperliquid.xyz)";
+
+// --- Main Integration Class ---
+/**
+ * The HyperliquidClass encapsulates the logic for interacting with
+ * the Hyperliquid exchange and registering tools with the MCP server.
+ */
+export class HyperliquidClass {
+  hubBaseUrl: string;
+
+  /**
+   * @param hubBaseUrl The base URL of the Osiris Hub.
+   */
+  constructor(hubBaseUrl: string) {
+    this.hubBaseUrl = hubBaseUrl;
+  }
+
+  // --- Wallet-Related Tool ---
+
+  /**
+   * Fetches the user's EVM wallet addresses from the Osiris wallet service.
+   * This tool is useful for identifying the user's on-chain identity.
+   * @returns A success or error response containing the user's addresses.
+   */
+  async getUserAddresses() {
+    try {
+      // Get authentication context from the incoming request.
+      const { token, context } = getAuthContext("osiris");
+      if (!token || !context) {
+        throw new Error("Authentication context not found.");
+      }
+
+      // Initialize the EVM wallet client.
+      const client = new EVMWalletClient(
+        this.hubBaseUrl,
+        token.access_token,
+        context.deploymentId
+      );
+
+      // Retrieve and format wallet addresses.
+      const walletRecords = await client.getWalletRecords();
+      if (walletRecords.length === 0) {
+        throw new Error("No wallet record found for the user.");
+      }
+      const addresses = walletRecords.flatMap((wr) =>
+        wr.accounts.addresses.map((a) => ({
+          chains: a.chains,
+          address: a.address,
+        }))
+      );
+
+      return createSuccessResponse("Successfully retrieved user addresses.", {
+        addresses,
+      });
+    } catch (error: any) {
+      logger.error("Failed to get user addresses.", { error: error.message });
+      return createErrorResponse(error);
+    }
+  }
+
+  // --- Info Endpoint Tool ---
+
+  /**
+   * Fetches a user's spot and perpetuals balance from Hyperliquid's API.
+   * @param address The user's wallet address to query.
+   * @returns A success or error response with the user's balance states.
+   */
+  async getBalance(address: string) {
+    try {
+      // Concurrently fetch perpetual and spot clearinghouse states.
+      const [{ data: perp }, { data: spot }] = await Promise.all([
+        axios.post(`${HYPERLIQUID_API}/info`, {
+          type: "clearinghouseState",
+          user: address,
+        }),
+        axios.post(`${HYPERLIQUID_API}/info`, {
+          type: "spotClearinghouseState",
+          user: address,
+        }),
+      ]);
+
+      return createSuccessResponse("Successfully retrieved balances.", {
+        perpState: perp,
+        spotState: spot,
+      });
+    } catch (error: any) {
+      logger.error("Failed to get balances.", { error: error.message });
+      return createErrorResponse(error);
+    }
+  }
+
+  // --- Tool Registration ---
+
+  /**
+   * Registers all the defined tools with the MCP server instance.
+   * @param server The MCP server instance.
+   */
+  public configureServer(server: McpServer) {
+    // Register the tool to get user addresses.
+    server.tool(
+      "getUserAddresses",
+      "Get the user's embedded wallet addresses.",
+      {}, // No input parameters for this tool.
+      () => this.getUserAddresses()
+    );
+
+    // Register the tool to get account balances.
+    server.tool(
+      "getBalance",
+      "Get user balances for both perpetuals and spot markets.",
+      { address: z.string().describe("The user's public wallet address.") },
+      ({ address }) => this.getBalance(address)
+    );
+
+    logger.info("✅ Hyperliquid MCP tools registered successfully.");
+  }
+}
+
+// --- Server Bootstrap ---
+/**
+ * Initializes and starts the Hyperliquid MCP server.
+ */
+async function startHyperliquidMCP() {
+  try {
+    logger.info("🚀 Starting Hyperliquid MCP server...");
+
+    // Load configuration from environment variables.
+    const hubBaseUrl = process.env.HUB_BASE_URL;
+    const port = parseInt(process.env.PORT || "3010", 10);
+    const clientId = process.env.OAUTH_CLIENT_ID;
+    const clientSecret = process.env.OAUTH_CLIENT_SECRET;
+    const databaseUrl = process.env.HYPERLIQUID_MCP_DATABASE_URL;
+
+    // Validate that all required environment variables are set.
+    if (!hubBaseUrl || !clientId || !clientSecret || !databaseUrl) {
+      throw new Error("Missing required environment variables.");
+    }
+
+    // Instantiate the main class.
+    const hyperliquid = new HyperliquidClass(hubBaseUrl);
+
+    // Create and configure the MCP server.
+    await createMcpServer({
+      name: "hyperliquid-mcp",
+      version: "1.0.0",
+      // Configure authentication using the Osiris Hub.
+      auth: {
+        useHub: true,
+        hubConfig: { baseUrl: hubBaseUrl, clientId, clientSecret },
+        database: new PostgresDatabaseAdapter({
+          connectionString: databaseUrl,
+        }),
+      },
+      // Configure server settings like port and base URL.
+      server: {
+        port,
+        mcpPath: "/mcp",
+        callbackBasePath: "/callback",
+        baseUrl:
+          process.env.HYPERLIQUID_MCP_BASE_URL || `http://localhost:${port}`,
+        logger: (msg: string) => logger.info(msg),
+      },
+      // Register the tools with the server.
+      configure: (server) => hyperliquid.configureServer(server),
+    });
+
+    logger.serverStarted(port);
+  } catch (error: any) {
+    logger.error("❌ Failed to start Hyperliquid MCP server", {
+      error: error.message,
+      stack: error.stack,
+    });
+    process.exit(1); // Exit if the server fails to start.
+  }
+}
+
+// Start the server and catch any fatal errors.
+startHyperliquidMCP().catch((error) => {
+  logger.error("💥 Unhandled fatal error during server startup", {
+    error: error.message,
+    stack: error.stack,
+  });
+  process.exit(1);
+});
+```
+
+</Step>
+
+  <Step>
+  ### 11. Starting and Testing Your MCP Server
+
+Build and test your MCP server locally to ensure all capabilities work correctly. MCP uses JSON-RPC 2.0 over stdio for local development.
+
+### Build Your Server
+
+```bash
+npm run build
+# or for development with hot-reload
+npm run dev
+```
+
+### Testing Methods
+
+#### 1. MCP Inspector (Recommended)
+
+The official visual testing tool for MCP servers:
+
+```bash
+# Test your server
+npx @modelcontextprotocol/inspector node build/index.js
+
+# With config and args
+npx @modelcontextprotocol/inspector --config config.json node build/index.js --debug
+```
+
+Opens at `http://localhost:6274` with UI to:
+
+- View all tools, resources, and prompts
+- Execute tools with forms
+- See request/response logs
+- Export server configs
+
+#### 2. CLI Testing with JSON-RPC
+
+Direct JSON-RPC testing via stdio:
+
+```bash
+# List tools
+echo '{"jsonrpc":"2.0","method":"tools/list","id":1}' | node build/index.js | jq
+
+# Call a tool
+echo '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"your_tool","arguments":{"param":"value"}},"id":2}' | node build/index.js | jq
+```
+
+#### 3. Client Integration
+
+Test with Claude Desktop by adding to your MCP config:
+
+```json
+{
+  "mcpServers": {
+    "my-server": {
+      "command": "node",
+      "args": ["/absolute/path/to/build/index.js"],
+      "env": { "API_KEY": "your-key" }
+    }
+  }
+}
+```
+
+#### 4. Alternative Testing Tools
+
+- **MCP Tools CLI**: Go-based CLI with interactive shell mode
+- **MCPJam Inspector**: Enhanced fork supporting STDIO/SSE/HTTP protocols
+- **Direct curl**: For HTTP transport servers
+
+### Debugging Tips
+
+<Callout type="warning">
+  Always log to `stderr`, never `stdout` - stdout is reserved for JSON-RPC
+  messages only.
+</Callout>
+
+Common issues:
+
+    - Connection errors: Check server startup and transport config
+    - JSON parsing: Validate message format
+    - Tool errors: Verify schema compliance
+
+  </Step>
+
+</Steps>
+
+<Callout type="success" title="Setup Complete">
+  🎉 Your MCP is now created, running locally, and securely connected to your
+  chosen authentication services via the Osiris Hub.
+</Callout>

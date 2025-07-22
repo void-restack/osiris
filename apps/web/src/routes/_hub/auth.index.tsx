@@ -34,6 +34,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "@/lib/utils";
 import { ICONS } from "@/components/icons";
 import { toast } from "sonner";
+import { sortOptions } from "@/config/sort-option";
 
 interface AuthMethod {
   clientId: string;
@@ -52,13 +53,7 @@ interface AuthMethod {
 type ViewMode = 'grid' | 'table';
 type SortOption = 'latest' | 'relevant' | 'new' | 'scopes' | 'name';
 
-const sortOptions = [
-  { value: 'latest' as const, label: 'Latest' },
-  { value: 'relevant' as const, label: 'Relevant' },
-  { value: 'new' as const, label: 'New' },
-  { value: 'scopes' as const, label: 'Most Scopes' },
-  { value: 'name' as const, label: 'Name A-Z' },
-];
+
 
 const createColumns = (): ColumnDef<AuthMethod>[] => [
   {

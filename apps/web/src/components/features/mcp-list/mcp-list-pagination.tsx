@@ -27,7 +27,7 @@ export function McpListPagination({
   return (
     <div
       className={cn(
-        "flex w-full flex-col-reverse items-center justify-between gap-4 overflow-auto px-4 border-t border-primary-100 sm:flex-row sm:gap-8",
+        "flex w-full flex-col-reverse items-center justify-between gap-4 overflow-auto py-2 px-4 border-t border-primary-100 sm:flex-row sm:gap-8",
         className
       )}
       {...props}
