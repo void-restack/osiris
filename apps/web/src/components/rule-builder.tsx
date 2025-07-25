@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, type ChangeEvent } from 'react';
+import React, { useState, useEffect, useCallback, type ChangeEvent, type JSX } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/original-tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,10 +8,35 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Plus, Minus, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
-import CodeMirror from '@uiw/react-codemirror';
+import CodeMirror, { EditorView } from '@uiw/react-codemirror';
 import { json } from '@codemirror/lang-json';
-// import { oneDark } from '@codemirror/theme-one-dark';
 import { githubLight } from "@uiw/codemirror-theme-github"
+
+const myFontTheme = EditorView.theme({
+  '&': {
+    fontFamily: '"Geist Mono", monospace',
+    fontSize: '16px',
+    lineHeight: '1.6'
+  },
+  '.cm-content': {
+    fontFamily: '"Geist Mono", monospace'
+  },
+  '.cm-gutters': {
+    fontFamily: '"Geist Mono", monospace'
+  },
+  '.cm-lineNumbers': {
+    fontFamily: '"Geist Mono", monospace'
+  },
+  '.cm-line': {
+    fontFamily: '"Geist Mono", monospace'
+  },
+  '.cm-scroller': {
+    fontFamily: '"Geist Mono", monospace'
+  },
+  '.cm-tooltip': {
+    fontFamily: '"Geist Mono", monospace'
+  }
+});
 
 interface Template {
   name: string;
@@ -1153,7 +1178,7 @@ export default function PolicyBuilder(): JSX.Element {
             <CodeMirror
               value={jsonValue}
               onChange={(value) => handleJsonChange(value)}
-              extensions={[json()]}
+              extensions={[json(), myFontTheme]}
               theme={githubLight}
               basicSetup={{
                 lineNumbers: true,
@@ -1162,7 +1187,6 @@ export default function PolicyBuilder(): JSX.Element {
                 allowMultipleSelections: false,
                 tabSize: 2,
               }}
-              className="text-sm"
               style={{
                 fontSize: '14px',
                 minHeight: '400px',
