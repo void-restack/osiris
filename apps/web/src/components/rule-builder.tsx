@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Plus, Minus, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
 
+// Template definitions
 const TEMPLATES = {
   'uniswap-v3-swap': {
     name: 'Uniswap V3 Swap (DeFi)',
@@ -245,8 +246,162 @@ const ConstraintInput = ({ constraint, onChange, onRemove, canRemove = true }) =
   );
 };
 
+// Args Field Component (special handling for args structure)
+const ArgsField = ({ argsData, onChange, onRemove }) => {
+  const { arrayConstraints = [], indexedElements = {} } = argsData;
+
+  const addArrayConstraint = () => {
+    onChange({
+      ...argsData,
+      arrayConstraints: [...arrayConstraints, { type: 'lengthEq', value: '' }]
+    });
+  };
+
+  const updateArrayConstraint = (index, constraint) => {
+    const newConstraints = [...arrayConstraints];
+    newConstraints[index] = constraint;
+    onChange({ ...argsData, arrayConstraints: newConstraints });
+  };
+
+  const removeArrayConstraint = (index) => {
+    const newConstraints = [...arrayConstraints];
+    newConstraints.splice(index, 1);
+    onChange({ ...argsData, arrayConstraints: newConstraints });
+  };
+
+  const addIndexedElement = () => {
+    const nextIndex = Math.max(-1, ...Object.keys(indexedElements).map(Number)) + 1;
+    onChange({
+      ...argsData,
+      indexedElements: {
+        ...indexedElements,
+        [nextIndex]: [{ type: 'const', value: '' }]
+      }
+    });
+  };
+
+  const updateIndexedElement = (index, constraints) => {
+    onChange({
+      ...argsData,
+      indexedElements: {
+        ...indexedElements,
+        [index]: constraints
+      }
+    });
+  };
+
+  const removeIndexedElement = (index) => {
+    const newElements = { ...indexedElements };
+    delete newElements[index];
+    onChange({ ...argsData, indexedElements: newElements });
+  };
+
+  return (
+    <div className="space-y-4 p-4 border-2 border-blue-200 rounded-lg bg-blue-50">
+      <div className="flex items-center gap-4">
+        <div className="flex-1">
+          <Label className="text-lg font-semibold text-blue-800">Args Configuration</Label>
+          <p className="text-sm text-blue-600">Array-level constraints and indexed elements</p>
+        </div>
+        <Button variant="ghost" size="icon" onClick={onRemove} className="text-red-600">
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </div>
+
+      {/* Array-level constraints */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <Label className="font-medium">Array Constraints</Label>
+          <Button variant="outline" size="sm" onClick={addArrayConstraint}>
+            <Plus className="h-4 w-4 mr-1" />
+            Add Array Constraint
+          </Button>
+        </div>
+
+        {arrayConstraints.map((constraint, index) => (
+          <ConstraintInput
+            key={index}
+            constraint={constraint}
+            onChange={(c) => updateArrayConstraint(index, c)}
+            onRemove={() => removeArrayConstraint(index)}
+            canRemove={arrayConstraints.length > 1}
+          />
+        ))}
+      </div>
+
+      {/* Indexed elements */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <Label className="font-medium">Indexed Elements</Label>
+          <Button variant="outline" size="sm" onClick={addIndexedElement}>
+            <Plus className="h-4 w-4 mr-1" />
+            Add Element
+          </Button>
+        </div>
+
+        {Object.entries(indexedElements)
+          .sort(([a], [b]) => Number(a) - Number(b))
+          .map(([index, constraints]) => (
+            <div key={index} className="space-y-2 p-3 border rounded-lg bg-white">
+              <div className="flex items-center justify-between">
+                <Label className="font-medium">Element [{index}]</Label>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => removeIndexedElement(index)}
+                  className="text-red-600"
+                >
+                  <Minus className="h-4 w-4" />
+                </Button>
+              </div>
+
+              {constraints.map((constraint, cIndex) => (
+                <ConstraintInput
+                  key={cIndex}
+                  constraint={constraint}
+                  onChange={(c) => {
+                    const newConstraints = [...constraints];
+                    newConstraints[cIndex] = c;
+                    updateIndexedElement(index, newConstraints);
+                  }}
+                  onRemove={() => {
+                    const newConstraints = [...constraints];
+                    newConstraints.splice(cIndex, 1);
+                    updateIndexedElement(index, newConstraints);
+                  }}
+                  canRemove={constraints.length > 1}
+                />
+              ))}
+
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  updateIndexedElement(index, [...constraints, { type: 'const', value: '' }]);
+                }}
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Add Constraint
+              </Button>
+            </div>
+          ))}
+      </div>
+    </div>
+  );
+};
+
 // Field Component
-const PolicyField = ({ field, onChange, onRemove }) => {
+const PolicyField = ({ field, onChange, onRemove, isArgsField = false }) => {
+  if (isArgsField) {
+    return (
+      <ArgsField
+        argsData={field}
+        onChange={onChange}
+        onRemove={onRemove}
+      />
+    );
+  }
+
   const addConstraint = () => {
     onChange({
       ...field,
@@ -272,13 +427,13 @@ const PolicyField = ({ field, onChange, onRemove }) => {
         <div className="flex-1">
           <Label className="text-sm font-medium">Property Path</Label>
           <Input
-            placeholder="e.g., args.0.tokenIn, functionName, to"
+            placeholder="e.g., functionName, to, decoded.value"
             value={field.property || ''}
             onChange={(e) => onChange({ ...field, property: e.target.value })}
             className="mt-1"
           />
           <p className="text-xs text-gray-500 mt-1">
-            Supports nested paths like args.0.fee or decoded.functionName
+            Supports nested paths like decoded.functionName or payload.message
           </p>
         </div>
 
@@ -337,6 +492,16 @@ const PolicyRule = ({ rule, onChange, onRemove }) => {
     });
   };
 
+  const addArgsField = () => {
+    onChange({
+      ...rule,
+      argsField: {
+        arrayConstraints: [{ type: 'lengthEq', value: '' }],
+        indexedElements: {}
+      }
+    });
+  };
+
   const updateField = (index, field) => {
     const newFields = [...rule.fields];
     newFields[index] = field;
@@ -347,6 +512,14 @@ const PolicyRule = ({ rule, onChange, onRemove }) => {
     const newFields = [...rule.fields];
     newFields.splice(index, 1);
     onChange({ ...rule, fields: newFields });
+  };
+
+  const updateArgsField = (argsField) => {
+    onChange({ ...rule, argsField });
+  };
+
+  const removeArgsField = () => {
+    onChange({ ...rule, argsField: null });
   };
 
   return (
@@ -423,24 +596,44 @@ const PolicyRule = ({ rule, onChange, onRemove }) => {
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <Label className="text-base font-medium">Property Constraints</Label>
-                <Button variant="outline" size="sm" onClick={addField}>
-                  <Plus className="h-4 w-4 mr-1" />
-                  Add Field
-                </Button>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={addField}>
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Field
+                  </Button>
+                  {!rule.argsField && (
+                    <Button variant="outline" size="sm" onClick={addArgsField}>
+                      <Plus className="h-4 w-4 mr-1" />
+                      Add Args
+                    </Button>
+                  )}
+                </div>
               </div>
 
+              {/* Args Field */}
+              {rule.argsField && (
+                <PolicyField
+                  field={rule.argsField}
+                  onChange={updateArgsField}
+                  onRemove={removeArgsField}
+                  isArgsField={true}
+                />
+              )}
+
+              {/* Regular Fields */}
               {rule.fields.map((field, index) => (
                 <PolicyField
                   key={index}
                   field={field}
                   onChange={(f) => updateField(index, f)}
                   onRemove={() => removeField(index)}
+                  isArgsField={false}
                 />
               ))}
 
-              {rule.fields.length === 0 && (
+              {rule.fields.length === 0 && !rule.argsField && (
                 <div className="text-center p-8 border border-dashed rounded-lg text-gray-500">
-                  No constraints added. Click "Add Field" or choose a template to get started.
+                  No constraints added. Click "Add Field", "Add Args", or choose a template to get started.
                 </div>
               )}
             </div>
@@ -463,7 +656,7 @@ export default function PolicyBuilder() {
     const policy = { allow: [], deny: [] };
 
     rulesArray.forEach(rule => {
-      if (!rule.method && rule.fields.length === 0) return;
+      if (!rule.method && rule.fields.length === 0 && !rule.argsField) return;
 
       const policyRule = {};
 
@@ -474,6 +667,42 @@ export default function PolicyBuilder() {
       const section = rule.method === 'signMessage' ? 'payload' : 'decoded';
       const sectionData = {};
 
+      // Handle special args field
+      if (rule.argsField) {
+        const argsData = {};
+
+        // Add array-level constraints
+        rule.argsField.arrayConstraints?.forEach(constraint => {
+          if (constraint.value !== '' && constraint.value !== null && constraint.value !== undefined) {
+            argsData[constraint.type] = constraint.value;
+          }
+        });
+
+        // Add indexed elements
+        Object.entries(rule.argsField.indexedElements || {}).forEach(([index, constraints]) => {
+          const validConstraints = constraints.filter(c =>
+            c.value !== '' && c.value !== null && c.value !== undefined
+          );
+
+          if (validConstraints.length > 0) {
+            if (validConstraints.length === 1) {
+              argsData[index] = { [validConstraints[0].type]: validConstraints[0].value };
+            } else {
+              const constraintObj = {};
+              validConstraints.forEach(c => {
+                constraintObj[c.type] = c.value;
+              });
+              argsData[index] = constraintObj;
+            }
+          }
+        });
+
+        if (Object.keys(argsData).length > 0) {
+          sectionData.args = argsData;
+        }
+      }
+
+      // Handle regular fields
       rule.fields.forEach(field => {
         if (!field.property || field.constraints.length === 0) return;
 
@@ -521,13 +750,47 @@ export default function PolicyBuilder() {
           name: `${type.charAt(0).toUpperCase() + type.slice(1)} group ${newRules.filter(r => r.type === type).length + 1}`,
           method: policyRule.method || '',
           chain: policyRule.chain || '',
-          fields: []
+          fields: [],
+          argsField: null
         };
 
         // Extract fields from decoded/payload section
         const section = policyRule.decoded || policyRule.payload || {};
         const extractFields = (obj, prefix = '') => {
           Object.entries(obj).forEach(([key, value]) => {
+            // Special handling for args
+            if (key === 'args' && !prefix) {
+              const argsField = {
+                arrayConstraints: [],
+                indexedElements: {}
+              };
+
+              Object.entries(value).forEach(([argKey, argValue]) => {
+                if (/^\d+$/.test(argKey)) {
+                  // Indexed element
+                  const constraints = [];
+                  if (argValue && typeof argValue === 'object') {
+                    Object.entries(argValue).forEach(([constraintType, constraintValue]) => {
+                      if (CONSTRAINT_TYPES[constraintType]) {
+                        constraints.push({ type: constraintType, value: constraintValue });
+                      }
+                    });
+                  }
+                  if (constraints.length > 0) {
+                    argsField.indexedElements[argKey] = constraints;
+                  }
+                } else if (CONSTRAINT_TYPES[argKey]) {
+                  // Array-level constraint
+                  argsField.arrayConstraints.push({ type: argKey, value: argValue });
+                }
+              });
+
+              if (argsField.arrayConstraints.length > 0 || Object.keys(argsField.indexedElements).length > 0) {
+                rule.argsField = argsField;
+              }
+              return;
+            }
+
             const path = prefix ? `${prefix}.${key}` : key;
 
             if (value && typeof value === 'object' && !Array.isArray(value)) {
@@ -537,14 +800,12 @@ export default function PolicyBuilder() {
               const mixedStructure = numericKeys.length > 0 && constraintOnlyKeys.length > 0;
 
               if (mixedStructure) {
-                // Handle mixed args structure: constraints + indexed elements
-                // First, handle array-level constraints
+                // Handle mixed structure: constraints + indexed elements
                 if (constraintOnlyKeys.length > 0) {
                   const constraints = constraintOnlyKeys.map(k => ({ type: k, value: value[k] }));
                   rule.fields.push({ property: path, constraints });
                 }
 
-                // Then handle indexed elements
                 numericKeys.forEach(indexKey => {
                   extractFields({ [indexKey]: value[indexKey] }, path);
                 });
@@ -614,7 +875,7 @@ export default function PolicyBuilder() {
   };
 
   return (
-    <div className="w-full max-w-6xl mx-auto p-4 border border-amber-300 h-[768px] overflow-y-scroll hidebar">
+    <div className="w-full max-w-6xl mx-auto p-4">
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="interactive">Interactive</TabsTrigger>
