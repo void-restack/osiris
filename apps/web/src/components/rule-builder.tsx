@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/original-tabs';
+import { useState, useEffect, useCallback } from 'react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,7 +9,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Plus, Minus, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
 
-// Template definitions
 const TEMPLATES = {
   'uniswap-v3-swap': {
     name: 'Uniswap V3 Swap (DeFi)',
@@ -42,6 +41,13 @@ const CONSTRAINT_TYPES = {
   const: { label: 'const', valueType: 'string', description: 'Exact value match' },
   eq: { label: 'eq', valueType: 'string', description: 'Equality (alias for const)' },
   enum: { label: 'enum', valueType: 'array', description: 'One of multiple values' },
+  type: { label: 'type', valueType: 'string', description: 'JSON Schema type' },
+
+  // Logical
+  anyOf: { label: 'anyOf', valueType: 'array', description: 'Match any of these schemas' },
+  allOf: { label: 'allOf', valueType: 'array', description: 'Match all of these schemas' },
+  oneOf: { label: 'oneOf', valueType: 'array', description: 'Match exactly one schema' },
+  not: { label: 'not', valueType: 'object', description: 'Must not match this schema' },
 
   // Numeric
   minimum: { label: 'minimum', valueType: 'number', description: 'Minimum value' },
@@ -140,6 +146,30 @@ const ConstraintInput = ({ constraint, onChange, onRemove, canRemove = true }) =
 
   const renderValueInput = () => {
     if (constraintType.valueType === 'array') {
+      // Handle complex array constraints like anyOf
+      if (['anyOf', 'allOf', 'oneOf'].includes(constraint.type)) {
+        const displayValue = typeof constraint.value === 'string'
+          ? constraint.value
+          : JSON.stringify(constraint.value, null, 2);
+
+        return (
+          <Textarea
+            placeholder="JSON array of constraint objects"
+            value={displayValue}
+            onChange={(e) => {
+              try {
+                const parsed = JSON.parse(e.target.value);
+                handleValueChange(parsed);
+              } catch {
+                handleValueChange(e.target.value);
+              }
+            }}
+            className="min-h-[80px] resize-none font-mono text-sm"
+          />
+        );
+      }
+
+      // Regular array handling
       const displayValue = Array.isArray(constraint.value)
         ? constraint.value.join(', ')
         : constraint.value || '';
@@ -150,6 +180,28 @@ const ConstraintInput = ({ constraint, onChange, onRemove, canRemove = true }) =
           value={displayValue}
           onChange={(e) => handleValueChange(e.target.value)}
           className="min-h-[40px] resize-none"
+        />
+      );
+    }
+
+    if (constraintType.valueType === 'object') {
+      const displayValue = typeof constraint.value === 'string'
+        ? constraint.value
+        : JSON.stringify(constraint.value, null, 2);
+
+      return (
+        <Textarea
+          placeholder="JSON object"
+          value={displayValue}
+          onChange={(e) => {
+            try {
+              const parsed = JSON.parse(e.target.value);
+              handleValueChange(parsed);
+            } catch {
+              handleValueChange(e.target.value);
+            }
+          }}
+          className="min-h-[60px] resize-none font-mono text-sm"
         />
       );
     }
