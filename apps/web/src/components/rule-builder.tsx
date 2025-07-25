@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, type ChangeEvent } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/original-tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,8 +9,55 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Plus, Minus, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
 
+// Type definitions
+interface Template {
+  name: string;
+  method: string;
+  fields: Array<{
+    property: string;
+    constraint: string;
+    value: string | number;
+  }>;
+}
+
+interface ConstraintType {
+  label: string;
+  valueType: 'string' | 'number' | 'array' | 'object';
+  description: string;
+}
+
+interface Constraint {
+  type: string;
+  value: string | number | object | Array<unknown>;
+}
+
+interface PolicyField {
+  property: string;
+  constraints: Constraint[];
+}
+
+interface ArgsField {
+  arrayConstraints: Constraint[];
+  indexedElements: Record<string, Constraint[]>;
+}
+
+interface PolicyRule {
+  id: number;
+  type: 'allow' | 'deny';
+  name: string;
+  method: string;
+  chain: string;
+  fields: PolicyField[];
+  argsField?: ArgsField | null;
+}
+
+interface PolicyObject {
+  allow: Array<Record<string, unknown>>;
+  deny: Array<Record<string, unknown>>;
+}
+
 // Template definitions
-const TEMPLATES = {
+const TEMPLATES: Record<string, Template> = {
   'uniswap-v3-swap': {
     name: 'Uniswap V3 Swap (DeFi)',
     method: 'signTransaction',
@@ -37,7 +84,7 @@ const TEMPLATES = {
   }
 };
 
-const CONSTRAINT_TYPES = {
+const CONSTRAINT_TYPES: Record<string, ConstraintType> = {
   // Basic
   const: { label: 'const', valueType: 'string', description: 'Exact value match' },
   eq: { label: 'eq', valueType: 'string', description: 'Equality (alias for const)' },
@@ -82,9 +129,9 @@ const CONSTRAINT_TYPES = {
 };
 
 // Utility functions
-const setNestedProperty = (obj, path, value) => {
+const setNestedProperty = (obj: Record<string, unknown>, path: string, value: unknown): void => {
   const keys = path.split(/[.\[\]]/).filter(Boolean);
-  let current = obj;
+  let current: Record<string, unknown> = obj;
 
   for (let i = 0; i < keys.length - 1; i++) {
     const key = keys[i];
@@ -93,7 +140,7 @@ const setNestedProperty = (obj, path, value) => {
     if (!(key in current)) {
       current[key] = /^\d+$/.test(nextKey) ? [] : {};
     }
-    current = current[key];
+    current = current[key] as Record<string, unknown>;
   }
 
   const finalKey = keys[keys.length - 1];
@@ -104,20 +151,20 @@ const setNestedProperty = (obj, path, value) => {
   }
 };
 
-const cleanEmptyObjects = (obj) => {
+const cleanEmptyObjects = (obj: unknown): unknown => {
   if (Array.isArray(obj)) {
     return obj.map(cleanEmptyObjects).filter(item =>
       item !== null && item !== undefined &&
-      (typeof item !== 'object' || Object.keys(item).length > 0)
+      (typeof item !== 'object' || Object.keys(item as object).length > 0)
     );
   }
 
   if (obj && typeof obj === 'object') {
-    const cleaned = {};
+    const cleaned: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(obj)) {
       const cleanedValue = cleanEmptyObjects(value);
       if (cleanedValue !== null && cleanedValue !== undefined &&
-        (typeof cleanedValue !== 'object' || Object.keys(cleanedValue).length > 0)) {
+        (typeof cleanedValue !== 'object' || Object.keys(cleanedValue as object).length > 0)) {
         cleaned[key] = cleanedValue;
       }
     }
@@ -127,13 +174,46 @@ const cleanEmptyObjects = (obj) => {
   return obj;
 };
 
+// Component interfaces
+interface SchemaObjectEditorProps {
+  schemaObj: Record<string, unknown>;
+  onChange: (obj: Record<string, unknown>) => void;
+  onRemove: () => void;
+}
+
+interface ConstraintInputProps {
+  constraint: Constraint;
+  onChange: (constraint: Constraint) => void;
+  onRemove: () => void;
+  canRemove?: boolean;
+}
+
+interface ArgsFieldProps {
+  argsData: ArgsField;
+  onChange: (argsData: ArgsField) => void;
+  onRemove: () => void;
+}
+
+interface PolicyFieldProps {
+  field: PolicyField | ArgsField;
+  onChange: (field: PolicyField | ArgsField) => void;
+  onRemove: () => void;
+  isArgsField?: boolean;
+}
+
+interface PolicyRuleProps {
+  rule: PolicyRule;
+  onChange: (rule: PolicyRule) => void;
+  onRemove: () => void;
+}
+
 // Schema Object Editor Component (for anyOf, allOf, oneOf elements)
-const SchemaObjectEditor = ({ schemaObj, onChange, onRemove }) => {
-  const addProperty = () => {
+const SchemaObjectEditor: React.FC<SchemaObjectEditorProps> = ({ schemaObj, onChange, onRemove }) => {
+  const addProperty = (): void => {
     onChange({ ...schemaObj, '': '' });
   };
 
-  const updateProperty = (oldKey, newKey, value) => {
+  const updateProperty = (oldKey: string, newKey: string, value: unknown): void => {
     const newObj = { ...schemaObj };
     if (oldKey !== newKey) {
       delete newObj[oldKey];
@@ -144,7 +224,7 @@ const SchemaObjectEditor = ({ schemaObj, onChange, onRemove }) => {
     onChange(newObj);
   };
 
-  const removeProperty = (key) => {
+  const removeProperty = (key: string): void => {
     const newObj = { ...schemaObj };
     delete newObj[key];
     onChange(newObj);
@@ -164,18 +244,18 @@ const SchemaObjectEditor = ({ schemaObj, onChange, onRemove }) => {
           <Input
             placeholder="property"
             value={key}
-            onChange={(e) => updateProperty(key, e.target.value, value)}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => updateProperty(key, e.target.value, value)}
             className="w-32 text-sm"
           />
           <span className="text-gray-400">:</span>
           <Input
             placeholder="value"
-            value={typeof value === 'object' ? JSON.stringify(value) : (value || '')}
-            onChange={(e) => {
-              let newValue = e.target.value;
+            value={typeof value === 'object' ? JSON.stringify(value) : String(value || '')}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => {
+              let newValue: unknown = e.target.value;
               try {
                 // Try to parse as JSON for objects/arrays
-                if (newValue.startsWith('{') || newValue.startsWith('[')) {
+                if (typeof newValue === 'string' && (newValue.startsWith('{') || newValue.startsWith('['))) {
                   newValue = JSON.parse(newValue);
                 }
               } catch {
@@ -200,10 +280,10 @@ const SchemaObjectEditor = ({ schemaObj, onChange, onRemove }) => {
 };
 
 // Constraint Input Component
-const ConstraintInput = ({ constraint, onChange, onRemove, canRemove = true }) => {
+const ConstraintInput: React.FC<ConstraintInputProps> = ({ constraint, onChange, onRemove, canRemove = true }) => {
   const constraintType = CONSTRAINT_TYPES[constraint.type] || CONSTRAINT_TYPES.const;
 
-  const handleValueChange = (newValue) => {
+  const handleValueChange = (newValue: string | number | object | Array<unknown>): void => {
     let processedValue = newValue;
 
     if (constraintType.valueType === 'number') {
@@ -223,9 +303,9 @@ const ConstraintInput = ({ constraint, onChange, onRemove, canRemove = true }) =
     onChange({ ...constraint, value: processedValue });
   };
 
-  const renderValueInput = () => {
+  const renderValueInput = (): JSX.Element => {
     if (constraintType.valueType === 'array' && ['anyOf', 'allOf', 'oneOf'].includes(constraint.type)) {
-      const schemaArray = Array.isArray(constraint.value) ? constraint.value : [];
+      const schemaArray = Array.isArray(constraint.value) ? constraint.value as Array<Record<string, unknown>> : [];
 
       return (
         <div className="space-y-2">
@@ -233,7 +313,7 @@ const ConstraintInput = ({ constraint, onChange, onRemove, canRemove = true }) =
             <SchemaObjectEditor
               key={index}
               schemaObj={schemaObj || {}}
-              onChange={(newObj) => {
+              onChange={(newObj: Record<string, unknown>) => {
                 const newArray = [...schemaArray];
                 newArray[index] = newObj;
                 handleValueChange(newArray);
@@ -261,14 +341,14 @@ const ConstraintInput = ({ constraint, onChange, onRemove, canRemove = true }) =
 
     if (constraintType.valueType === 'array') {
       const displayValue = Array.isArray(constraint.value)
-        ? constraint.value.join(', ')
-        : constraint.value || '';
+        ? (constraint.value as Array<string>).join(', ')
+        : String(constraint.value || '');
 
       return (
         <Textarea
           placeholder="value1, value2, value3"
           value={displayValue}
-          onChange={(e) => handleValueChange(e.target.value)}
+          onChange={(e: ChangeEvent<HTMLTextAreaElement>) => handleValueChange(e.target.value)}
           className="min-h-[40px] resize-none"
         />
       );
@@ -283,7 +363,7 @@ const ConstraintInput = ({ constraint, onChange, onRemove, canRemove = true }) =
         <Textarea
           placeholder="JSON object"
           value={displayValue}
-          onChange={(e) => {
+          onChange={(e: ChangeEvent<HTMLTextAreaElement>) => {
             try {
               const parsed = JSON.parse(e.target.value);
               handleValueChange(parsed);
@@ -300,19 +380,23 @@ const ConstraintInput = ({ constraint, onChange, onRemove, canRemove = true }) =
       <Input
         type={constraintType.valueType === 'number' ? 'number' : 'text'}
         placeholder={constraintType.valueType === 'number' ? '0' : 'Enter value'}
-        value={constraint.value || ''}
-        onChange={(e) => handleValueChange(e.target.value)}
+        value={String(constraint.value || '')}
+        onChange={(e: ChangeEvent<HTMLInputElement>) => handleValueChange(e.target.value)}
       />
     );
+  };
+
+  const handleTypeChange = (type: string): void => {
+    const newConstraintType = CONSTRAINT_TYPES[type];
+    const initialValue = newConstraintType?.valueType === 'number' ? 0 : '';
+    onChange({ type, value: initialValue });
   };
 
   return (
     <div className="flex items-start gap-2 p-3 border rounded-lg">
       <div className="flex-1 space-y-2">
         <div className="grid grid-cols-2 gap-2">
-          <Select value={constraint.type} onValueChange={(type) =>
-            onChange({ type, value: constraintType.valueType === 'number' ? 0 : '' })
-          }>
+          <Select value={constraint.type} onValueChange={handleTypeChange}>
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
@@ -348,29 +432,29 @@ const ConstraintInput = ({ constraint, onChange, onRemove, canRemove = true }) =
 };
 
 // Args Field Component (special handling for args structure)
-const ArgsField = ({ argsData, onChange, onRemove }) => {
+const ArgsField: React.FC<ArgsFieldProps> = ({ argsData, onChange, onRemove }) => {
   const { arrayConstraints = [], indexedElements = {} } = argsData;
 
-  const addArrayConstraint = () => {
+  const addArrayConstraint = (): void => {
     onChange({
       ...argsData,
       arrayConstraints: [...arrayConstraints, { type: 'lengthEq', value: '' }]
     });
   };
 
-  const updateArrayConstraint = (index, constraint) => {
+  const updateArrayConstraint = (index: number, constraint: Constraint): void => {
     const newConstraints = [...arrayConstraints];
     newConstraints[index] = constraint;
     onChange({ ...argsData, arrayConstraints: newConstraints });
   };
 
-  const removeArrayConstraint = (index) => {
+  const removeArrayConstraint = (index: number): void => {
     const newConstraints = [...arrayConstraints];
     newConstraints.splice(index, 1);
     onChange({ ...argsData, arrayConstraints: newConstraints });
   };
 
-  const addIndexedElement = () => {
+  const addIndexedElement = (): void => {
     const nextIndex = Math.max(-1, ...Object.keys(indexedElements).map(Number)) + 1;
     onChange({
       ...argsData,
@@ -381,7 +465,7 @@ const ArgsField = ({ argsData, onChange, onRemove }) => {
     });
   };
 
-  const updateIndexedElement = (index, constraints) => {
+  const updateIndexedElement = (index: string, constraints: Constraint[]): void => {
     onChange({
       ...argsData,
       indexedElements: {
@@ -391,7 +475,7 @@ const ArgsField = ({ argsData, onChange, onRemove }) => {
     });
   };
 
-  const removeIndexedElement = (index) => {
+  const removeIndexedElement = (index: string): void => {
     const newElements = { ...indexedElements };
     delete newElements[index];
     onChange({ ...argsData, indexedElements: newElements });
@@ -423,7 +507,7 @@ const ArgsField = ({ argsData, onChange, onRemove }) => {
           <ConstraintInput
             key={index}
             constraint={constraint}
-            onChange={(c) => updateArrayConstraint(index, c)}
+            onChange={(c: Constraint) => updateArrayConstraint(index, c)}
             onRemove={() => removeArrayConstraint(index)}
             canRemove={arrayConstraints.length > 1}
           />
@@ -460,7 +544,7 @@ const ArgsField = ({ argsData, onChange, onRemove }) => {
                 <ConstraintInput
                   key={cIndex}
                   constraint={constraint}
-                  onChange={(c) => {
+                  onChange={(c: Constraint) => {
                     const newConstraints = [...constraints];
                     newConstraints[cIndex] = c;
                     updateIndexedElement(index, newConstraints);
@@ -492,34 +576,36 @@ const ArgsField = ({ argsData, onChange, onRemove }) => {
 };
 
 // Field Component
-const PolicyField = ({ field, onChange, onRemove, isArgsField = false }) => {
+const PolicyFieldComponent: React.FC<PolicyFieldProps> = ({ field, onChange, onRemove, isArgsField = false }) => {
   if (isArgsField) {
     return (
       <ArgsField
-        argsData={field}
-        onChange={onChange}
+        argsData={field as ArgsField}
+        onChange={(argsData: ArgsField) => onChange(argsData)}
         onRemove={onRemove}
       />
     );
   }
 
-  const addConstraint = () => {
+  const policyField = field as PolicyField;
+
+  const addConstraint = (): void => {
     onChange({
-      ...field,
-      constraints: [...field.constraints, { type: 'const', value: '' }]
+      ...policyField,
+      constraints: [...policyField.constraints, { type: 'const', value: '' }]
     });
   };
 
-  const updateConstraint = (index, constraint) => {
-    const newConstraints = [...field.constraints];
+  const updateConstraint = (index: number, constraint: Constraint): void => {
+    const newConstraints = [...policyField.constraints];
     newConstraints[index] = constraint;
-    onChange({ ...field, constraints: newConstraints });
+    onChange({ ...policyField, constraints: newConstraints });
   };
 
-  const removeConstraint = (index) => {
-    const newConstraints = [...field.constraints];
+  const removeConstraint = (index: number): void => {
+    const newConstraints = [...policyField.constraints];
     newConstraints.splice(index, 1);
-    onChange({ ...field, constraints: newConstraints });
+    onChange({ ...policyField, constraints: newConstraints });
   };
 
   return (
@@ -529,8 +615,8 @@ const PolicyField = ({ field, onChange, onRemove, isArgsField = false }) => {
           <Label className="text-sm font-medium">Property Path</Label>
           <Input
             placeholder="e.g., functionName, to, decoded.value"
-            value={field.property || ''}
-            onChange={(e) => onChange({ ...field, property: e.target.value })}
+            value={policyField.property || ''}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => onChange({ ...policyField, property: e.target.value })}
             className="mt-1"
           />
           <p className="text-xs text-gray-500 mt-1">
@@ -552,13 +638,13 @@ const PolicyField = ({ field, onChange, onRemove, isArgsField = false }) => {
           </Button>
         </div>
 
-        {field.constraints.map((constraint, index) => (
+        {policyField.constraints.map((constraint, index) => (
           <ConstraintInput
             key={index}
             constraint={constraint}
-            onChange={(c) => updateConstraint(index, c)}
+            onChange={(c: Constraint) => updateConstraint(index, c)}
             onRemove={() => removeConstraint(index)}
-            canRemove={field.constraints.length > 1}
+            canRemove={policyField.constraints.length > 1}
           />
         ))}
       </div>
@@ -567,10 +653,10 @@ const PolicyField = ({ field, onChange, onRemove, isArgsField = false }) => {
 };
 
 // Rule Component
-const PolicyRule = ({ rule, onChange, onRemove }) => {
+const PolicyRuleComponent: React.FC<PolicyRuleProps> = ({ rule, onChange, onRemove }) => {
   const [isOpen, setIsOpen] = useState(true);
 
-  const applyTemplate = (templateKey) => {
+  const applyTemplate = (templateKey: string): void => {
     const template = TEMPLATES[templateKey];
     if (!template) return;
 
@@ -586,14 +672,14 @@ const PolicyRule = ({ rule, onChange, onRemove }) => {
     });
   };
 
-  const addField = () => {
+  const addField = (): void => {
     onChange({
       ...rule,
       fields: [...rule.fields, { property: '', constraints: [{ type: 'const', value: '' }] }]
     });
   };
 
-  const addArgsField = () => {
+  const addArgsField = (): void => {
     onChange({
       ...rule,
       argsField: {
@@ -603,23 +689,23 @@ const PolicyRule = ({ rule, onChange, onRemove }) => {
     });
   };
 
-  const updateField = (index, field) => {
+  const updateField = (index: number, field: PolicyField): void => {
     const newFields = [...rule.fields];
     newFields[index] = field;
     onChange({ ...rule, fields: newFields });
   };
 
-  const removeField = (index) => {
+  const removeField = (index: number): void => {
     const newFields = [...rule.fields];
     newFields.splice(index, 1);
     onChange({ ...rule, fields: newFields });
   };
 
-  const updateArgsField = (argsField) => {
+  const updateArgsField = (argsField: ArgsField): void => {
     onChange({ ...rule, argsField });
   };
 
-  const removeArgsField = () => {
+  const removeArgsField = (): void => {
     onChange({ ...rule, argsField: null });
   };
 
@@ -668,7 +754,7 @@ const PolicyRule = ({ rule, onChange, onRemove }) => {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Method</Label>
-                <Select value={rule.method || ''} onValueChange={(method) =>
+                <Select value={rule.method || ''} onValueChange={(method: string) =>
                   onChange({ ...rule, method })
                 }>
                   <SelectTrigger>
@@ -688,7 +774,7 @@ const PolicyRule = ({ rule, onChange, onRemove }) => {
                 <Input
                   placeholder="e.g., evm:eip155:1"
                   value={rule.chain || ''}
-                  onChange={(e) => onChange({ ...rule, chain: e.target.value })}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => onChange({ ...rule, chain: e.target.value })}
                 />
               </div>
             </div>
@@ -713,7 +799,7 @@ const PolicyRule = ({ rule, onChange, onRemove }) => {
 
               {/* Args Field */}
               {rule.argsField && (
-                <PolicyField
+                <PolicyFieldComponent
                   field={rule.argsField}
                   onChange={updateArgsField}
                   onRemove={removeArgsField}
@@ -723,10 +809,10 @@ const PolicyRule = ({ rule, onChange, onRemove }) => {
 
               {/* Regular Fields */}
               {rule.fields.map((field, index) => (
-                <PolicyField
+                <PolicyFieldComponent
                   key={index}
                   field={field}
-                  onChange={(f) => updateField(index, f)}
+                  onChange={(f: PolicyField | ArgsField) => updateField(index, f as PolicyField)}
                   onRemove={() => removeField(index)}
                   isArgsField={false}
                 />
@@ -746,31 +832,31 @@ const PolicyRule = ({ rule, onChange, onRemove }) => {
 };
 
 // Main PolicyBuilder Component
-export default function PolicyBuilder() {
-  const [rules, setRules] = useState([]);
-  const [jsonValue, setJsonValue] = useState('{\n  "allow": [],\n  "deny": []\n}');
-  const [activeTab, setActiveTab] = useState('interactive');
-  const [isJsonValid, setIsJsonValid] = useState(true);
+export default function PolicyBuilder(): JSX.Element {
+  const [rules, setRules] = useState<PolicyRule[]>([]);
+  const [jsonValue, setJsonValue] = useState<string>('{\n  "allow": [],\n  "deny": []\n}');
+  const [activeTab, setActiveTab] = useState<string>('interactive');
+  const [isJsonValid, setIsJsonValid] = useState<boolean>(true);
 
   // Convert rules to policy object
-  const rulesToPolicy = useCallback((rulesArray) => {
-    const policy = { allow: [], deny: [] };
+  const rulesToPolicy = useCallback((rulesArray: PolicyRule[]): PolicyObject => {
+    const policy: PolicyObject = { allow: [], deny: [] };
 
     rulesArray.forEach(rule => {
       if (!rule.method && rule.fields.length === 0 && !rule.argsField) return;
 
-      const policyRule = {};
+      const policyRule: Record<string, unknown> = {};
 
       if (rule.method) policyRule.method = rule.method;
       if (rule.chain) policyRule.chain = rule.chain;
 
       // Process fields into nested structure
       const section = rule.method === 'signMessage' ? 'payload' : 'decoded';
-      const sectionData = {};
+      const sectionData: Record<string, unknown> = {};
 
       // Handle special args field
       if (rule.argsField) {
-        const argsData = {};
+        const argsData: Record<string, unknown> = {};
 
         // Add array-level constraints
         rule.argsField.arrayConstraints?.forEach(constraint => {
@@ -789,7 +875,7 @@ export default function PolicyBuilder() {
             if (validConstraints.length === 1) {
               argsData[index] = { [validConstraints[0].type]: validConstraints[0].value };
             } else {
-              const constraintObj = {};
+              const constraintObj: Record<string, unknown> = {};
               validConstraints.forEach(c => {
                 constraintObj[c.type] = c.value;
               });
@@ -813,7 +899,7 @@ export default function PolicyBuilder() {
 
         if (validConstraints.length === 0) return;
 
-        let constraintValue;
+        let constraintValue: Record<string, unknown>;
         if (validConstraints.length === 1) {
           constraintValue = { [validConstraints[0].type]: validConstraints[0].value };
         } else {
@@ -831,7 +917,7 @@ export default function PolicyBuilder() {
       }
 
       if (Object.keys(policyRule).length > 0) {
-        policy[rule.type].push(cleanEmptyObjects(policyRule));
+        policy[rule.type].push(cleanEmptyObjects(policyRule) as Record<string, unknown>);
       }
     });
 
@@ -839,39 +925,39 @@ export default function PolicyBuilder() {
   }, []);
 
   // Convert policy object back to rules
-  const policyToRules = useCallback((policy) => {
-    const newRules = [];
+  const policyToRules = useCallback((policy: PolicyObject): PolicyRule[] => {
+    const newRules: PolicyRule[] = [];
     let ruleId = 1;
 
-    ['allow', 'deny'].forEach(type => {
+    (['allow', 'deny'] as const).forEach(type => {
       (policy[type] || []).forEach(policyRule => {
-        const rule = {
+        const rule: PolicyRule = {
           id: ruleId++,
           type,
           name: `${type.charAt(0).toUpperCase() + type.slice(1)} group ${newRules.filter(r => r.type === type).length + 1}`,
-          method: policyRule.method || '',
-          chain: policyRule.chain || '',
+          method: String(policyRule.method || ''),
+          chain: String(policyRule.chain || ''),
           fields: [],
           argsField: null
         };
 
         // Extract fields from decoded/payload section
-        const section = policyRule.decoded || policyRule.payload || {};
-        const extractFields = (obj, prefix = '') => {
+        const section = (policyRule.decoded || policyRule.payload || {}) as Record<string, unknown>;
+        const extractFields = (obj: Record<string, unknown>, prefix = ''): void => {
           Object.entries(obj).forEach(([key, value]) => {
             // Special handling for args
             if (key === 'args' && !prefix) {
-              const argsField = {
+              const argsField: ArgsField = {
                 arrayConstraints: [],
                 indexedElements: {}
               };
 
-              Object.entries(value).forEach(([argKey, argValue]) => {
+              Object.entries(value as Record<string, unknown>).forEach(([argKey, argValue]) => {
                 if (/^\d+$/.test(argKey)) {
                   // Indexed element
-                  const constraints = [];
+                  const constraints: Constraint[] = [];
                   if (argValue && typeof argValue === 'object') {
-                    Object.entries(argValue).forEach(([constraintType, constraintValue]) => {
+                    Object.entries(argValue as Record<string, unknown>).forEach(([constraintType, constraintValue]) => {
                       if (CONSTRAINT_TYPES[constraintType]) {
                         constraints.push({ type: constraintType, value: constraintValue });
                       }
@@ -895,7 +981,7 @@ export default function PolicyBuilder() {
             const path = prefix ? `${prefix}.${key}` : key;
 
             if (value && typeof value === 'object' && !Array.isArray(value)) {
-              const constraintKeys = Object.keys(value);
+              const constraintKeys = Object.keys(value as Record<string, unknown>);
               const numericKeys = constraintKeys.filter(k => /^\d+$/.test(k));
               const constraintOnlyKeys = constraintKeys.filter(k => CONSTRAINT_TYPES[k]);
               const mixedStructure = numericKeys.length > 0 && constraintOnlyKeys.length > 0;
@@ -903,20 +989,26 @@ export default function PolicyBuilder() {
               if (mixedStructure) {
                 // Handle mixed structure: constraints + indexed elements
                 if (constraintOnlyKeys.length > 0) {
-                  const constraints = constraintOnlyKeys.map(k => ({ type: k, value: value[k] }));
+                  const constraints = constraintOnlyKeys.map(k => ({
+                    type: k,
+                    value: (value as Record<string, unknown>)[k]
+                  }));
                   rule.fields.push({ property: path, constraints });
                 }
 
                 numericKeys.forEach(indexKey => {
-                  extractFields({ [indexKey]: value[indexKey] }, path);
+                  extractFields({ [indexKey]: (value as Record<string, unknown>)[indexKey] }, path);
                 });
               } else if (constraintOnlyKeys.length > 0) {
                 // Pure constraint object
-                const constraints = constraintOnlyKeys.map(k => ({ type: k, value: value[k] }));
+                const constraints = constraintOnlyKeys.map(k => ({
+                  type: k,
+                  value: (value as Record<string, unknown>)[k]
+                }));
                 rule.fields.push({ property: path, constraints });
               } else {
                 // Regular nested object - recurse
-                extractFields(value, path);
+                extractFields(value as Record<string, unknown>, path);
               }
             }
           });
@@ -939,11 +1031,11 @@ export default function PolicyBuilder() {
   }, [rules, activeTab, rulesToPolicy]);
 
   // Handle JSON changes
-  const handleJsonChange = (value) => {
+  const handleJsonChange = (value: string): void => {
     setJsonValue(value);
 
     try {
-      const parsed = JSON.parse(value);
+      const parsed = JSON.parse(value) as PolicyObject;
       setIsJsonValid(true);
 
       if (activeTab === 'json') {
@@ -955,8 +1047,8 @@ export default function PolicyBuilder() {
     }
   };
 
-  const addRule = (type) => {
-    const newRule = {
+  const addRule = (type: 'allow' | 'deny'): void => {
+    const newRule: PolicyRule = {
       id: Date.now(),
       type,
       name: `${type.charAt(0).toUpperCase() + type.slice(1)} group ${rules.filter(r => r.type === type).length + 1}`,
@@ -967,11 +1059,11 @@ export default function PolicyBuilder() {
     setRules([...rules, newRule]);
   };
 
-  const updateRule = (id, updatedRule) => {
+  const updateRule = (id: number, updatedRule: PolicyRule): void => {
     setRules(rules.map(rule => rule.id === id ? updatedRule : rule));
   };
 
-  const removeRule = (id) => {
+  const removeRule = (id: number): void => {
     setRules(rules.filter(rule => rule.id !== id));
   };
 
@@ -1012,10 +1104,10 @@ export default function PolicyBuilder() {
           {/* Rules */}
           <div className="space-y-4">
             {rules.map(rule => (
-              <PolicyRule
+              <PolicyRuleComponent
                 key={rule.id}
                 rule={rule}
-                onChange={(updatedRule) => updateRule(rule.id, updatedRule)}
+                onChange={(updatedRule: PolicyRule) => updateRule(rule.id, updatedRule)}
                 onRemove={() => removeRule(rule.id)}
               />
             ))}
@@ -1039,7 +1131,7 @@ export default function PolicyBuilder() {
 
           <Textarea
             value={jsonValue}
-            onChange={(e) => handleJsonChange(e.target.value)}
+            onChange={(e: ChangeEvent<HTMLTextAreaElement>) => handleJsonChange(e.target.value)}
             className={`min-h-[400px] font-mono text-sm ${!isJsonValid ? 'border-red-500' : ''}`}
             placeholder="Enter your policy JSON..."
           />
