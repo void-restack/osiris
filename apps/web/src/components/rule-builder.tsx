@@ -8,8 +8,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Plus, Minus, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
+import CodeMirror from '@uiw/react-codemirror';
+import { json } from '@codemirror/lang-json';
+// import { oneDark } from '@codemirror/theme-one-dark';
+import { githubLight } from "@uiw/codemirror-theme-github"
 
-// Type definitions
 interface Template {
   name: string;
   method: string;
@@ -1124,17 +1127,48 @@ export default function PolicyBuilder(): JSX.Element {
         <TabsContent value="json" className="space-y-4">
           <div className="flex items-center justify-between">
             <Label>Policy JSON</Label>
-            {!isJsonValid && (
-              <span className="text-red-600 text-sm">Invalid JSON</span>
-            )}
+            <div className="flex items-center gap-2">
+              {!isJsonValid && (
+                <span className="text-red-600 text-sm">Invalid JSON</span>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  try {
+                    const parsed = JSON.parse(jsonValue);
+                    const formatted = JSON.stringify(parsed, null, 2);
+                    setJsonValue(formatted);
+                  } catch {
+                    // Invalid JSON, can't format
+                  }
+                }}
+              >
+                Format
+              </Button>
+            </div>
           </div>
 
-          <Textarea
-            value={jsonValue}
-            onChange={(e: ChangeEvent<HTMLTextAreaElement>) => handleJsonChange(e.target.value)}
-            className={`min-h-[400px] font-mono text-sm ${!isJsonValid ? 'border-red-500' : ''}`}
-            placeholder="Enter your policy JSON..."
-          />
+          <div className="border rounded-lg overflow-hidden">
+            <CodeMirror
+              value={jsonValue}
+              onChange={(value) => handleJsonChange(value)}
+              extensions={[json()]}
+              theme={githubLight}
+              basicSetup={{
+                lineNumbers: true,
+                foldGutter: true,
+                dropCursor: false,
+                allowMultipleSelections: false,
+                tabSize: 2,
+              }}
+              className="text-sm"
+              style={{
+                fontSize: '14px',
+                minHeight: '400px',
+              }}
+            />
+          </div>
         </TabsContent>
       </Tabs>
     </div>
