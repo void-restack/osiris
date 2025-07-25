@@ -614,7 +614,7 @@ export default function PolicyBuilder() {
   };
 
   return (
-    <div className="w-full max-w-6xl mx-auto p-4">
+    <div className="w-full max-w-6xl mx-auto p-4 border border-amber-300 h-[768px] overflow-y-scroll hidebar">
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="interactive">Interactive</TabsTrigger>
