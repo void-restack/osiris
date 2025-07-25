@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/original-tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -127,6 +127,78 @@ const cleanEmptyObjects = (obj) => {
   return obj;
 };
 
+// Schema Object Editor Component (for anyOf, allOf, oneOf elements)
+const SchemaObjectEditor = ({ schemaObj, onChange, onRemove }) => {
+  const addProperty = () => {
+    onChange({ ...schemaObj, '': '' });
+  };
+
+  const updateProperty = (oldKey, newKey, value) => {
+    const newObj = { ...schemaObj };
+    if (oldKey !== newKey) {
+      delete newObj[oldKey];
+    }
+    if (newKey.trim()) {
+      newObj[newKey] = value;
+    }
+    onChange(newObj);
+  };
+
+  const removeProperty = (key) => {
+    const newObj = { ...schemaObj };
+    delete newObj[key];
+    onChange(newObj);
+  };
+
+  return (
+    <div className="space-y-2 p-3 border border-gray-300 rounded-md bg-gray-50">
+      <div className="flex justify-between items-center">
+        <Label className="text-sm font-medium">Schema Object</Label>
+        <Button variant="ghost" size="sm" onClick={onRemove} className="text-red-600">
+          <Minus className="h-3 w-3" />
+        </Button>
+      </div>
+
+      {Object.entries(schemaObj).map(([key, value]) => (
+        <div key={key} className="flex items-center gap-2">
+          <Input
+            placeholder="property"
+            value={key}
+            onChange={(e) => updateProperty(key, e.target.value, value)}
+            className="w-32 text-sm"
+          />
+          <span className="text-gray-400">:</span>
+          <Input
+            placeholder="value"
+            value={typeof value === 'object' ? JSON.stringify(value) : (value || '')}
+            onChange={(e) => {
+              let newValue = e.target.value;
+              try {
+                // Try to parse as JSON for objects/arrays
+                if (newValue.startsWith('{') || newValue.startsWith('[')) {
+                  newValue = JSON.parse(newValue);
+                }
+              } catch {
+                // Keep as string if not valid JSON
+              }
+              updateProperty(key, key, newValue);
+            }}
+            className="flex-1 text-sm"
+          />
+          <Button variant="ghost" size="sm" onClick={() => removeProperty(key)}>
+            <Minus className="h-3 w-3 text-red-500" />
+          </Button>
+        </div>
+      ))}
+
+      <Button variant="ghost" size="sm" onClick={addProperty} className="w-full">
+        <Plus className="h-3 w-3 mr-1" />
+        Add Property
+      </Button>
+    </div>
+  );
+};
+
 // Constraint Input Component
 const ConstraintInput = ({ constraint, onChange, onRemove, canRemove = true }) => {
   const constraintType = CONSTRAINT_TYPES[constraint.type] || CONSTRAINT_TYPES.const;
@@ -137,40 +209,57 @@ const ConstraintInput = ({ constraint, onChange, onRemove, canRemove = true }) =
     if (constraintType.valueType === 'number') {
       processedValue = newValue === '' ? '' : Number(newValue);
     } else if (constraintType.valueType === 'array') {
-      processedValue = typeof newValue === 'string'
-        ? newValue.split(',').map(v => v.trim()).filter(Boolean)
-        : newValue;
+      if (['anyOf', 'allOf', 'oneOf'].includes(constraint.type)) {
+        // Keep as-is for schema arrays
+        processedValue = newValue;
+      } else {
+        // Regular array handling
+        processedValue = typeof newValue === 'string'
+          ? newValue.split(',').map(v => v.trim()).filter(Boolean)
+          : newValue;
+      }
     }
 
     onChange({ ...constraint, value: processedValue });
   };
 
   const renderValueInput = () => {
+    if (constraintType.valueType === 'array' && ['anyOf', 'allOf', 'oneOf'].includes(constraint.type)) {
+      const schemaArray = Array.isArray(constraint.value) ? constraint.value : [];
+
+      return (
+        <div className="space-y-2">
+          {schemaArray.map((schemaObj, index) => (
+            <SchemaObjectEditor
+              key={index}
+              schemaObj={schemaObj || {}}
+              onChange={(newObj) => {
+                const newArray = [...schemaArray];
+                newArray[index] = newObj;
+                handleValueChange(newArray);
+              }}
+              onRemove={() => {
+                const newArray = [...schemaArray];
+                newArray.splice(index, 1);
+                handleValueChange(newArray);
+              }}
+            />
+          ))}
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleValueChange([...schemaArray, { type: 'order' }])}
+            className="w-full"
+          >
+            <Plus className="h-4 w-4 mr-1" />
+            Add Schema
+          </Button>
+        </div>
+      );
+    }
+
     if (constraintType.valueType === 'array') {
-      // Handle complex array constraints like anyOf
-      if (['anyOf', 'allOf', 'oneOf'].includes(constraint.type)) {
-        const displayValue = typeof constraint.value === 'string'
-          ? constraint.value
-          : JSON.stringify(constraint.value, null, 2);
-
-        return (
-          <Textarea
-            placeholder="JSON array of constraint objects"
-            value={displayValue}
-            onChange={(e) => {
-              try {
-                const parsed = JSON.parse(e.target.value);
-                handleValueChange(parsed);
-              } catch {
-                handleValueChange(e.target.value);
-              }
-            }}
-            className="min-h-[80px] resize-none font-mono text-sm"
-          />
-        );
-      }
-
-      // Regular array handling
       const displayValue = Array.isArray(constraint.value)
         ? constraint.value.join(', ')
         : constraint.value || '';
@@ -218,27 +307,39 @@ const ConstraintInput = ({ constraint, onChange, onRemove, canRemove = true }) =
   };
 
   return (
-    <div className="flex items-center gap-2 p-3 border rounded-lg">
-      <div className="flex-1 grid grid-cols-2 gap-2">
-        <Select value={constraint.type} onValueChange={(type) =>
-          onChange({ type, value: constraintType.valueType === 'number' ? 0 : '' })
-        }>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {Object.entries(CONSTRAINT_TYPES).map(([key, meta]) => (
-              <SelectItem key={key} value={key}>
-                {meta.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {renderValueInput()}
+    <div className="flex items-start gap-2 p-3 border rounded-lg">
+      <div className="flex-1 space-y-2">
+        <div className="grid grid-cols-2 gap-2">
+          <Select value={constraint.type} onValueChange={(type) =>
+            onChange({ type, value: constraintType.valueType === 'number' ? 0 : '' })
+          }>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(CONSTRAINT_TYPES).map(([key, meta]) => (
+                <SelectItem key={key} value={key}>
+                  {meta.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {!['anyOf', 'allOf', 'oneOf'].includes(constraint.type) && (
+            <div className="col-span-1">
+              {renderValueInput()}
+            </div>
+          )}
+        </div>
+
+        {['anyOf', 'allOf', 'oneOf'].includes(constraint.type) && (
+          <div className="mt-2">
+            {renderValueInput()}
+          </div>
+        )}
       </div>
 
       {canRemove && (
-        <Button variant="ghost" size="icon" onClick={onRemove} className="text-red-600">
+        <Button variant="ghost" size="icon" onClick={onRemove} className="text-red-600 mt-1">
           <Minus className="h-4 w-4" />
         </Button>
       )}
@@ -875,7 +976,7 @@ export default function PolicyBuilder() {
   };
 
   return (
-    <div className="w-full max-w-6xl mx-auto p-4">
+    <div className="w-full max-w-6xl mx-auto p-4 h-[600px] overflow-y-scroll border border-blue-600 rounded-md">
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="interactive">Interactive</TabsTrigger>
