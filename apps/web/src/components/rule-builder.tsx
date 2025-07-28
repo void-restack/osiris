@@ -11,6 +11,7 @@ import { Plus, Minus, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
 import CodeMirror, { EditorView } from '@uiw/react-codemirror';
 import { json } from '@codemirror/lang-json';
 import { githubLight } from "@uiw/codemirror-theme-github"
+import { Icon } from './ui/icon';
 
 const myFontTheme = EditorView.theme({
   '&': {
@@ -235,7 +236,6 @@ interface PolicyRuleProps {
   onRemove: () => void;
 }
 
-// Schema Object Editor Component (for anyOf, allOf, oneOf elements)
 const SchemaObjectEditor: React.FC<SchemaObjectEditorProps> = ({ schemaObj, onChange, onRemove }) => {
   const addProperty = (): void => {
     onChange({ ...schemaObj, '': '' });
@@ -859,14 +859,12 @@ const PolicyRuleComponent: React.FC<PolicyRuleProps> = ({ rule, onChange, onRemo
   );
 };
 
-// Main PolicyBuilder Component
 export default function PolicyBuilder(): JSX.Element {
   const [rules, setRules] = useState<PolicyRule[]>([]);
   const [jsonValue, setJsonValue] = useState<string>('{\n  "allow": [],\n  "deny": []\n}');
   const [activeTab, setActiveTab] = useState<string>('interactive');
   const [isJsonValid, setIsJsonValid] = useState<boolean>(true);
 
-  // Convert rules to policy object
   const rulesToPolicy = useCallback((rulesArray: PolicyRule[]): PolicyObject => {
     const policy: PolicyObject = { allow: [], deny: [] };
 
@@ -1096,37 +1094,41 @@ export default function PolicyBuilder(): JSX.Element {
   };
 
   return (
-    <div className="w-full max-w-6xl mx-auto p-4 h-[600px] overflow-y-scroll border border-blue-600 rounded-md">
+    <div className="w-full max-w-md mx-auto p-4 rounded-md">
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="interactive">Interactive</TabsTrigger>
-          <TabsTrigger value="json">JSON</TabsTrigger>
+        <TabsList className="w-full inset-shadow-tabs h-10 p-1">
+          <TabsTrigger value="interactive" className='font-normal data-[state=active]:text-primary-800 text-primary-400'>Interactive <Icon name='swipe' /></TabsTrigger>
+          <TabsTrigger value="json"><Icon name='code' /> JSON</TabsTrigger>
         </TabsList>
 
         <TabsContent value="interactive" className="space-y-6">
           {/* Add Rule Buttons */}
           <div className="grid grid-cols-2 gap-4">
-            <Card
-              className="cursor-pointer hover:bg-green-50 transition-colors"
+            <div
+              className="cursor-pointer transition-colors shadow-none inset-shadow-policy-cards rounded-[12px]"
               onClick={() => addRule('allow')}
             >
-              <CardContent className="p-6 text-center">
-                <div className="text-green-600 text-2xl mb-2">✓</div>
-                <h3 className="font-semibold">Add allow rule</h3>
-                <p className="text-sm text-gray-600">Define permitted actions</p>
-              </CardContent>
-            </Card>
+              <div className="px-[18px] py-6 bg-primary-25 rounded-[12px]">
+                <Icon name='check' className='text-primary-800 size-6 mb-4' />
+                <div className='flex flex-col'>
+                  <h3 className="font-medium">Add allow rule</h3>
+                  <p className="text-sm text-primary-400">Define permitted actions</p>
+                </div>
+              </div>
+            </div>
 
-            <Card
-              className="cursor-pointer hover:bg-red-50 transition-colors"
+            <div
+              className="cursor-pointer transition-colors shadow-none inset-shadow-policy-cards rounded-[12px]"
               onClick={() => addRule('deny')}
             >
-              <CardContent className="p-6 text-center">
-                <div className="text-red-600 text-2xl mb-2">⚠</div>
-                <h3 className="font-semibold">Add deny rule</h3>
-                <p className="text-sm text-gray-600">Define blocked actions</p>
-              </CardContent>
-            </Card>
+              <div className="px-[18px] py-6 bg-primary-25 rounded-[12px]">
+                <Icon name='warning' className='text-primary-800 size-6 mb-4' />
+                <div className='flex flex-col'>
+                  <h3 className="font-medium">Add deny rule</h3>
+                  <p className="text-sm text-primary-400">Define blocked actions</p>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Rules */}
@@ -1142,7 +1144,7 @@ export default function PolicyBuilder(): JSX.Element {
           </div>
 
           {rules.length === 0 && (
-            <div className="text-center p-12 border border-dashed rounded-lg text-gray-500">
+            <div className="text-center rounded-lg">
               <h3 className="text-lg font-medium mb-2">No rules defined</h3>
               <p>Click "Add allow rule" or "Add deny rule" above to get started</p>
             </div>

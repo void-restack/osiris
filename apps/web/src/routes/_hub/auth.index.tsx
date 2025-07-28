@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { BadgeCheck, Link2, RefreshCcw, ChevronDown } from "lucide-react";
 import { useState } from "react";
 import { flexRender, type ColumnDef } from "@tanstack/react-table";
@@ -35,27 +35,13 @@ import { cn } from "@/lib/utils";
 import { ICONS } from "@/components/icons";
 import { toast } from "sonner";
 import { sortOptions } from "@/config/sort-option";
-
-interface AuthMethod {
-  clientId: string;
-  name: string;
-  description: string;
-  type: 'oauth' | 'secret_sharing' | 'embedded_wallet';
-  supportedScopes: string[];
-  scopeDefinitions: Record<string, string>;
-  supportedServices: string[];
-  metadata: Record<string, any>;
-  createdAt: string;
-  updatedAt: string;
-  embedding: null;
-}
+import { type ServiceClient } from "@/types/auth";
+import { transformBackendServiceClient } from "@/lib/transformer";
 
 type ViewMode = 'grid' | 'table';
 type SortOption = 'latest' | 'relevant' | 'new' | 'scopes' | 'name';
 
-
-
-const createColumns = (): ColumnDef<AuthMethod>[] => [
+const createColumns = (): ColumnDef<ServiceClient>[] => [
   {
     id: "name",
     header: "Name",
@@ -119,10 +105,7 @@ const createColumns = (): ColumnDef<AuthMethod>[] => [
     header: "",
     cell: ({ row }) => (
       <div className="flex items-center gap-2">
-        <Button variant="ghost" size="sm" className="h-7 text-xs">
-          <Link2 className="size-3 mr-1" />
-          Connect
-        </Button>
+        <AuthMethodDialog method={row.original} />
         <Link to={`/auth/${row.original.clientId}`}>
           <Button variant="outline" size="sm" className="h-7 text-xs">
             View
@@ -145,7 +128,7 @@ export const Route = createFileRoute("/_hub/auth/")({
 const activeClass = "!bg-white data-[state=on]:!bg-white";
 const inactiveClass = "!bg-transparent";
 
-function AuthMethodDialog({ method }: { method: AuthMethod }) {
+function AuthMethodDialog({ method }: { method: ServiceClient }) {
   const [selectedScopes, setSelectedScopes] = useState<Permission[]>([]);
   const [authHubName, setAuthHubName] = useState(`${method.name} connection`);
 
@@ -159,9 +142,9 @@ function AuthMethodDialog({ method }: { method: AuthMethod }) {
 
     try {
       await createServiceConnection.mutateAsync({
-        type: method.name, scopes: selectedScopes.map(scope => scope.id)
+        serviceClientName: method.name,
+        scopes: selectedScopes.map(scope => scope.id)
       });
-
     } catch (error) {
       console.error("Authentication error:", error);
       toast.error("Failed to start authentication process");
@@ -173,6 +156,9 @@ function AuthMethodDialog({ method }: { method: AuthMethod }) {
       <AlertDialogTrigger asChild>
         <Button
           variant="ghost"
+          onClick={(e) => {
+            e.stopPropagation()
+          }}
           className="flex h-fit items-center gap-1 rounded-[6px] bg-badge-success px-2 py-1 font-medium text-badge-success-text text-xs"
         >
           <Link2 /> Connect
@@ -224,7 +210,6 @@ function AuthMethodDialog({ method }: { method: AuthMethod }) {
                 </span>
               </div>
 
-              {/* Handle different auth method types */}
               {Object.keys(method.scopeDefinitions).length > 0 ? (
                 <PermissionSelector
                   permissions={Object.entries(method.scopeDefinitions).map(([scope, label]) => ({
@@ -272,7 +257,10 @@ function AuthMethodDialog({ method }: { method: AuthMethod }) {
 function RouteComponent() {
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [sortBy, setSortBy] = useState<SortOption>('latest');
-  const { data: authMethods } = useSuspenseQuery(hubQueries.authMethodsOptions());
+  const { data: authMethodsData } = useSuspenseQuery(hubQueries.authMethodsOptions());
+
+  // Transform backend data to ServiceClient type
+  const authMethods = authMethodsData.map(transformBackendServiceClient);
 
   const handleViewChange = (value: "table" | "grid") => {
     if (value === viewMode) return;
@@ -288,13 +276,13 @@ function RouteComponent() {
   });
 
   const searchAuthMethods = (query: string) => {
-    return authMethods.filter((method: AuthMethod) =>
+    return authMethods.filter((method: ServiceClient) =>
       method.name.toLowerCase().includes(query.toLowerCase()) ||
       method.description.toLowerCase().includes(query.toLowerCase())
     );
   };
 
-  const sortAuthMethods = (methods: AuthMethod[]) => {
+  const sortAuthMethods = (methods: ServiceClient[]) => {
     switch (sortBy) {
       case 'latest':
         return [...methods].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -311,11 +299,17 @@ function RouteComponent() {
   };
 
   const GridView = () => {
+    const navigate = useNavigate()
     const sortedMethods = sortAuthMethods(authMethods);
     return (
       <div className="grid w-full grid-cols-1 gap-6 p-6 md:grid-cols-2 lg:grid-cols-3">
-        {sortedMethods.map((method: AuthMethod) => (
+        {sortedMethods.map((method: ServiceClient) => (
           <div
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                navigate({ to: `/auth/${method.clientId}` });
+              }
+            }}
             key={method.clientId}
             className="h-fit min-h-48 min-w-xs rounded-xl border border-primary-100 p-6"
           >
@@ -363,7 +357,7 @@ function RouteComponent() {
             footerText="Footer text"
             bottomLeftContent={
               <div className="flex items-center gap-3">
-                {authMethods.slice(0, 2).map((method: AuthMethod) => (
+                {authMethods.slice(0, 2).map((method: ServiceClient) => (
                   <div key={method.clientId} className="rounded-md bg-primary-50 p-1.5 text-xs capitalize">
                     {method.name}
                   </div>
@@ -373,7 +367,7 @@ function RouteComponent() {
             bottomRightContent={<></>}
             popularItems={
               <div className="flex w-full gap-2">
-                {authMethods.slice(0, 3).map((method: AuthMethod) => (
+                {authMethods.slice(0, 3).map((method: ServiceClient) => (
                   <div key={method.clientId} className="rounded-[6px] bg-primary-100 px-2 py-0.5 text-xs capitalize">
                     {method.name}
                   </div>
@@ -394,14 +388,12 @@ function RouteComponent() {
         <div className="flex w-full items-center justify-between border-b border-b-primary-100 px-6 py-4">
           <h4 className="font-medium text-xl">All Hubs ({authMethods.length})</h4>
           <div className="flex items-center gap-4">
-            {/* Table Toolbar - only show when in table view */}
             {viewMode === 'table' && (
               <div className="flex items-center">
                 <DataTableToolbar table={table} />
               </div>
             )}
 
-            {/* Sort Dropdown */}
             {viewMode === "grid" && <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-2">
@@ -422,7 +414,6 @@ function RouteComponent() {
               </DropdownMenuContent>
             </DropdownMenu>}
 
-            {/* View Toggle */}
             <ToggleGroup
               className="rounded-[6px] bg-[#F5F5F5] p-[2px]"
               type="single"

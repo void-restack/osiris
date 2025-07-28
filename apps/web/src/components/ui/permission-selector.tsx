@@ -12,22 +12,24 @@ export type Permission = {
 type PermissionSelectorProps = {
   permissions: Permission[];
   placeholder?: string;
-  onSelectionChange?: (selectedPermissions: Permission[]) => void;
+  initialSelected?: Permission[]; onSelectionChange?: (selectedPermissions: Permission[]) => void;
 };
 
 export function PermissionSelector({
   permissions,
   placeholder = "Search permissions...",
+  initialSelected = [],
   onSelectionChange,
 }: PermissionSelectorProps) {
   const [selectedPermissions, setSelectedPermissions] = useState<Permission[]>(
-    [],
+    initialSelected,
   );
   const [searchQuery, setSearchQuery] = useState("");
   const selectedsContainerRef = useRef<HTMLDivElement>(null);
 
-  console.log("Permissions received:", permissions);
-  console.log("Search query:", searchQuery);
+  useEffect(() => {
+    setSelectedPermissions(initialSelected);
+  }, [JSON.stringify(initialSelected)]);
 
   useEffect(() => {
     onSelectionChange?.(selectedPermissions);
@@ -114,9 +116,9 @@ export function PermissionSelector({
         <div className="mb-4">
           <h3 className="mb-2 text-[13px]">Selected Permissions ({selectedPermissions.length})</h3>
           <div className="flex flex-wrap gap-2" ref={selectedsContainerRef}>
-            {selectedPermissions.map((permission) => (
+            {selectedPermissions.map((permission, index) => (
               <div
-                key={permission.id}
+                key={`selected-${permission.id}-${index}`}
                 className="flex items-center gap-1.5 rounded-md bg-primary-50 px-2 py-0.5 text-[13px]"
               >
                 <span className="font-medium text-sm">{permission.label}</span>

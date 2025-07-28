@@ -1,127 +1,39 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import type { ColumnDef } from "@tanstack/react-table";
-import {
-  AlertTriangle,
-  CheckCircle,
-  Clock,
-  DownloadIcon,
-  PenLine,
-  Unlink,
-} from "lucide-react";
+import { PenLine } from "lucide-react";
 import { DataTable } from "@/components/data-table/data-table";
 import { Button } from "@/components/ui/button";
 import { useDataTable } from "@/hooks/use-data-table";
 import { hubQueries } from "@/lib/queries";
 import { useAppStore } from "@/lib/store";
+import {
+  type UserServiceConnection,
+  type ServiceClient,
+  getConnectionDisplayInfo,
+} from "@/types/auth";
+import { transformBackendServiceClient, transformBackendUserAuth } from "@/lib/transformer";
 
-interface AuthMethod {
-  clientId: string;
-  name: string;
-  description: string;
-  type: "oauth" | "secret_sharing" | "embedded_wallet";
-  supportedScopes: string[];
-  supportedServices: string[];
-  metadata: Record<string, any>;
-  createdAt: string;
-  updatedAt: string;
-}
-
-type Database = {
-  id: number;
-  name: string;
-  host: string;
-  lastActivity: string;
-  status: "Active" | "Idle" | "Error";
-};
-
-const mockDatabases: Database[] = [
-  {
-    id: 1,
-    name: "Marketing DB",
-    host: "db.marketing.com",
-    lastActivity: "2 hours ago",
-    status: "Active",
-  },
-  {
-    id: 2,
-    name: "Backup DB",
-    host: "backup.pgsql.net",
-    lastActivity: "15 mins ago",
-    status: "Idle",
-  },
-  {
-    id: 4,
-    name: "Testing DB",
-    host: "staging.local",
-    lastActivity: "15 mins ago",
-    status: "Error",
-  },
-  {
-    id: 5,
-    name: "Analytics Snapshot",
-    host: "analytics.pg.company",
-    lastActivity: "2 hours ago",
-    status: "Active",
-  },
-  {
-    id: 6,
-    name: "Sales DB",
-    host: "sales.internal.net",
-    lastActivity: "10 days ago",
-    status: "Active",
-  },
-  {
-    id: 7,
-    name: "Archived Data DB",
-    host: "archive.pgsql.io",
-    lastActivity: "2 hours ago",
-    status: "Active",
-  },
-  {
-    id: 8,
-    name: "HR Records DB",
-    host: "hr.pg.dev",
-    lastActivity: "2 hours ago",
-    status: "Idle",
-  },
-];
-
-const StatusBadge = ({ status }: { status: Database["status"] }) => {
-  const configs = {
-    Active: {
-      icon: CheckCircle,
-      className: "text-green-600 bg-green-50 border-green-200",
-      text: "Active",
-    },
-    Idle: {
-      icon: Clock,
-      className: "text-gray-600 bg-gray-50 border-gray-200",
-      text: "Idle",
-    },
-    Error: {
-      icon: AlertTriangle,
-      className: "text-red-600 bg-red-50 border-red-200",
-      text: "Error",
-    },
+const StatusBadge = ({ status }: { status: string }) => {
+  const configs: Record<string, any> = {
+    Active: { className: "text-green-600 bg-green-50 border-green-200", text: "Active" },
+    Idle: { className: "text-gray-600 bg-gray-50 border-gray-200", text: "Idle" },
+    Error: { className: "text-red-600 bg-red-50 border-red-200", text: "Error" },
+    Expired: { className: "text-orange-600 bg-orange-50 border-orange-200", text: "Expired" },
   };
 
-  const config = configs[status];
-  const Icon = config.icon;
-
+  const config = configs[status] || configs.Idle;
   return (
-    <div
-      className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 font-medium text-xs ${config.className}`}
-    >
-      <Icon className="h-3 w-3" />
+    <div className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 font-medium text-xs ${config.className}`}>
       {config.text}
     </div>
   );
 };
 
 const createColumns = (
-  openEditSidebar: (database: Database) => void,
-): ColumnDef<Database>[] => [
+  openEditSidebar: (connection: UserServiceConnection, serviceClient: ServiceClient) => void,
+  serviceClient: ServiceClient
+): ColumnDef<UserServiceConnection>[] => [
     {
       id: "id",
       header: () => <div className="pl-[16px]">#</div>,
@@ -132,50 +44,45 @@ const createColumns = (
         </span>
       ),
       size: 10,
-      minSize: 10,
-      maxSize: 10,
     },
     {
       id: "name",
       header: "Name",
       accessorKey: "name",
-      cell: ({ row }) => (
-        <span className="font-medium text-primary-800 text-sm">
-          {row.original.name}
-        </span>
-      ),
+      cell: ({ row }) => {
+        const displayInfo = getConnectionDisplayInfo(row.original);
+        return (
+          <div className="flex flex-col">
+            <span className="font-medium text-primary-800 text-sm">
+              {displayInfo.name}
+            </span>
+            <span className="text-primary-400 text-xs">
+              {displayInfo.subtitle}
+            </span>
+          </div>
+        );
+      },
       size: 600,
-      minSize: 180,
-      maxSize: 600,
     },
     {
-      id: "host",
-      header: "Host",
-      accessorKey: "host",
-      cell: ({ row }) => (
-        <span className="rounded-[6px] bg-primary-50 px-2 py-0.5 font-mono text-primary-400 text-xs">
-          {row.original.host}
-        </span>
-      ),
-      enableHiding: true,
-    },
-    {
-      id: "lastActivity",
-      header: "Last Activity",
-      accessorKey: "lastActivity",
-      cell: ({ row }) => (
-        <span className="text-primary-400 text-sm">
-          {row.original.lastActivity}
-        </span>
-      ),
-      enableHiding: true,
+      id: "details",
+      header: "Details",
+      cell: ({ row }) => {
+        const displayInfo = getConnectionDisplayInfo(row.original);
+        return displayInfo.details ? (
+          <span className="rounded-[6px] bg-primary-50 px-2 py-0.5 font-mono text-primary-400 text-xs">
+            {displayInfo.details}
+          </span>
+        ) : null;
+      },
     },
     {
       id: "status",
       header: "Status",
-      accessorKey: "status",
-      cell: ({ row }) => <StatusBadge status={row.original.status} />,
-      enableHiding: true,
+      cell: ({ row }) => {
+        const displayInfo = getConnectionDisplayInfo(row.original);
+        return <StatusBadge status={displayInfo.status} />;
+      },
     },
     {
       id: "actions",
@@ -186,37 +93,37 @@ const createColumns = (
             variant="ghost"
             size="sm"
             className="size-6 border border-primary-100 p-0 text-primary-400 hover:text-primary-600"
-            onClick={() => openEditSidebar(row.original)}
+            onClick={() => openEditSidebar(row.original, serviceClient)}
           >
             <PenLine className="size-3 text-primary-300" />
           </Button>
         </div>
       ),
       size: 0,
-      minSize: 0,
-      maxSize: 0,
       enableSorting: false,
     },
   ];
 
 export const Route = createFileRoute("/_hub/auth/$authId")({
   component: RouteComponent,
-  loader: ({ context: { queryClient }, params }) =>
-    queryClient.ensureQueryData(hubQueries.authMethodsOptions()),
+  loader: async ({ context: { queryClient } }) => {
+    const [authMethods, userAuth] = await Promise.all([
+      queryClient.ensureQueryData(hubQueries.authMethodsOptions()),
+      queryClient.ensureQueryData(hubQueries.userAuthOptions())
+    ]);
+    return { authMethods, userAuth };
+  },
 });
 
 function RouteComponent() {
   const { authId } = Route.useParams();
-  const { data: authMethods } = useSuspenseQuery(
-    hubQueries.authMethodsOptions(),
-  );
+  const { data: authMethods } = useSuspenseQuery(hubQueries.authMethodsOptions());
+  const { data: userAuth } = useSuspenseQuery(hubQueries.userAuthOptions());
   const { openEditSidebar } = useAppStore();
 
-  const authMethod = authMethods.find(
-    (method: AuthMethod) => method.clientId === authId,
-  );
+  const serviceClient = authMethods.find((method: any) => method.clientId === authId);
 
-  if (!authMethod) {
+  if (!serviceClient) {
     return (
       <div className="px-8 pt-10">
         <div className="text-center">
@@ -229,81 +136,45 @@ function RouteComponent() {
     );
   }
 
-  const columns = createColumns(openEditSidebar);
+  const transformedServiceClient = transformBackendServiceClient(serviceClient);
+  const allConnections = transformBackendUserAuth(userAuth);
+  const connectionsForThisClient = allConnections.filter(conn => conn.clientId === authId);
+
+  const columns = createColumns((connection, serviceClient) => {
+    // Pass the original service client with scopeDefinitions
+    openEditSidebar(connection, transformedServiceClient);
+  }, transformedServiceClient);
 
   const { table } = useDataTable({
-    data: mockDatabases,
+    data: connectionsForThisClient,
     columns: columns,
-    pageCount: Math.ceil(mockDatabases.length / 10),
+    pageCount: Math.ceil(connectionsForThisClient.length / 10),
   });
 
   const getTypeColor = (type: string) => {
     switch (type) {
-      case "oauth":
-        return "bg-blue-400/30";
-      case "secret_sharing":
-        return "bg-purple-400/30";
-      case "embedded_wallet":
-        return "bg-green-400/30";
-      default:
-        return "bg-gray-400/30";
+      case "oauth": return "bg-blue-400/30";
+      case "secret_sharing": return "bg-purple-400/30";
+      case "embedded_wallet": return "bg-green-400/30";
+      default: return "bg-gray-400/30";
     }
   };
 
-  const renderContent = () => {
-    switch (authMethod.type) {
-      case "secret_sharing":
-        return (
-          <>
-            <div className="mb-8 flex flex-col gap-1">
-              <h3 className="text-xl">Connected databases</h3>
-              <span className="text-primary-300">
-                List of all the connected databases
-              </span>
-            </div>
-            <div>
-              <DataTable table={table} />
-            </div>
-          </>
-        );
+  const getContentTitle = () => {
+    switch (transformedServiceClient.type) {
+      case "secret_sharing": return "Connected databases";
+      case "oauth": return "OAuth Connections";
+      case "embedded_wallet": return "Wallet Connections";
+      default: return "Connections";
+    }
+  };
 
-      case "oauth":
-        return (
-          <div className="mb-8 flex flex-col gap-1">
-            <h3 className="text-xl">OAuth Connections</h3>
-            <span className="text-primary-300">
-              Manage your OAuth connections and permissions
-            </span>
-            <div className="mt-8 rounded-lg border border-primary-200 border-dashed p-8 text-center">
-              <p className="text-primary-400">
-                OAuth connection management coming soon
-              </p>
-            </div>
-          </div>
-        );
-
-      case "embedded_wallet":
-        return (
-          <div className="mb-8 flex flex-col gap-1">
-            <h3 className="text-xl">Wallet Management</h3>
-            <span className="text-primary-300">
-              Manage your embedded wallet connections
-            </span>
-            <div className="mt-8 rounded-lg border border-primary-200 border-dashed p-8 text-center">
-              <p className="text-primary-400">Wallet management coming soon</p>
-            </div>
-          </div>
-        );
-
-      default:
-        return (
-          <div className="mb-8 flex flex-col gap-1">
-            <h3 className="text-xl">Unknown Type</h3>
-            <span className="text-primary-300">
-              This authentication type is not yet supported
-            </span>
-          </div>
-        );
+  const getContentDescription = () => {
+    switch (transformedServiceClient.type) {
+      case "secret_sharing": return "List of all the connected databases";
+      case "oauth": return "Manage your OAuth connections and permissions";
+      case "embedded_wallet": return "Manage your wallet connections";
+      default: return "Manage your connections";
     }
   };
 
@@ -311,25 +182,35 @@ function RouteComponent() {
     <div className="px-8 pt-10">
       <div className="flex w-full items-center justify-between">
         <div className="flex items-center gap-6">
-          <div
-            className={`size-15 rounded-md ${getTypeColor(authMethod.type)}`}
-          />
+          <div className={`size-15 rounded-md ${getTypeColor(transformedServiceClient.type)}`} />
           <div className="flex flex-col">
-            <h3 className="text-xl capitalize">{authMethod.name}</h3>
-            <span className="text-primary-300">{authMethod.description}</span>
+            <h3 className="text-xl capitalize">{transformedServiceClient.name}</h3>
+            <span className="text-primary-300">{transformedServiceClient.description}</span>
           </div>
         </div>
         <div className="flex items-center gap-4">
-          <Button icon={DownloadIcon} iconPlacement="left" variant="secondary">
-            {authMethod.supportedScopes.length} scopes
+          <Button variant="secondary">
+            {transformedServiceClient.type === 'oauth' ? `${transformedServiceClient.supportedScopes?.length || 0} scopes` :
+              transformedServiceClient.type === 'secret_sharing' ? 'Database Config' :
+                transformedServiceClient.type === 'embedded_wallet' ? 'Wallet Config' : 'Config'}
           </Button>
-          <Button icon={Unlink} iconPlacement="left">
-            Connect
+          <Button>
+            {transformedServiceClient.type === 'oauth' ? 'Add Connection' :
+              transformedServiceClient.type === 'secret_sharing' ? 'Add Database' :
+                transformedServiceClient.type === 'embedded_wallet' ? 'Create Wallet' : 'Connect'}
           </Button>
         </div>
       </div>
       <div className="my-10 w-full border-t border-t-primary-100 border-dashed" />
-      {renderContent()}
+
+      <div className="mb-8 flex flex-col gap-1">
+        <h3 className="text-xl">{getContentTitle()}</h3>
+        <span className="text-primary-300">{getContentDescription()}</span>
+      </div>
+
+      <div>
+        <DataTable table={table} />
+      </div>
     </div>
   );
 }
