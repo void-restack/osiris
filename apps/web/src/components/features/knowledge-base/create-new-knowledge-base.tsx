@@ -245,7 +245,7 @@ function AvatarUploader({ onChange }: { onChange: (file: File | null) => void })
 
 function BannerUploader({ onChange }: { onChange: (file: File | null) => void }) {
 	const maxSizeMB = 5;
-	const maxSize = maxSizeMB * 1024 * 1024; // 5MB default
+	const maxSize = maxSizeMB * 1024 * 1024; 
 
 	const [
 		{ files, isDragging, errors },

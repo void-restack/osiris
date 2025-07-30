@@ -100,7 +100,6 @@ export const mockKnowledgeBaseData: KnowledgeBaseCardProps[] = [
     credits: 0,
     permission: "public",
   },
-  // ...add more as needed
 ];
 
 export function BrowseKnowledgeBaseList({ cards }: { cards: KnowledgeBaseCardProps[] }) {
