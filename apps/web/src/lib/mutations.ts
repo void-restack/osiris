@@ -176,6 +176,7 @@ export const useRefreshTokenMutation = () => {
 export const useCreateServiceConnectionMutation = () => {
   return useMutation({
     mutationFn: async (data: {
+      name: string;
       serviceClientName: string;
       scopes: string[];
     }) => {
@@ -184,7 +185,8 @@ export const useCreateServiceConnectionMutation = () => {
         params: {
           type: data.serviceClientName,
           scopes: data.scopes.join(","),
-          name: `Updated ${data.serviceClientName} connection`,
+          name: data.name ?? `Updated ${data.serviceClientName} connection`,
+          redirectUri: "http://localhost:3000/auth",
         },
         schema: responseSchema(z.object({ url: z.string().url() })),
       });
@@ -469,36 +471,6 @@ export const useCreatePackageMutation = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: packageQueries.lists() });
-    },
-  });
-};
-
-export const useUpdateSecretSharingMutation = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (data: {
-      id: string;
-      serviceClientId: string;
-      secret: Record<string, any>;
-      name: string;
-    }) => {
-      const response = await api("/hub/secret/create", {
-        method: "POST",
-        body: {
-          serviceClientId: data.serviceClientId,
-          secret: data.secret,
-          name: data.name,
-        },
-        schema: responseSchema(z.any()),
-      });
-      if (response.status === "FAILED") {
-        throw new Error(response.error);
-      }
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: hubQueries.userAuth() });
     },
   });
 };

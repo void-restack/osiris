@@ -25,6 +25,8 @@ export function EditConnectionSidebar() {
   const [hasChanges, setHasChanges] = useState(false);
   const [selectedScopes, setSelectedScopes] = useState<Permission[]>([]);
 
+  console.log(selectedConnection)
+
   useEffect(() => {
     if (selectedConnection) {
       setFormData(connectionToFormData(selectedConnection));
