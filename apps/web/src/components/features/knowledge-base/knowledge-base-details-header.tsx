@@ -1,6 +1,6 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { AddSeedsAction } from "./add-seed";
+import { UploadContentDialog } from "./upload-contnet";
 
 export function KnowledgeBaseDetailsHeader() {
 	return (
@@ -16,18 +16,18 @@ export function KnowledgeBaseDetailsHeader() {
 					<AvatarFallback className="text-2xl">B</AvatarFallback>
 				</Avatar>
 			</div>
-			<div className="-mt-6 flex justify-between px-6">
+			<div className="-mt-6 flex flex-col gap-4 md:flex-row justify-between px-6">
 				<div className="w-full gap-y-2">
 					<h1 className="text-primary-800 text-xl">Yeet - Gamble protocol</h1>
 					<p className="text-primary-300">
 						Built for big moments | YEET it | 18+
 					</p>
 				</div>
-				<div className="flex items-center gap-4">
-					<Button className="text-primary-300" variant={"secondary"}>
+				<div className="flex flex-col md:flex-row items-center gap-4">
+					<Button className="text-primary-300 w-full" variant={"secondary"}>
 						last updated: 3mo ago
 					</Button>
-					<AddSeedsAction />
+					<UploadContentDialog />
 				</div>
 			</div>
 		</section>

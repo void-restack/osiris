@@ -526,6 +526,40 @@ const checkAuthStatus = async (sessionId: string) => {
 };
 ```
 
+### Refresh token of authenticated user
+
+You will need to add a retry flag in the function and set it to `false` initially
+```typescript
+async getUserAddresses(retry = false): Promise<CallToolResult>
+```
+
+Then in the catch block of this function, add this code
+
+```typescript
+if (retry) {
+    throw createErrorResponse(error);
+}
+try {
+    const refreshedToken = await this.authManager.refreshToken("osiris", token.refresh_token);
+    await this.authManager.updateAuthentication(context.deploymentId, "osiris", {
+        token: {
+            ...token,
+            access_token: refreshedToken.access_token,
+            refresh_token: refreshedToken.refresh_token,
+            expires_in: refreshedToken.expires_in,
+        }
+    });
+    if (!refreshedToken) {
+        throw createErrorResponse(new Error("Failed to get user addresses, and failed to refresh token, reauthenticate with this MCP"));
+    }
+    return await this.getUserAddresses(true);
+} catch (error: any) {
+    throw createErrorResponse(error);
+}
+```
+
+This will try to refresh the token and retry the function, to prevent retrying the function unlimited amount of times, we add the retry flag, if it failed then it will throw an error
+
 ## Manual MCP Server Setup
 
 If you prefer to set up manually instead of using the CLI:

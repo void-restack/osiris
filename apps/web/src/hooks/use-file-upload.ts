@@ -59,7 +59,9 @@ export type FileUploadActions = {
 };
 
 export const useFileUpload = (
-	options: FileUploadOptions = {},
+	options: FileUploadOptions = {
+		maxFiles: 10,
+	},
 ): [FileUploadState, FileUploadActions] => {
 	const {
 		maxFiles = Number.POSITIVE_INFINITY,

@@ -1,10 +1,19 @@
 import { useState, useMemo } from "react";
-import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { ChevronDown, Search } from "lucide-react";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { fileTypes } from "@/config/sort-option";
 
 const MOCK_SOURCES = [
@@ -24,12 +33,13 @@ function SourceIcon({ icon }: { icon: string }) {
   return <span className="mr-2">📁</span>;
 }
 
-
-export function UnitsFilters({ sortBy, onSortByChange }: {
+export function UnitsFilters({
+  sortBy,
+  onSortByChange,
+}: {
   sortBy: string;
   onSortByChange: (sort: string) => void;
 }) {
-
   return (
     <div className="flex items-center gap-4 ml-auto">
       <UnitsFilterBySource />
@@ -62,24 +72,28 @@ export function UnitsFilterBySource() {
           Filter
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="min-w-[320px] w-full bg-primary-25 backdrop-blur-md p-0">
+      <PopoverContent
+        align="end"
+        className="w-[360px] bg-[#FAFAFAD9] backdrop-blur-md p-0 border-none"
+      >
         <div className="flex flex-col gap-y-4">
           <p className="border-b border-b-primary-100 pb-2 text-sm font-medium text-[#8C8A94] mb-2 p-4">
             Filter by Knowledge Source
           </p>
           <div className="px-4">
- <div className="relative mb-2">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-            
-              placeholder="Search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 bg-white"
-            />
+            <div className="relative mb-2">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground stroke-primary-300" />
+              <Input
+                placeholder="Search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9 bg-white placeholder:text-primary-300"
+                style={{
+                  boxShadow: '0px 7px 14px 0px #00000005, 0px 0px 0px 1px #0000000F inset'
+                }}
+              />
+            </div>
           </div>
-          </div>
-         
         </div>
         <div className="max-h-56 overflow-y-auto px-4">
           {filteredSources.map((source) => (
@@ -106,30 +120,38 @@ export function UnitsFilterBySource() {
   );
 }
 
-
-function SortByFileTypes({ sortBy, onSortByChange }: { sortBy: string; onSortByChange: (sort: string) => void }) {
-	return (
-		<DropdownMenu>
-			<DropdownMenuTrigger asChild>
-				<Button variant="secondary" size="sm" className="gap-2 bg-primary-50">
-					Sort by: {fileTypes.find(opt => opt.value === sortBy)?.label}
-					<ChevronDown className="size-4" />
-				</Button>
-			</DropdownMenuTrigger>
-			<DropdownMenuContent align="end">
-				{fileTypes.map((option) => (
-					<DropdownMenuItem
-						key={option.value}
-						onClick={() => onSortByChange(option.value)}
-						className="pl-2"
-					>
-						<span className="flex items-center gap-2">
-							<Checkbox checked={sortBy === option.value} className="pointer-events-none" />
-							{option.label}
-						</span>
-					</DropdownMenuItem>
-				))}
-			</DropdownMenuContent>
-		</DropdownMenu>
-	);
+function SortByFileTypes({
+  sortBy,
+  onSortByChange,
+}: {
+  sortBy: string;
+  onSortByChange: (sort: string) => void;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="secondary" size="sm" className="gap-2 bg-primary-50">
+          Sort by: {fileTypes.find((opt) => opt.value === sortBy)?.label}
+          <ChevronDown className="size-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {fileTypes.map((option) => (
+          <DropdownMenuItem
+            key={option.value}
+            onClick={() => onSortByChange(option.value)}
+            className="pl-2"
+          >
+            <span className="flex items-center gap-2">
+              <Checkbox
+                checked={sortBy === option.value}
+                className="pointer-events-none"
+              />
+              {option.label}
+            </span>
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 }
