@@ -83,14 +83,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               size="sm"
               asChild
             >
-              <a href="#">
-                <Link to="/">
-                  <img src="/logo.png" className="size-8" alt="Osiris Hub" />
-                </Link>
+              <Link to="/">
+                <img src="/logo.png" className="size-8" alt="Osiris Hub" />
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-semibold text-lg">Osiris</span>
                 </div>
-              </a>
+              </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

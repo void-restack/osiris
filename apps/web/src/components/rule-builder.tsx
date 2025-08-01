@@ -1101,7 +1101,7 @@ export default function PolicyBuilder(): JSX.Element {
           <TabsTrigger value="json"><Icon name='code' /> JSON</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="interactive" className="space-y-6">
+        <TabsContent value="interactive" className="space-y-6 max-h-[400px] overflow-y-scroll hidebar">
           {/* Add Rule Buttons */}
           <div className="grid grid-cols-2 gap-4">
             <div
@@ -1152,48 +1152,49 @@ export default function PolicyBuilder(): JSX.Element {
         </TabsContent>
 
         <TabsContent value="json" className="space-y-4">
-          <div className="flex items-center justify-between">
-            <Label>Policy JSON</Label>
-            <div className="flex items-center gap-2">
-              {!isJsonValid && (
-                <span className="text-red-600 text-sm">Invalid JSON</span>
-              )}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  try {
-                    const parsed = JSON.parse(jsonValue);
-                    const formatted = JSON.stringify(parsed, null, 2);
-                    setJsonValue(formatted);
-                  } catch {
-                    // Invalid JSON, can't format
-                  }
-                }}
-              >
-                Format
-              </Button>
-            </div>
-          </div>
 
-          <div className="border rounded-lg overflow-hidden">
+          <div className="border rounded-lg overflow-y-scroll max-h-[400px] hidebar">
             <CodeMirror
               value={jsonValue}
               onChange={(value) => handleJsonChange(value)}
               extensions={[json(), myFontTheme]}
               theme={githubLight}
               basicSetup={{
-                lineNumbers: true,
-                foldGutter: true,
-                dropCursor: false,
+                lineNumbers: false,
+                foldGutter: false,
+                dropCursor: true,
                 allowMultipleSelections: false,
                 tabSize: 2,
+                autocompletion: true,
               }}
               style={{
                 fontSize: '14px',
-                minHeight: '400px',
+                // minHeight: '97px',
+                maxHeight: '400px'
               }}
             />
+          </div>
+
+          <div className="flex items-center w-full justify-between gap-2">
+            {!isJsonValid && (
+              <span className="text-red-600 text-sm">Invalid JSON</span>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              className='rounded-[6px]'
+              onClick={() => {
+                try {
+                  const parsed = JSON.parse(jsonValue);
+                  const formatted = JSON.stringify(parsed, null, 2);
+                  setJsonValue(formatted);
+                } catch {
+                  // Invalid JSON, can't format
+                }
+              }}
+            >
+              Format
+            </Button>
           </div>
         </TabsContent>
       </Tabs>

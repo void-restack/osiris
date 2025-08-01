@@ -25,8 +25,6 @@ export function EditConnectionSidebar() {
   const [hasChanges, setHasChanges] = useState(false);
   const [selectedScopes, setSelectedScopes] = useState<Permission[]>([]);
 
-  console.log(selectedConnection)
-
   useEffect(() => {
     if (selectedConnection) {
       setFormData(connectionToFormData(selectedConnection));
@@ -141,7 +139,7 @@ export function EditConnectionSidebar() {
         </Button>
       </div>
 
-      <div className="flex-1 space-y-6 overflow-y-auto p-6">
+      <div className="flex-1 space-y-6 overflow-y-scroll hidebar p-6">
         {/* Common Fields */}
         <div className="space-y-[6px]">
           <Label htmlFor="connection-id" className="text-[13px] text-primary-400">

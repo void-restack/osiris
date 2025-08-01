@@ -21,11 +21,13 @@ interface AppState {
   ) => void;
   closeEditSidebar: () => void;
   updateSelectedConnection: (connection: UserServiceConnection) => void;
+  setSidebarOpen?: (open: boolean) => void;
+  setSidebarOpenCallback: (callback: (open: boolean) => void) => void;
 }
 
 export const useAppStore = create<AppState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       mcpView: "list",
       setMcpView: (view) => set({ mcpView: view }),
       knowledgeBaseView: "directory",
@@ -35,13 +37,18 @@ export const useAppStore = create<AppState>()(
       selectedServiceClient: null,
       isEditSidebarOpen: false,
 
-      openEditSidebar: (connection, serviceClient) =>
+      openEditSidebar: (connection, serviceClient) => {
+        const state = get();
+        if (state.setSidebarOpen) {
+          state.setSidebarOpen(false);
+        }
         set({
           selectedConnection: connection,
           selectedServiceClient:
             serviceClient || connection.serviceClient || null,
           isEditSidebarOpen: true,
-        }),
+        });
+      },
       closeEditSidebar: () =>
         set({
           selectedConnection: null,
@@ -50,6 +57,7 @@ export const useAppStore = create<AppState>()(
         }),
       updateSelectedConnection: (connection) =>
         set({ selectedConnection: connection }),
+      setSidebarOpenCallback: (callback) => set({ setSidebarOpen: callback }),
     }),
     {
       name: "osiris-app-store",

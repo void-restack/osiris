@@ -16,6 +16,9 @@ export const packageSchema = z.object({
   publisherId: z.string().uuid().nullable(),
   latestVersion: z.string().nullable(),
   metadata: z.record(z.any()),
+  embedding: z.any().nullable(),
+  iconUrl: z.string().nullable().optional(),
+  coverImageUrl: z.string().nullable().optional(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 });
@@ -48,6 +51,33 @@ export const knowledgeBaseSchema = z.object({
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 });
+
+export interface PackageWithUserStatus extends Package {
+  isInstalled: boolean;
+  isDeployed: boolean;
+  userInstallation?: {
+    userMcpId: string;
+    userId: string;
+    packageId: string;
+    version: string;
+    installedAt: string;
+    updatedAt: string;
+    package: Package;
+  };
+  userDeployment?: {
+    deployment: {
+      deploymentId: string;
+      userMcpId: string;
+      url: string;
+      scopes: string[];
+      status: "active" | "inactive" | "pending";
+      createdAt: string;
+      updatedAt: string;
+    };
+    userMcpId: string;
+    package: Package;
+  };
+}
 
 // Response wrappers
 const successResponseSchema = <T extends z.ZodType>(dataSchema: T) =>

@@ -182,7 +182,7 @@ function RouteComponent() {
     <div className="px-8 pt-10">
       <div className="flex w-full items-center justify-between">
         <div className="flex items-center gap-6">
-          <div className={`size-15 rounded-md ${getTypeColor(transformedServiceClient.type)}`} />
+          <div className={`size-15 rounded-md shrink-0 ${getTypeColor(transformedServiceClient.type)}`} />
           <div className="flex flex-col">
             <h3 className="text-xl capitalize">{transformedServiceClient.name}</h3>
             <span className="text-primary-300">{transformedServiceClient.description}</span>
@@ -205,7 +205,7 @@ function RouteComponent() {
 
       <div className="mb-8 flex flex-col gap-1">
         <h3 className="text-xl">{getContentTitle()}</h3>
-        <span className="text-primary-300">{getContentDescription()}</span>
+        <span className="text-primary-300 text-pretty">{getContentDescription()}</span>
       </div>
 
       <div>
