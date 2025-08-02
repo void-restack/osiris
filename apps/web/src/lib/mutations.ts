@@ -179,6 +179,7 @@ export const useCreateServiceConnectionMutation = () => {
       name: string;
       serviceClientName: string;
       scopes: string[];
+      redirectUri?: string;
     }) => {
       const response = await api("/hub/auth/url", {
         method: "GET",
@@ -186,7 +187,7 @@ export const useCreateServiceConnectionMutation = () => {
           type: data.serviceClientName,
           scopes: data.scopes.join(","),
           name: data.name ?? `Updated ${data.serviceClientName} connection`,
-          redirectUri: "http://localhost:3000/auth",
+          redirectUri: data?.redirectUri ?? "http://localhost:3000/auth",
         },
         schema: responseSchema(z.object({ url: z.string().url() })),
       });
@@ -405,6 +406,39 @@ export const useRegenerateOAuthSecretMutation = () => {
       queryClient.invalidateQueries({
         queryKey: hubQueries.oauthClient(clientId),
       });
+    },
+  });
+};
+
+// OAuth Authorization
+export const useAuthorizeOsirisMutation = () => {
+  return useMutation({
+    mutationFn: async (data: {
+      clientId: string;
+      redirectUri: string;
+      responseType: 'code';
+      scopes: string[];
+      state: string;
+      deploymentId?: string;
+    }) => {
+      const response = await api("/hub/authorize", {
+        method: "POST",
+        body: data,
+        schema: responseSchema(
+          z.object({
+            code: z.string(),
+            state: z.string(),
+          })
+        ),
+      });
+      if (response.status === "FAILED") {
+        throw new Error(response.error);
+      }
+      return response.data;
+    },
+    onSuccess: (data) => {
+      // Handle the authorization success
+      console.log('Authorization successful:', data);
     },
   });
 };
@@ -729,7 +763,6 @@ export const useCreateKnowledgeBaseMutation = () => {
       name: string;
       description: string;
       tags: string[];
-      iconUrl?: string;
       coverImageUrl?: string;
       isPublic?: boolean;
       publicMetadata?: { price: number };
@@ -883,4 +916,3 @@ export const useDeleteKnowledgeUnitMutation = () => {
     },
   });
 };
-

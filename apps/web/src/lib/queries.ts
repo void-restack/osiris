@@ -64,7 +64,34 @@ export const userQueries = {
         }
         return response.data;
       },
-      staleTime: 5 * 60 * 1000, // 5 minutes
+      staleTime: 5 * 60 * 1000,
+    }),
+
+  authProviders: () => [...userQueries.all(), "auth-providers"] as const,
+
+  authProvidersOptions: () =>
+    queryOptions({
+      queryKey: userQueries.authProviders(),
+      queryFn: async () => {
+        const response = await api("/users/auth", {
+          schema: responseSchema(
+            z.array(
+              z.object({
+                provider: z.string(),
+                providerId: z.string(),
+                email: z.string().optional(),
+                name: z.string().optional(),
+                connectedAt: z.string().datetime(),
+              })
+            )
+          ),
+        });
+        if (response.status === "FAILED") {
+          throw new Error(response.error);
+        }
+        return response.data;
+      },
+      staleTime: 5 * 60 * 1000,
     }),
 };
 
@@ -291,6 +318,39 @@ export const packageQueries = {
               }),
             ),
           ),
+        });
+        if (response.status === "FAILED") {
+          throw new Error(response.error);
+        }
+        return response.data;
+      },
+      staleTime: 5 * 60 * 1000,
+    }),
+
+  popular: () => [...packageQueries.all(), "popular"] as const,
+  authScopes: (packageId: string) => [...packageQueries.all(), "auth-scopes", packageId] as const,
+
+  popularOptions: () =>
+    queryOptions({
+      queryKey: packageQueries.popular(),
+      queryFn: async () => {
+        const response = await api("/packages/popular", {
+          schema: responseSchema(z.array(packageSchema)),
+        });
+        if (response.status === "FAILED") {
+          throw new Error(response.error);
+        }
+        return response.data;
+      },
+      staleTime: 10 * 60 * 1000,
+    }),
+
+  authScopesOptions: (packageId: string) =>
+    queryOptions({
+      queryKey: packageQueries.authScopes(packageId),
+      queryFn: async () => {
+        const response = await api(`/packages/${packageId}/auth-scopes`, {
+          schema: responseSchema(z.array(z.string())),
         });
         if (response.status === "FAILED") {
           throw new Error(response.error);
@@ -707,6 +767,37 @@ export const knowledgeQueries = {
       },
       staleTime: 2 * 60 * 1000,
     }),
+
+  myBases: (params?: { limit?: number; page?: number }) => [...knowledgeQueries.all(), "my-bases", params] as const,
+
+  myBasesOptions: (params?: { limit?: number; page?: number }) =>
+    queryOptions({
+      queryKey: knowledgeQueries.myBases(params),
+      queryFn: async () => {
+        const searchParams = new URLSearchParams();
+        if (params?.limit) searchParams.set("limit", String(params.limit));
+        if (params?.page) searchParams.set("page", String(params.page));
+
+        const response = await api(`/knowledge-base/my?${searchParams}`, {
+          schema: responseSchema(
+            z.object({
+              data: z.array(knowledgeBaseSchema),
+              pagination: z.object({
+                total: z.number(),
+                totalPages: z.number(),
+                page: z.number(),
+                limit: z.number(),
+              }),
+            })
+          ),
+        });
+        if (response.status === "FAILED") {
+          throw new Error(response.error);
+        }
+        return response.data;
+      },
+      staleTime: 2 * 60 * 1000,
+    }),
 };
 
 // ===== HUB/AUTH QUERIES =====
@@ -907,5 +998,23 @@ export const hubQueries = {
         return response.data;
       },
       staleTime: 5 * 60 * 1000,
+    }),
+
+
+  popularAuth: () => [...hubQueries.all(), "popular-auth"] as const,
+
+  popularAuthOptions: () =>
+    queryOptions({
+      queryKey: hubQueries.popularAuth(),
+      queryFn: async () => {
+        const response = await api("/hub/auth/popular", {
+          schema: responseSchema(z.array(z.any())),
+        });
+        if (response.status === "FAILED") {
+          throw new Error(response.error);
+        }
+        return response.data;
+      },
+      staleTime: 10 * 60 * 1000,
     }),
 };

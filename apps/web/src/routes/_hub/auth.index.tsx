@@ -62,7 +62,7 @@ function RouteComponent() {
 
   useEffect(() => {
     if (search?.type && search?.serviceClient && search?.userServiceConnectionId) {
-      const method = authMethods.find(m => m.name.toLowerCase() === search.serviceClient?.toLowerCase());
+      const method = authMethods.find((m: { name: string; }) => m.name.toLowerCase() === search.serviceClient?.toLowerCase());
       if (method) {
         setCallbackMethod(method);
         setCallbackDialogOpen(true);

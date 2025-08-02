@@ -64,8 +64,8 @@ export function PackageDialog({
   };
 
   const defaultTrigger = (
-    <Button variant="default" size="sm" className="group-hover:opacity-100 transition-opacity">
-      Install
+    <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 transition-opacity">
+      <Package className="size-4" />
     </Button>
   );
 

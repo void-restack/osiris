@@ -1,14 +1,13 @@
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { BrowseKnowledgeBaseList } from "./browse-knowledge-base-list";
+import { BrowseKnowledgeBaseList, mockKnowledgeBaseData } from "./browse-knowledge-base-list";
 import { KnowledgeBaseFilters } from "./knowlege-base-filters";
 import { useNavigate } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
 import { McpListPagination } from "../mcp-list/mcp-list-pagination";
-import type { KnowledgeBase } from "@/types";
 
-export function KnowledgeBaseListContainer({ cards }: { cards: KnowledgeBase[] }) {
+export function KnowledgeBaseListContainer() {
 	const navigate = useNavigate();
 	const [currentPage, setCurrentPage] = useState(1);
 	const [selectedTag, setSelectedTag] = useState("all");
@@ -18,21 +17,23 @@ export function KnowledgeBaseListContainer({ cards }: { cards: KnowledgeBase[] }
 
 	const allTags = useMemo(() => {
 		const tagSet = new Set<string>();
-		cards.forEach((item) => {
+		mockKnowledgeBaseData.forEach((item) => {
 			item.tags.forEach((tag) => tagSet.add(tag));
 		});
 		return Array.from(tagSet);
 	}, []);
 
 	const filteredAndSorted = useMemo(() => {
-		let data = [...cards];
+		let data = [...mockKnowledgeBaseData];
 		if (selectedTag !== "all") {
 			data = data.filter((item) => item.tags.includes(selectedTag));
 		}
 		if (sortBy === "latest") {
 			data = data.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-		} else if (sortBy === "price") {
-			data = data.sort((a, b) => b.publicMetadata.price - a.publicMetadata.price);
+		} else if (sortBy === "stars") {
+			data = data.sort((a, b) => b.stars - a.stars);
+		} else if (sortBy === "credits") {
+			data = data.sort((a, b) => b.credits - a.credits);
 		}
 		return data;
 	}, [selectedTag, permission, sortBy]);

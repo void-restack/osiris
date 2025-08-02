@@ -44,7 +44,7 @@ function RootComponent() {
         </div>
         <Toaster richColors />
       </ThemeProvider>
-      {/* <TanStackRouterDevtools position="bottom-right" /> */}
+      <TanStackRouterDevtools position="bottom-right" />
     </>
   );
 }

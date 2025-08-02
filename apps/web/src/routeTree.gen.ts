@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as HubRouteRouteImport } from './routes/_hub/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as OauthConsentRouteImport } from './routes/oauth.consent'
 import { Route as HubMcpIndexRouteImport } from './routes/_hub/mcp.index'
 import { Route as HubKnowledgeIndexRouteImport } from './routes/_hub/knowledge/index'
 import { Route as HubAuthIndexRouteImport } from './routes/_hub/auth.index'
@@ -27,6 +28,11 @@ const HubRouteRoute = HubRouteRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OauthConsentRoute = OauthConsentRouteImport.update({
+  id: '/oauth/consent',
+  path: '/oauth/consent',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HubMcpIndexRoute = HubMcpIndexRouteImport.update({
@@ -72,6 +78,7 @@ const HubAuthAuthIdRoute = HubAuthAuthIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/oauth/consent': typeof OauthConsentRoute
   '/auth/$authId': typeof HubAuthAuthIdRoute
   '/knowledge/$id': typeof HubKnowledgeIdRoute
   '/knowledge/browse': typeof HubKnowledgeBrowseRoute
@@ -83,6 +90,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/oauth/consent': typeof OauthConsentRoute
   '/auth/$authId': typeof HubAuthAuthIdRoute
   '/knowledge/$id': typeof HubKnowledgeIdRoute
   '/knowledge/browse': typeof HubKnowledgeBrowseRoute
@@ -96,6 +104,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_hub': typeof HubRouteRouteWithChildren
+  '/oauth/consent': typeof OauthConsentRoute
   '/_hub/auth/$authId': typeof HubAuthAuthIdRoute
   '/_hub/knowledge/$id': typeof HubKnowledgeIdRoute
   '/_hub/knowledge/browse': typeof HubKnowledgeBrowseRoute
@@ -109,6 +118,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/oauth/consent'
     | '/auth/$authId'
     | '/knowledge/$id'
     | '/knowledge/browse'
@@ -120,6 +130,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/oauth/consent'
     | '/auth/$authId'
     | '/knowledge/$id'
     | '/knowledge/browse'
@@ -132,6 +143,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/_hub'
+    | '/oauth/consent'
     | '/_hub/auth/$authId'
     | '/_hub/knowledge/$id'
     | '/_hub/knowledge/browse'
@@ -145,6 +157,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   HubRouteRoute: typeof HubRouteRouteWithChildren
+  OauthConsentRoute: typeof OauthConsentRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -161,6 +174,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/oauth/consent': {
+      id: '/oauth/consent'
+      path: '/oauth/consent'
+      fullPath: '/oauth/consent'
+      preLoaderRoute: typeof OauthConsentRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_hub/mcp/': {
@@ -251,6 +271,7 @@ const HubRouteRouteWithChildren = HubRouteRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   HubRouteRoute: HubRouteRouteWithChildren,
+  OauthConsentRoute: OauthConsentRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

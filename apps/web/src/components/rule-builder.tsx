@@ -829,7 +829,7 @@ const PolicyRuleComponent: React.FC<PolicyRuleProps> = ({ rule, onChange, onRemo
               {rule.argsField && (
                 <PolicyFieldComponent
                   field={rule.argsField}
-                  onChange={updateArgsField}
+                  onChange={(field) => updateArgsField(field as ArgsField)}
                   onRemove={removeArgsField}
                   isArgsField={true}
                 />
@@ -859,9 +859,31 @@ const PolicyRuleComponent: React.FC<PolicyRuleProps> = ({ rule, onChange, onRemo
   );
 };
 
-export default function PolicyBuilder(): JSX.Element {
+// Add props for controlled behavior
+interface PolicyBuilderProps {
+  value?: string;
+  onChange?: (value: string) => void;
+}
+
+export default function PolicyBuilder({ value, onChange }: PolicyBuilderProps): JSX.Element {
+  const [internalJson, setInternalJson] = useState<string>(
+    value || '{\n  "allow": [],\n  "deny": []\n}'
+  );
+
+  // Sync internal state with external value if it changes
+  useEffect(() => {
+    if (value !== undefined && value !== internalJson) {
+      setInternalJson(value);
+    }
+  }, [value, internalJson]);
+
+  // Call onChange when internal JSON changes
+  const handleJsonChange = (newValue: string): void => {
+    setInternalJson(newValue);
+    onChange?.(newValue);
+  };
+
   const [rules, setRules] = useState<PolicyRule[]>([]);
-  const [jsonValue, setJsonValue] = useState<string>('{\n  "allow": [],\n  "deny": []\n}');
   const [activeTab, setActiveTab] = useState<string>('interactive');
   const [isJsonValid, setIsJsonValid] = useState<boolean>(true);
 
@@ -985,7 +1007,7 @@ export default function PolicyBuilder(): JSX.Element {
                   if (argValue && typeof argValue === 'object') {
                     Object.entries(argValue as Record<string, unknown>).forEach(([constraintType, constraintValue]) => {
                       if (CONSTRAINT_TYPES[constraintType]) {
-                        constraints.push({ type: constraintType, value: constraintValue });
+                        constraints.push({ type: constraintType, value: constraintValue as string | number | object | Array<unknown> });
                       }
                     });
                   }
@@ -994,7 +1016,7 @@ export default function PolicyBuilder(): JSX.Element {
                   }
                 } else if (CONSTRAINT_TYPES[argKey]) {
                   // Array-level constraint
-                  argsField.arrayConstraints.push({ type: argKey, value: argValue });
+                  argsField.arrayConstraints.push({ type: argKey, value: argValue as string | number | object | Array<unknown> });
                 }
               });
 
@@ -1017,7 +1039,7 @@ export default function PolicyBuilder(): JSX.Element {
                 if (constraintOnlyKeys.length > 0) {
                   const constraints = constraintOnlyKeys.map(k => ({
                     type: k,
-                    value: (value as Record<string, unknown>)[k]
+                    value: (value as Record<string, unknown>)[k] as string | number | object | Array<unknown>
                   }));
                   rule.fields.push({ property: path, constraints });
                 }
@@ -1029,7 +1051,7 @@ export default function PolicyBuilder(): JSX.Element {
                 // Pure constraint object
                 const constraints = constraintOnlyKeys.map(k => ({
                   type: k,
-                  value: (value as Record<string, unknown>)[k]
+                  value: (value as Record<string, unknown>)[k] as string | number | object | Array<unknown>
                 }));
                 rule.fields.push({ property: path, constraints });
               } else {
@@ -1052,13 +1074,13 @@ export default function PolicyBuilder(): JSX.Element {
   useEffect(() => {
     if (activeTab === 'interactive') {
       const policy = rulesToPolicy(rules);
-      setJsonValue(JSON.stringify(policy, null, 2));
+      setInternalJson(JSON.stringify(policy, null, 2));
     }
   }, [rules, activeTab, rulesToPolicy]);
 
   // Handle JSON changes
-  const handleJsonChange = (value: string): void => {
-    setJsonValue(value);
+  const handleJsonValueChange = (value: string): void => {
+    setInternalJson(value);
 
     try {
       const parsed = JSON.parse(value) as PolicyObject;
@@ -1155,8 +1177,8 @@ export default function PolicyBuilder(): JSX.Element {
 
           <div className="border rounded-lg overflow-y-scroll max-h-[400px] hidebar">
             <CodeMirror
-              value={jsonValue}
-              onChange={(value) => handleJsonChange(value)}
+              value={internalJson}
+              onChange={(value) => handleJsonValueChange(value)}
               extensions={[json(), myFontTheme]}
               theme={githubLight}
               basicSetup={{
@@ -1185,9 +1207,9 @@ export default function PolicyBuilder(): JSX.Element {
               className='rounded-[6px]'
               onClick={() => {
                 try {
-                  const parsed = JSON.parse(jsonValue);
+                  const parsed = JSON.parse(internalJson);
                   const formatted = JSON.stringify(parsed, null, 2);
-                  setJsonValue(formatted);
+                  setInternalJson(formatted);
                 } catch {
                   // Invalid JSON, can't format
                 }
