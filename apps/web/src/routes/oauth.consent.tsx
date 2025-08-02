@@ -2,12 +2,13 @@ import { hubQueries, packageQueries, userQueries } from '@/lib/queries'
 import { useCreateServiceConnectionMutation, useDeployPackageMutation, useAuthorizeOsirisMutation } from '@/lib/mutations'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { PermissionSelector, type Permission } from '@/components/ui/permission-selector'
 import { cn } from '@/lib/utils'
 import z from 'zod'
 
@@ -39,6 +40,7 @@ function RouteComponent() {
   const [selectedDeploymentAction, setSelectedDeploymentAction] = useState<'new' | 'existing'>('new')
   const [selectedDeploymentId, setSelectedDeploymentId] = useState<string>('')
   const [selectedAuthConnections, setSelectedAuthConnections] = useState<Record<string, string>>({})
+  const [selectedPermissions, setSelectedPermissions] = useState<Record<string, Permission[]>>({})
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -1148,22 +1150,29 @@ function RouteComponent() {
     }
   }
 
-  const handleAuthConnectionSelect = (serviceName: string, connectionId: string) => {
+  const handleAuthConnectionSelect = useCallback((serviceName: string, connectionId: string) => {
     setSelectedAuthConnections(prev => ({ ...prev, [serviceName]: connectionId }))
-  }
+  }, [])
 
-  const handleConnectNewAccount = (serviceName: string, requiredScopes: string[]) => {
-    const cleanedScopes = requiredScopes.map(scope => 
-      scope.startsWith(`${serviceName}:`) ? scope.replace(`${serviceName}:`, '') : scope
-    )
+  const handlePermissionSelect = useCallback((serviceName: string, permissions: Permission[]) => {
+    setSelectedPermissions(prev => ({ ...prev, [serviceName]: permissions }))
+  }, [])
+
+  const handleConnectNewAccount = useCallback((serviceName: string, requiredScopes: string[]) => {
+    // Use selected permissions if any, otherwise fall back to all required scopes
+    const permissionsToUse = selectedPermissions[serviceName]?.length > 0 
+      ? selectedPermissions[serviceName].map(p => p.id)
+      : requiredScopes.map(scope => 
+          scope.startsWith(`${serviceName}:`) ? scope.replace(`${serviceName}:`, '') : scope
+        )
     
     createServiceConnectionMutation.mutate({
       name: `${serviceName} connection for ${packageDetails?.name}`,
       serviceClientName: serviceName,
-      scopes: cleanedScopes,
+      scopes: permissionsToUse,
       redirectUri: "http://localhost:3000/oauth/consent"
     })
-  }
+  }, [selectedPermissions, packageDetails, createServiceConnectionMutation])
 
   const handleAllowConsent = async () => {
     // Validate deployment selection if there are existing deployments
@@ -1182,20 +1191,32 @@ function RouteComponent() {
       return
     }
 
+    // Validate that user has selected permissions for all services with connections
+    const servicesWithoutPermissions = selectedServices.filter(
+      service => !selectedPermissions[service] || selectedPermissions[service].length === 0
+    )
+    
+    if (servicesWithoutPermissions.length > 0) {
+      setError(`Please select permissions for: ${servicesWithoutPermissions.join(', ')}`)
+      return
+    }
+
     setIsLoading(true)
     setError(null)
         try {
       let deploymentId = selectedDeploymentId
 
       if (selectedDeploymentAction === 'new') {
-        // Create new deployment
-        const allScopes = Object.values(authScopes?.serviceClientMap || {}).flat() as string[]
+        // Create new deployment with selected permissions
+        const selectedScopes = Object.entries(selectedPermissions).flatMap(([serviceName, permissions]) => 
+          permissions.map(permission => `${serviceName}:${permission.id}`)
+        )
         
         const deploymentResult = await deployPackageMutation.mutateAsync({
           packageId: package_id,
           version: packageDetails?.latestVersion || '1.0.0',
           url: "https://osirislabs.xyz",
-          scopes: allScopes,
+          scopes: selectedScopes,
           authData: {},
           connectionIds: Object.values(selectedAuthConnections)
         })
@@ -1377,6 +1398,37 @@ function RouteComponent() {
               (connection: any) => connection.service_clients.name === serviceName
             ) || []
 
+            // Memoize permissions to prevent re-renders
+            const permissions = useMemo(() => {
+              return (requiredScopes as string[]).map((scope: string) => {
+                const cleanScope = scope.replace(`${serviceName}:`, '')
+                // Create user-friendly labels
+                const label = cleanScope
+                  .split(/[./]/)
+                  .pop()
+                  ?.replace(/([a-z])([A-Z])/g, '$1 $2') // camelCase to words
+                  .replace(/[_-]/g, ' ') // replace underscores/dashes with spaces
+                  .toLowerCase()
+                  .replace(/\b\w/g, l => l.toUpperCase()) // capitalize first letter of each word
+                  || cleanScope
+                
+                return {
+                  id: cleanScope,
+                  label: label
+                }
+              })
+            }, [serviceName, requiredScopes])
+
+            // Memoize the callback for this specific service
+            const handleServicePermissionSelect = useCallback((permissions: Permission[]) => {
+              handlePermissionSelect(serviceName, permissions)
+            }, [serviceName, handlePermissionSelect])
+
+            // Memoize initial selected to prevent re-renders
+            const initialSelected = useMemo(() => {
+              return selectedPermissions[serviceName] || []
+            }, [selectedPermissions, serviceName])
+
             return (
               <Card key={serviceName} className="border-primary-100 hover:border-primary-200 hover:shadow-md transition-all">
                 <CardHeader>
@@ -1393,16 +1445,15 @@ function RouteComponent() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  {/* Required Scopes for this service */}
+                  {/* Permission Selector for this service */}
                   <div className="mb-6">
-                    <p className="text-sm font-medium text-primary-800 mb-3">Required permissions:</p>
-                    <div className="flex flex-wrap gap-2">
-                      {(requiredScopes as string[]).map((scope: string) => (
-                        <Badge key={scope} className="rounded-[6px] bg-primary-100 px-2 py-0.5 text-xs text-primary-800">
-                          {scope.replace(`${serviceName}:`, '')}
-                        </Badge>
-                      ))}
-                    </div>
+                    <p className="text-sm font-medium text-primary-800 mb-3">Select permissions to grant:</p>
+                    <PermissionSelector
+                      permissions={permissions}
+                      placeholder={`Search ${serviceName} permissions...`}
+                      onSelectionChange={handleServicePermissionSelect}
+                      initialSelected={initialSelected}
+                    />
                   </div>
 
                   {/* Existing Connections */}
@@ -1508,13 +1559,18 @@ function RouteComponent() {
                 </span>
               </div>
               <div className="flex flex-col gap-2">
-                <span className="text-primary-400">Requested Scopes:</span>
+                <span className="text-primary-400">Selected Permissions:</span>
                 <div className="flex flex-wrap gap-1">
-                  {Object.values(authScopes?.serviceClientMap || {}).flat().map((scope: unknown, index: number) => (
-                    <Badge key={`${scope}-${index}`} className="rounded-[6px] bg-primary-100 px-2 py-0.5 text-xs text-primary-800">
-                      {typeof scope === 'string' ? scope.split(':').pop() || scope : String(scope)}
-                    </Badge>
-                  ))}
+                  {Object.entries(selectedPermissions).flatMap(([serviceName, permissions]) =>
+                    permissions.map((permission, index) => (
+                      <Badge key={`${serviceName}-${permission.id}-${index}`} className="rounded-[6px] bg-primary-100 px-2 py-0.5 text-xs text-primary-800">
+                        {serviceName}: {permission.label}
+                      </Badge>
+                    ))
+                  )}
+                  {Object.keys(selectedPermissions).length === 0 && (
+                    <span className="text-primary-400 text-xs italic">No permissions selected yet</span>
+                  )}
                 </div>
               </div>
             </div>
@@ -1541,6 +1597,6 @@ function RouteComponent() {
           </Button>
         </div>
       </div>
-    </div>
+  </div>
   )
 }
