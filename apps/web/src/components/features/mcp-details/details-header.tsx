@@ -1,8 +1,15 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { InstallAction } from "./install-action";
 import { McpVersions } from "./mcp-versions";
+import { PackageDialog } from "../mcp-list/package-dialog";
+import { useParams } from "@tanstack/react-router";
+import { useSuspenseQuery } from "@tanstack/react-query";
+import { packageQueries } from "@/lib/queries";
+import type { Package } from "@/types";
+import { Button } from "@/components/ui/button";
 
-export function McpDetailsHeader() {
+export function McpDetailsHeader({ mcp }: {
+	mcp: Package
+}) {
 	return (
 		<section className="flex w-full flex-col px-6">
 			<div className="relative">
@@ -34,7 +41,7 @@ export function McpDetailsHeader() {
 							},
 						]}
 					/>
-					<InstallAction />
+					<PackageDialog  package={mcp}  />
 				</div>
 			</div>
 		</section>

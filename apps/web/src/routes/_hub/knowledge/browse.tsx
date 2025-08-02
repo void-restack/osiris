@@ -10,11 +10,13 @@ export const Route = createFileRoute("/_hub/knowledge/browse")({
 		await queryClient.ensureQueryData(knowledgeQueries.basesOptions());
 		await queryClient.ensureQueryData(userQueries.meOptions());
 		return { breadcrumb: "Knowledge" };
-	  },
+	},
 });
 
 function RouteComponent() {
-	const { data} = useSuspenseQuery(knowledgeQueries.basesOptions());
+	const { data } = useSuspenseQuery(knowledgeQueries.basesOptions());
+
+	console.log(data, "DATA")
 	return (
 		<div className="">
 			<BrowseKnowledgeBase />
