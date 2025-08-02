@@ -729,6 +729,7 @@ export const useCreateKnowledgeBaseMutation = () => {
       name: string;
       description: string;
       tags: string[];
+      iconUrl?: string;
       coverImageUrl?: string;
       isPublic?: boolean;
       publicMetadata?: { price: number };
@@ -882,3 +883,4 @@ export const useDeleteKnowledgeUnitMutation = () => {
     },
   });
 };
+

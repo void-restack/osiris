@@ -7,6 +7,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useFileUpload } from "@/hooks/use-file-upload";
+import { useKnowledgeBaseUpload } from "@/hooks/use-knowledge-base-upload";
 import { cn } from "@/lib/utils";
 import { useCreateKnowledgeBaseMutation } from "@/lib/mutations";
 import { Link } from "@tanstack/react-router";
@@ -35,10 +36,9 @@ export function CreateNewKnowledgeBase() {
   const [permission, setPermission] = useState("private");
   const [tags, setTags] = useState<string[]>([]);
   const [newTag, setNewTag] = useState("");
-  const [icon, setIcon] = useState<File | null>(null);
-  const [banner, setBanner] = useState<File | null>(null);
-
+  
   const mutation = useCreateKnowledgeBaseMutation();
+  const uploadHook = useKnowledgeBaseUpload();
 
   const handleAddTag = () => {
     if (newTag.trim() && !tags.includes(newTag.trim())) {
@@ -53,19 +53,28 @@ export function CreateNewKnowledgeBase() {
 
   const isFormValid = name.trim() && description.trim();
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!isFormValid) return;
 
-    mutation.mutate({
-      name: name.trim(),
-      description: description.trim(),
-      tags,
-      isPublic: permission === "public",
-      publicMetadata:
-        permission === "public" && price
-          ? { price: parseFloat(price) || 0 }
-          : undefined,
-    });
+    try {
+      const { logoUrl, coverImageUrl } = await uploadHook.uploadFiles();
+
+      mutation.mutate({
+        name: name.trim(),
+        description: description.trim(),
+        tags,
+        iconUrl: logoUrl || undefined,
+        coverImageUrl: coverImageUrl || undefined,
+        isPublic: permission === "public",
+        publicMetadata:
+          permission === "public" && price
+            ? { price: parseFloat(price) || 0 }
+            : undefined,
+      });
+    } catch (error) {
+      console.error("Upload failed:", error);
+      // Error is already handled in the upload hook
+    }
   };
 
   return (
@@ -88,9 +97,13 @@ export function CreateNewKnowledgeBase() {
           </Link>
           <Button
             onClick={handleSave}
-            disabled={mutation.isPending || !isFormValid}
+            disabled={mutation.isPending || uploadHook.isUploading || !isFormValid}
           >
-            {mutation.isPending ? "Saving..." : "Save Knowledge Base"}
+            {uploadHook.isUploading
+              ? "Uploading files..."
+              : mutation.isPending
+              ? "Creating..."
+              : "Save Knowledge Base"}
           </Button>
         </div>
       </div>
@@ -103,7 +116,7 @@ export function CreateNewKnowledgeBase() {
           </p>
         </div>
         <div className="flex w-full flex-col gap-y-6 border-primary-100 border-b border-dashed pb-8">
-          <AvatarUploader onChange={setIcon} />
+          <AvatarUploader onChange={uploadHook.setLogoFile} uploadState={uploadHook.state} />
           <div className="flex w-full flex-col gap-y-1.5">
             <Label required>Knowledge Base Name</Label>
             <Input
@@ -165,7 +178,7 @@ export function CreateNewKnowledgeBase() {
               </div>
             )}
           </div>
-          <BannerUploader onChange={setBanner} />
+          <BannerUploader onChange={uploadHook.setCoverImageFile} uploadState={uploadHook.state} />
         </div>
       </div>
       {/* Sharing Configuration */}
@@ -207,10 +220,10 @@ export function CreateNewKnowledgeBase() {
           </div>
         )}
       </div>
-      {mutation.isError && (
+      {(mutation.isError || uploadHook.state.error) && (
         <div className="mx-auto max-w-[488px] mt-4">
           <div className="text-red-500 text-sm">
-            {(mutation.error as Error)?.message}
+            {uploadHook.state.error || (mutation.error as Error)?.message}
           </div>
         </div>
       )}
@@ -225,11 +238,24 @@ export function CreateNewKnowledgeBase() {
   );
 }
 
-// AvatarUploader and BannerUploader now accept onChange prop
+// AvatarUploader and BannerUploader now accept onChange prop and upload state
 function AvatarUploader({
   onChange,
+  uploadState,
 }: {
   onChange: (file: File | null) => void;
+  uploadState: {
+    logoFile: File | null;
+    coverImageFile: File | null;
+    logoUrl: string | null;
+    coverImageUrl: string | null;
+    isUploading: boolean;
+    uploadProgress: {
+      logo: number;
+      coverImage: number;
+    };
+    error: string | null;
+  };
 }) {
   const [
     { files, isDragging },
@@ -249,6 +275,7 @@ function AvatarUploader({
   React.useEffect(() => {
     // Only set File, not FileMetadata
     const file = files[0]?.file instanceof File ? files[0].file : null;
+
     onChange(file);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [files]);
@@ -311,6 +338,20 @@ function AvatarUploader({
         <p className="text-primary-400 text-sm">
           SVG, PNG, JPG or GIF (max. 400x400px)
         </p>
+        {uploadState.isUploading && uploadState.uploadProgress.logo > 0 && (
+          <div className="mt-2">
+            <div className="text-xs text-primary-600 mb-1">Uploading logo...</div>
+            <div className="w-full bg-primary-100 rounded-full h-2">
+              <div 
+                className="bg-primary-500 h-2 rounded-full transition-all duration-300" 
+                style={{ width: `${uploadState.uploadProgress.logo}%` }}
+              />
+            </div>
+          </div>
+        )}
+        {uploadState.logoUrl && (
+          <div className="text-xs text-green-600 mt-1">✓ Logo uploaded successfully</div>
+        )}
       </div>
     </div>
   );
@@ -318,8 +359,21 @@ function AvatarUploader({
 
 function BannerUploader({
   onChange,
+  uploadState,
 }: {
   onChange: (file: File | null) => void;
+  uploadState: {
+    logoFile: File | null;
+    coverImageFile: File | null;
+    logoUrl: string | null;
+    coverImageUrl: string | null;
+    isUploading: boolean;
+    uploadProgress: {
+      logo: number;
+      coverImage: number;
+    };
+    error: string | null;
+  };
 }) {
   const maxSizeMB = 5;
   const maxSize = maxSizeMB * 1024 * 1024;
@@ -343,6 +397,7 @@ function BannerUploader({
   React.useEffect(() => {
     // Only set File, not FileMetadata
     const file = files[0]?.file instanceof File ? files[0].file : null;
+
     onChange(file);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [files]);
@@ -389,6 +444,20 @@ function BannerUploader({
                 <p className="text-primary-400 text-sm">
                   SVG, PNG, JPG or GIF (max. 400x400px)
                 </p>
+                {uploadState.isUploading && uploadState.uploadProgress.coverImage > 0 && (
+                  <div className="mt-2">
+                    <div className="text-xs text-primary-600 mb-1">Uploading banner...</div>
+                    <div className="w-full bg-primary-100 rounded-full h-2">
+                      <div 
+                        className="bg-primary-500 h-2 rounded-full transition-all duration-300" 
+                        style={{ width: `${uploadState.uploadProgress.coverImage}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+                {uploadState.coverImageUrl && (
+                  <div className="text-xs text-green-600 mt-1">✓ Banner uploaded successfully</div>
+                )}
               </div>
             </div>
           )}

@@ -16,7 +16,6 @@ export const Route = createFileRoute("/_hub/knowledge/browse")({
 function RouteComponent() {
 	const { data } = useSuspenseQuery(knowledgeQueries.basesOptions());
 
-	console.log(data, "DATA")
 	return (
 		<div className="">
 			<BrowseKnowledgeBase />
