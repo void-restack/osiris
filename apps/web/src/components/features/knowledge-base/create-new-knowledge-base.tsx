@@ -16,7 +16,7 @@ import { useFileUpload } from "@/hooks/use-file-upload";
 import { useKnowledgeBaseUpload } from "@/hooks/use-knowledge-base-upload";
 import { cn } from "@/lib/utils";
 import { useCreateKnowledgeBaseMutation } from "@/lib/mutations";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 
 const Permissions: SharePermissionCardProps[] = [
 	{
@@ -45,6 +45,7 @@ export function CreateNewKnowledgeBase() {
 	
 	const mutation = useCreateKnowledgeBaseMutation();
 	const uploadHook = useKnowledgeBaseUpload();
+	const navigate = useNavigate();
 
 	const handleAddTag = () => {
 		if (newTag.trim() && !tags.includes(newTag.trim())) {
@@ -65,7 +66,7 @@ export function CreateNewKnowledgeBase() {
 		try {
 			const { logoUrl, coverImageUrl } = await uploadHook.uploadFiles();
 
-			mutation.mutate({
+			const createdKnowledgeBase = await mutation.mutateAsync({
 				name: name.trim(),
 				description: description.trim(),
 				tags,
@@ -77,9 +78,15 @@ export function CreateNewKnowledgeBase() {
 						? { price: parseFloat(price) || 0 }
 						: undefined,
 			});
+
+			// Navigate to the created knowledge base
+			navigate({
+				to: "/knowledge/$id",
+				params: { id: createdKnowledgeBase.knowledgeBaseId },
+			});
 		} catch (error) {
-			console.error("Upload failed:", error);
-			// Error is already handled in the upload hook
+			console.error("Creation failed:", error);
+			// Error is already handled in the mutation and upload hook
 		}
 	};
 
@@ -190,22 +197,24 @@ export function CreateNewKnowledgeBase() {
 						/>
 					))}
 				</div>
-				<div className="flex w-full flex-col gap-y-1.5">
-					<Label required>Set the price</Label>
-					<div className="flex h-10 items-center rounded-[8px] border border-primary-100">
-						<div className="flex h-full items-center justify-center border-r border-r-primary-100 bg-primary-50 px-3 text-primary-300 text-sm">
-							Credits
+				{permission === "public" && (
+					<div className="flex w-full flex-col gap-y-1.5">
+						<Label required>Set the price</Label>
+						<div className="flex h-10 items-center rounded-[8px] border border-primary-100">
+							<div className="flex h-full items-center justify-center border-r border-r-primary-100 bg-primary-50 px-3 text-primary-300 text-sm">
+								Credits
+							</div>
+							<input
+								type="text"
+								className="h-full w-full px-3 outline-none placeholder:text-primary-300 focus:border-none focus:ring-0"
+								placeholder="00"
+								value={price}
+								onChange={e => setPrice(e.target.value)}
+							/>
+							<p className="w-max shrink-0 text-primary-300 text-sm">~ $0.00</p>
 						</div>
-						<input
-							type="text"
-							className="h-full w-full px-3 outline-none placeholder:text-primary-300 focus:border-none focus:ring-0"
-							placeholder="00"
-							value={price}
-							onChange={e => setPrice(e.target.value)}
-						/>
-						<p className="w-max shrink-0 text-primary-300 text-sm">~ $0.00</p>
 					</div>
-				</div>
+				)}
 			</div>
 					{(mutation.isError || uploadHook.state.error) && (
 			<div className="mx-auto max-w-[488px] mt-4">
