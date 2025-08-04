@@ -3,6 +3,7 @@ import { UnitsCard } from "./units-card";
 import { McpListPagination } from "../mcp-list/mcp-list-pagination";
 import { UnitDetailModal } from "./unit-detail-modal";
 import { useUnitsFilters, type Unit, type Source } from "./use-units-filters";
+import { UnitsGridSkeleton } from "./units-card-skeleton";
 
 interface UnitsCardsListProps {
   knowledgeBaseId: string;
@@ -25,7 +26,7 @@ export function UnitsCardsList({ knowledgeBaseId, filters, sortConfig }: UnitsCa
   
   const pageSize = 6;
   
-  const { units, sourcesMap } = useUnitsFilters({ knowledgeBaseId });
+  const { units, sourcesMap, isLoading } = useUnitsFilters({ knowledgeBaseId });
   
   // Apply external filters and sorting
   const filteredAndSortedUnits = useMemo(() => {

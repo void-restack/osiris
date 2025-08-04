@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useSuspenseQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { knowledgeQueries } from '@/lib/queries';
 
 export interface Unit {
@@ -55,8 +55,8 @@ export function useUnitsFilters({ knowledgeBaseId }: UseUnitsFiltersProps) {
   });
 
   // Fetch units and sources data
-  const { data: units } = useSuspenseQuery(knowledgeQueries.unitsOptions(knowledgeBaseId));
-  const { data: sources } = useSuspenseQuery(knowledgeQueries.sourcesOptions(knowledgeBaseId));
+  const { data: units = [], isLoading: unitsLoading } = useQuery(knowledgeQueries.unitsOptions(knowledgeBaseId));
+  const { data: sources = [], isLoading: sourcesLoading } = useQuery(knowledgeQueries.sourcesOptions(knowledgeBaseId));
 
   // Create a lookup map for sources
   const sourcesMap = useMemo(() => {
@@ -168,7 +168,7 @@ export function useUnitsFilters({ knowledgeBaseId }: UseUnitsFiltersProps) {
 
   // Get available filter options
   const filterOptions = useMemo(() => {
-    const allTags: string[] = Array.from(new Set(units.flatMap((u: Unit) => u.tags)));
+    const allTags = Array.from(new Set(units.flatMap((u: Unit) => u.tags)));
     const availableSources = sources.map((source: Source) => ({
       id: source.sourceId,
       label: source.source,
@@ -177,7 +177,7 @@ export function useUnitsFilters({ knowledgeBaseId }: UseUnitsFiltersProps) {
     }));
 
     return {
-      tags: allTags.map((tag: string) => ({ label: tag, value: tag })),
+      tags: allTags.map((tag) => ({ label: String(tag), value: String(tag) })),
       sources: availableSources,
       dateRange: {
         min: new Date(Math.min(...units.map((u: Unit) => new Date(u.createdAt).getTime()))),
@@ -196,6 +196,7 @@ export function useUnitsFilters({ knowledgeBaseId }: UseUnitsFiltersProps) {
     updateSort,
     resetFilters,
     filterOptions,
+    isLoading: unitsLoading || sourcesLoading,
     hasActiveFilters: Object.values(filters).some(value =>
       Array.isArray(value) ? value.length > 0 : value !== null && value !== ''
     )
