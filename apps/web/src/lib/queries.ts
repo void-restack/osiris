@@ -665,6 +665,7 @@ export const knowledgeQueries = {
   all: () => ["knowledge"] as const,
   bases: () => [...knowledgeQueries.all(), "bases"] as const,
   base: (id: string) => [...knowledgeQueries.bases(), id] as const,
+  my: () => [...knowledgeQueries.all(), "my"] as const,
   sources: (baseId: string) =>
     [...knowledgeQueries.base(baseId), "sources"] as const,
   units: (baseId: string) =>
@@ -698,6 +699,25 @@ export const knowledgeQueries = {
         return response.data;
       },
       staleTime: 5 * 60 * 1000,
+    }),
+
+  myOptions: (params?: { limit?: number; page?: number }) =>
+    queryOptions({
+      queryKey: [...knowledgeQueries.my(), params],
+      queryFn: async () => {
+        const searchParams = new URLSearchParams();
+        searchParams.set("limit", String(params?.limit || 10));
+        searchParams.set("page", String(params?.page || 1));
+
+        const response = await api(`/knowledge-base/my?${searchParams}`, {
+          schema: responseSchema(z.array(knowledgeBaseSchema)),
+        });
+        if (response.status === "FAILED") {
+          throw new Error(response.error);
+        }
+        return response.data;
+      },
+      staleTime: 2 * 60 * 1000,
     }),
 
   sourcesOptions: (baseId: string) =>

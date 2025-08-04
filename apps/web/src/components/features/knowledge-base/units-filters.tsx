@@ -7,69 +7,161 @@ import {
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, Search } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { fileTypes } from "@/config/sort-option";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { ChevronDown, Search, FileText, ExternalLink, Eye, Filter, X, SortAsc, Clock, Type, Globe, Target } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
+interface UnitsFiltersProps {
+  filters: {
+    searchQuery: string;
+    sourceIds: string[];
+    tags: string[];
+    dateRange: [Date, Date] | null;
+  };
+  sortConfig: {
+    field: 'latest' | 'name' | 'source' | 'relevant';
+    direction: 'asc' | 'desc';
+  };
+  onFilterChange: (key: string, value: any) => void;
+  onSortChange: (field: 'latest' | 'name' | 'source' | 'relevant', direction?: 'asc' | 'desc') => void;
+  onResetFilters: () => void;
+  filterOptions: {
+    sources: Array<{
+      id: string;
+      label: string;
+      type: string;
+      status: string;
+    }>;
+    tags: Array<{
+      label: string;
+      value: string;
+    }>;
+  };
+  hasActiveFilters: boolean;
+}
 
-const MOCK_SOURCES = [
-  { id: 1, label: "OpenSea NFT Trading (NFT)", icon: "spreadsheet" },
-  { id: 2, label: "www.globaldata.com", icon: "text" },
-  { id: 3, label: "Onboarding Contract.doc", icon: "doc" },
-  { id: 4, label: "Sign Message - Basic (Authentication)", icon: "link" },
-  { id: 5, label: "Compound V3 Lending (DeFi)", icon: "pdf" },
+const sortOptions = [
+  { value: 'latest', label: 'Latest', icon: Clock },
+  { value: 'name', label: 'Name A-Z', icon: Type },
+  { value: 'source', label: 'Source', icon: Globe },
+  { value: 'relevant', label: 'Most Relevant', icon: Target },
 ];
 
-function SourceIcon({ icon }: { icon: string }) {
-  if (icon === "spreadsheet") return <span className="mr-2">📊</span>;
-  if (icon === "text") return <span className="mr-2">T</span>;
-  if (icon === "doc") return <span className="mr-2">📄</span>;
-  if (icon === "link") return <span className="mr-2">🔗</span>;
-  if (icon === "pdf") return <span className="mr-2">PDF</span>;
-  return <span className="mr-2">📁</span>;
+function SourceIcon({ sourceType }: { sourceType: string }) {
+  switch (sourceType) {
+    case 'file':
+      return <FileText className="size-4 text-gray-500" />;
+    case 'url':
+      return <ExternalLink className="size-4 text-blue-500" />;
+    case 'youtube_url':
+      return <div className="size-4 bg-red-500 rounded-sm flex items-center justify-center text-[8px] text-white font-bold">YT</div>;
+    case 'image':
+      return <Eye className="size-4 text-green-500" />;
+    case 'text':
+      return <FileText className="size-4 text-gray-500" />;
+    default:
+      return <FileText className="size-4 text-gray-500" />;
+  }
 }
 
 export function UnitsFilters({
-  sortBy,
-  onSortByChange,
-}: {
-  sortBy: string;
-  onSortByChange: (sort: string) => void;
-}) {
+  filters,
+  sortConfig,
+  onFilterChange,
+  onSortChange,
+  onResetFilters,
+  filterOptions,
+  hasActiveFilters,
+}: UnitsFiltersProps) {
   return (
     <div className="flex items-center gap-4 ml-auto">
-      <UnitsFilterBySource />
-      <SortByFileTypes sortBy={sortBy} onSortByChange={onSortByChange} />
+      <UnitsFilterBySource
+        selectedSourceIds={filters.sourceIds}
+        onSourcesChange={(sourceIds) => onFilterChange('sourceIds', sourceIds)}
+        sources={filterOptions.sources}
+      />
+      <SortByTypes
+        sortConfig={sortConfig}
+        onSortChange={onSortChange}
+      />
+      {hasActiveFilters && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onResetFilters}
+          className="h-8 px-2 lg:px-3"
+        >
+          Reset
+          <X className="ml-2 h-4 w-4" />
+        </Button>
+      )}
     </div>
   );
 }
 
-export function UnitsFilterBySource() {
+function UnitsFilterBySource({
+  selectedSourceIds,
+  onSourcesChange,
+  sources,
+}: {
+  selectedSourceIds: string[];
+  onSourcesChange: (sourceIds: string[]) => void;
+  sources: Array<{
+    id: string;
+    label: string;
+    type: string;
+    status: string;
+  }>;
+}) {
+  const isMobile = useIsMobile()
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState<number[]>([]);
 
   const filteredSources = useMemo(() => {
-    return MOCK_SOURCES.filter((s) =>
+    return sources.filter((s) =>
       s.label.toLowerCase().includes(search.toLowerCase())
     );
-  }, [search]);
+  }, [sources, search]);
 
-  const handleToggle = (id: number) => {
-    setSelected((prev) =>
-      prev.includes(id) ? prev.filter((sid) => sid !== id) : [...prev, id]
-    );
+  const handleToggle = (sourceId: string) => {
+    const newSelection = selectedSourceIds.includes(sourceId)
+      ? selectedSourceIds.filter((id) => id !== sourceId)
+      : [...selectedSourceIds, sourceId];
+    onSourcesChange(newSelection);
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return 'bg-green-400/20 text-green-700';
+      case 'processing':
+        return 'bg-yellow-400/20 text-yellow-700';
+      case 'pending':
+        return 'bg-blue-400/20 text-blue-700';
+      case 'failed':
+        return 'bg-red-400/20 text-red-700';
+      default:
+        return 'bg-gray-400/20 text-gray-700';
+    }
   };
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="secondary" className="justify-between bg-primary-50">
-          Filter
+        <Button variant="secondary" className="justify-between bg-primary-50 relative">
+          <Filter className="size-4 mr-2" />
+          {isMobile ? (
+            <></>
+          ) : (
+            <>
+              Filter
+            </>
+          )}
+          {selectedSourceIds.length > 0 && (
+            <Badge variant="secondary" className="ml-2 h-5 w-5 p-0 flex items-center justify-center text-xs">
+              {selectedSourceIds.length}
+            </Badge>
+          )}
         </Button>
       </PopoverTrigger>
       <PopoverContent
@@ -84,7 +176,7 @@ export function UnitsFilterBySource() {
             <div className="relative mb-2">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground stroke-primary-300" />
               <Input
-                placeholder="Search"
+                placeholder="Search sources..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-9 bg-white placeholder:text-primary-300"
@@ -95,16 +187,18 @@ export function UnitsFilterBySource() {
             </div>
           </div>
         </div>
-        <div className="max-h-56 overflow-y-auto px-4">
+        <div className="max-h-56 overflow-y-auto px-4 pb-4">
           {filteredSources.map((source) => (
             <label
               key={source.id}
-              className="flex items-center gap-2 py-2 cursor-pointer text-[15px] text-primary-400"
+              className="flex items-center gap-3 py-2 cursor-pointer text-[14px] text-primary-400 hover:bg-white/50 rounded px-2 -mx-2"
             >
-              <SourceIcon icon={source.icon} />
-              <span className="flex-1">{source.label}</span>
+              <SourceIcon sourceType={source.type} />
+              <div className="flex-1 min-w-0">
+                <p className="truncate">{source.label}</p>
+              </div>
               <Checkbox
-                checked={selected.includes(source.id)}
+                checked={selectedSourceIds.includes(source.id)}
                 onCheckedChange={() => handleToggle(source.id)}
               />
             </label>
@@ -120,38 +214,83 @@ export function UnitsFilterBySource() {
   );
 }
 
-function SortByFileTypes({
-  sortBy,
-  onSortByChange,
+function SortByTypes({
+  sortConfig,
+  onSortChange,
 }: {
-  sortBy: string;
-  onSortByChange: (sort: string) => void;
+  sortConfig: {
+    field: 'latest' | 'name' | 'source' | 'relevant';
+    direction: 'asc' | 'desc';
+  };
+  onSortChange: (field: 'latest' | 'name' | 'source' | 'relevant', direction?: 'asc' | 'desc') => void;
 }) {
+  const isMobile = useIsMobile()
+  const [sortOpen, setSortOpen] = useState(false);
+  const currentSort = sortOptions.find(opt => opt.value === sortConfig.field);
+
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="secondary" size="sm" className="gap-2 bg-primary-50">
-          Sort by: {fileTypes.find((opt) => opt.value === sortBy)?.label}
-          <ChevronDown className="size-4" />
+    <Popover open={sortOpen} onOpenChange={setSortOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="sm" className="gap-2 bg-primary-50 text-primary-400 font-medium text-[13px] rounded-[6px]">
+          <SortAsc className="size-3" />
+          {isMobile ? (
+            <></>
+          ) : (
+            <>
+              {currentSort?.label}
+            </>
+          )}
+          {isMobile ? (
+            <></>
+          ) : (
+            <>
+              <Badge variant="secondary" className="h-4 px-1.5 text-xs text-primary-400">
+                {sortConfig.direction === 'asc' ? '↑' : '↓'}
+              </Badge>
+              <ChevronDown className="size-3" />
+            </>
+          )}
         </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        {fileTypes.map((option) => (
-          <DropdownMenuItem
-            key={option.value}
-            onClick={() => onSortByChange(option.value)}
-            className="pl-2"
-          >
-            <span className="flex items-center gap-2">
-              <Checkbox
-                checked={sortBy === option.value}
-                className="pointer-events-none"
-              />
+      </PopoverTrigger>
+      <PopoverContent className="w-48 bg-primary-00 p-1" align="end">
+        <div className="space-y-1">
+          {sortOptions.map((option) => (
+            <Button
+              key={option.value}
+              variant={sortConfig.field === option.value ? "secondary" : "ghost"}
+              size="sm"
+              className="w-full justify-start gap-2 text-sm"
+              onClick={() => {
+                onSortChange(option.value as any);
+                setSortOpen(false);
+              }}
+            >
+              <option.icon className="size-4" />
               {option.label}
-            </span>
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
+              {sortConfig.field === option.value && (
+                <Badge variant="outline" className="ml-auto h-4 px-1 text-xs">
+                  {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                </Badge>
+              )}
+            </Button>
+          ))}
+
+          <Separator className="my-2" />
+
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full justify-start gap-2"
+            onClick={() => {
+              onSortChange(sortConfig.field, sortConfig.direction === 'asc' ? 'desc' : 'asc');
+              setSortOpen(false);
+            }}
+          >
+            <SortAsc className="h-4 w-4" />
+            Toggle Direction
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
