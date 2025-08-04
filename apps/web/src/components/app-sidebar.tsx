@@ -47,7 +47,7 @@ const data = {
     },
     {
       title: "Knowledge Base",
-      url: "#",
+      url: "/knowledge",
       icon: () => <Icon name="doc" />,
     },
     {

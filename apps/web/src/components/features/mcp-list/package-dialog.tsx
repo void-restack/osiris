@@ -114,7 +114,7 @@ export function PackageDialog({
                 <div className="flex items-center gap-2 text-sm">
                   <Calendar className="size-4 text-muted-foreground" />
                   <span className="text-muted-foreground">Created:</span>
-                  <span>{formatDistanceToNow(new Date(pkg.createdAt), { addSuffix: true })}</span>
+                  {/* <span>{formatDistanceToNow(new Date(pkg.createdAt), { addSuffix: true })}</span> */}
                 </div>
               </div>
 

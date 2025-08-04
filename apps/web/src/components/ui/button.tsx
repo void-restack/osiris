@@ -13,6 +13,7 @@ const buttonVariants = cva(
 				destructive:
 					"bg-destructive text-white shadow-xs hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:bg-destructive/60 dark:focus-visible:ring-destructive/40",
 				outline: "inset-shadow-outline-btn bg-primary-50",
+				outline2: "inset-shadow-outline-btn bg-primary-00",
 				secondary:
 					"bg-primary-50 text-primary-400 shadow-xs hover:bg-primary-50/80",
 				ghost:
@@ -63,7 +64,7 @@ interface IconRefProps {
 
 export interface ButtonProps
 	extends React.ButtonHTMLAttributes<HTMLButtonElement>,
-		VariantProps<typeof buttonVariants> {
+	VariantProps<typeof buttonVariants> {
 	asChild?: boolean;
 }
 

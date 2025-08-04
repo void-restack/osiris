@@ -17,7 +17,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { PermissionSelector } from "@/components/ui/permission-selector";
-// import { Badge } from "@/components/ui/badge";
 import { userQueries, hubQueries } from "@/lib/queries";
 import {
   useCreateServiceConnectionMutation,

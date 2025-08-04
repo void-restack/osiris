@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { Badge } from "@/components/ui/badge";
 import type { Package as PackageType } from "@/types";
 import { BadgeCheck, User } from "lucide-react";
+import { PackageDialog } from "./package-dialog";
 
 interface McpGridViewProps {
   packages: PackageType[];

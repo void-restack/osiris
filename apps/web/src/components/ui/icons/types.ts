@@ -2,6 +2,8 @@
 
 export const iconNames = [
   "warning",
+  "wallet",
+  "trash",
   "swipe",
   "support",
   "settings",
