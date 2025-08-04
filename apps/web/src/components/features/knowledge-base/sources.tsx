@@ -29,7 +29,7 @@ import {
 } from "lucide-react";
 import * as React from "react";
 import { useState } from "react";
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -59,6 +59,7 @@ import { knowledgeQueries } from "@/lib/queries";
 import { Route } from "@/routes/_hub/knowledge/$id";
 import { UploadContentInput } from "./upload-contnet";
 import { GetStartedAlerts } from "./get-started-alert";
+import { DataTableSkeleton } from "@/components/data-table/data-table-skeleton";
 
 // Types based on API schema
 type SourceType = "image" | "text" | "youtube_url" | "url" | "file";
@@ -427,7 +428,7 @@ export function SourcesTable() {
     React.useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = React.useState({});
 
-  const { data: sources = [] } = useSuspenseQuery(
+  const { data: sources = [], isLoading } = useQuery(
     knowledgeQueries.sourcesOptions(knowledgeBaseId)
   );
 
@@ -458,6 +459,18 @@ export function SourcesTable() {
       rowSelection,
     },
   });
+
+  if (isLoading) {
+    return (
+      <DataTableSkeleton
+        columnCount={5}
+        rowCount={10}
+        withPagination={true}
+        filterCount={0}
+        cellWidths={["3rem", "12rem", "8rem", "6rem", "4rem"]}
+      />
+    );
+  }
 
   if (sources.length === 0) {
     return (
