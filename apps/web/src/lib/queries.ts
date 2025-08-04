@@ -1,53 +1,15 @@
-export const utilityQueries = {
-  all: () => ["utility"] as const,
-  health: () => [...utilityQueries.all(), "health"] as const,
-
-  healthOptions: () =>
-    queryOptions({
-      queryKey: utilityQueries.health(),
-      queryFn: async () => {
-        const response = await api("/health", {
-          schema: z.object({
-            status: z.string(),
-            timestamp: z.string().datetime(),
-            environment: z.string(),
-            paymentProviders: z.object({
-              helio: z.object({
-                enabled: z.boolean(),
-                environment: z.string(),
-              }),
-              stripe: z.object({
-                enabled: z.boolean(),
-                environment: z.string(),
-              }),
-            }),
-            features: z.object({
-              web3Deposits: z.boolean(),
-              traditionalDeposits: z.boolean(),
-              cryptoPayouts: z.boolean(),
-              bankPayouts: z.boolean(),
-              paypalPayouts: z.boolean(),
-            }),
-          }),
-        });
-        return response;
-      },
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      retry: false, // Don't retry health checks
-    }),
-};
-
 import { queryOptions } from "@tanstack/react-query";
 import { z } from "zod";
 import {
   knowledgeBaseSchema,
+  packageListSchema,
   packageSchema,
+  popularPackageSchema,
   responseSchema,
   userSchema,
 } from "@/types";
 import { api } from "./api";
 
-// ===== USER QUERIES =====
 export const userQueries = {
   all: () => ["users"] as const,
   me: () => [...userQueries.all(), "me"] as const,
@@ -95,13 +57,13 @@ export const userQueries = {
     }),
 };
 
-// ===== PACKAGE QUERIES =====
 export const packageQueries = {
   all: () => ["packages"] as const,
   lists: () => [...packageQueries.all(), "list"] as const,
   list: (filters: {
     publisherId?: string;
     name?: string;
+    search?: string;
     page?: number;
     limit?: number;
   }) => [...packageQueries.lists(), filters] as const,
@@ -114,10 +76,13 @@ export const packageQueries = {
   deploymentAuth: (id: string) =>
     [...packageQueries.deployment(id), "auth"] as const,
   githubRepos: () => [...packageQueries.all(), "github-repos"] as const,
+  popular: () => [...packageQueries.all(), "popular"] as const,
+  authScopes: (packageId: string) => [...packageQueries.all(), "auth-scopes", packageId] as const,
 
   listOptions: (filters: {
     publisherId?: string;
     name?: string;
+    search?: string;
     page?: number;
     limit?: number;
   }) =>
@@ -127,28 +92,30 @@ export const packageQueries = {
         const params = new URLSearchParams();
         if (filters.publisherId) params.set("publisherId", filters.publisherId);
         if (filters.name) params.set("name", filters.name);
-        params.set("pagination[page]", String(filters.page || 1));
-        params.set("pagination[limit]", String(filters.limit || 10));
+        if (filters.search) params.set("search", filters.search);
+        params.set("page", String(filters.page || 1));
+        params.set("limit", String(filters.limit || 10));
 
         const response = await api(`/packages?${params}`, {
           schema: responseSchema(
             z.object({
-              data: z.array(packageSchema),
+              data: z.array(packageListSchema),
               pagination: z.object({
                 total: z.number(),
                 totalPages: z.number(),
                 page: z.number(),
                 limit: z.number(),
               }),
-            }),
+            })
           ),
         });
         if (response.status === "FAILED") {
           throw new Error(response.error);
         }
-        return response.data;
+
+        return response;
       },
-      staleTime: 2 * 60 * 1000, // 2 minutes
+      staleTime: 2 * 60 * 1000,
     }),
 
   detailOptions: (id: string) =>
@@ -181,8 +148,8 @@ export const packageQueries = {
                 installedAt: z.string().datetime(),
                 updatedAt: z.string().datetime(),
                 package: packageSchema,
-              }),
-            ),
+              })
+            )
           ),
         });
         if (response.status === "FAILED") {
@@ -204,7 +171,7 @@ export const packageQueries = {
                 deployment: z.object({
                   deploymentId: z.string().uuid(),
                   userMcpId: z.string().uuid(),
-                  url: z.string().url(),
+                  url: z.string(),
                   scopes: z.array(z.string()),
                   status: z.enum(["active", "inactive", "pending"]),
                   createdAt: z.string().datetime(),
@@ -212,16 +179,31 @@ export const packageQueries = {
                 }),
                 userMcpId: z.string().uuid(),
                 package: packageSchema,
-              }),
-            ),
+              })
+            )
           ),
+        });
+        if (response.status === "FAILED") {
+          throw new Error(response.error);
+        }
+        return response.data; // Not response.data.data
+      },
+      staleTime: 1 * 60 * 1000,
+    }),
+
+  popularOptions: () =>
+    queryOptions({
+      queryKey: packageQueries.popular(),
+      queryFn: async () => {
+        const response = await api("/packages/popular", {
+          schema: responseSchema(z.array(popularPackageSchema)),
         });
         if (response.status === "FAILED") {
           throw new Error(response.error);
         }
         return response.data;
       },
-      staleTime: 1 * 60 * 1000,
+      staleTime: 10 * 60 * 1000,
     }),
 
   deploymentOptions: (id: string) =>
@@ -327,24 +309,6 @@ export const packageQueries = {
       staleTime: 5 * 60 * 1000,
     }),
 
-  popular: () => [...packageQueries.all(), "popular"] as const,
-  authScopes: (packageId: string) => [...packageQueries.all(), "auth-scopes", packageId] as const,
-
-  popularOptions: () =>
-    queryOptions({
-      queryKey: packageQueries.popular(),
-      queryFn: async () => {
-        const response = await api("/packages/popular", {
-          schema: responseSchema(z.array(packageSchema)),
-        });
-        if (response.status === "FAILED") {
-          throw new Error(response.error);
-        }
-        return response.data;
-      },
-      staleTime: 10 * 60 * 1000,
-    }),
-
   authScopesOptions: (packageId: string) =>
     queryOptions({
       queryKey: packageQueries.authScopes(packageId),
@@ -359,9 +323,42 @@ export const packageQueries = {
       },
       staleTime: 5 * 60 * 1000,
     }),
+
+  weeklyDownloads: (packageId: string, params: {
+    startDate: string;
+    endDate: string;
+  }) => [...packageQueries.all(), "weekly-downloads", packageId, params],
+
+  actions: (packageId?: string) => [...packageQueries.all(), "actions", packageId],
+
+  weeklyDownloadsOptions: (packageId: string, params: {
+    startDate: string;
+    endDate: string;
+  }) => queryOptions({
+    queryKey: packageQueries.weeklyDownloads(packageId, params),
+    queryFn: async () => {
+      const response = await api(`/packages/${packageId}/weekly-downloads`, {
+        params,
+        schema: responseSchema(z.any())
+      });
+      return response.data;
+    }
+  }),
+
+  actionsOptions: (packageId?: string) => queryOptions({
+    queryKey: packageQueries.actions(packageId),
+    queryFn: async () => {
+      const params = packageId ? { packageId } : {};
+      const response = await api("/packages/packages/user/actions", {
+        // @ts-ignore
+        params,
+        schema: responseSchema(z.any())
+      });
+      return response.data;
+    }
+  })
 };
 
-// ===== CREDIT QUERIES =====
 export const creditQueries = {
   all: () => ["credits"] as const,
   balance: () => [...creditQueries.all(), "balance"] as const,
@@ -660,7 +657,6 @@ export const creditQueries = {
     }),
 };
 
-// ===== KNOWLEDGE BASE QUERIES =====
 export const knowledgeQueries = {
   all: () => ["knowledge"] as const,
   bases: () => [...knowledgeQueries.all(), "bases"] as const,
@@ -820,7 +816,6 @@ export const knowledgeQueries = {
     }),
 };
 
-// ===== HUB/AUTH QUERIES =====
 export const hubQueries = {
   all: () => ["hub"] as const,
   auth: () => [...hubQueries.all(), "auth"] as const,

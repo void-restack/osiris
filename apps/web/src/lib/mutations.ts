@@ -110,6 +110,33 @@ export const useDisconnectOAuthMutation = () => {
   });
 };
 
+// Upload Files
+export const useUploadFilesMutation = () => {
+  return useMutation({
+    mutationFn: async (data: {
+      files: Array<{
+        filename: string;
+        contentType: string;
+        size: number;
+      }>;
+    }) => {
+      const response = await api("/users/upload-files", {
+        method: "POST",
+        body: data,
+        schema: responseSchema(z.array(z.object({
+          filename: z.string(),
+          uploadUrl: z.string().url(),
+          fileId: z.string().uuid(),
+        }))),
+      });
+      if (response.status === "FAILED") {
+        throw new Error(response.error);
+      }
+      return response.data;
+    },
+  });
+};
+
 // ===== AUTH MUTATIONS =====
 export const useLoginMutation = () => {
   return useMutation({
@@ -168,6 +195,81 @@ export const useRefreshTokenMutation = () => {
     },
     onSuccess: (data) => {
       localStorage.setItem("access_token", data.accessToken);
+    },
+  });
+};
+
+// OAuth Token Exchange
+export const useExchangeTokenMutation = () => {
+  return useMutation({
+    mutationFn: async (data: {
+      grant_type: "authorization_code" | "refresh_token";
+      code?: string;
+      refresh_token?: string;
+      client_id: string;
+      client_secret: string;
+      redirect_uri?: string;
+    }) => {
+      const response = await api("/hub/token", {
+        method: "POST",
+        body: data,
+        schema: responseSchema(z.object({
+          access_token: z.string(),
+          refresh_token: z.string(),
+          expires_in: z.number(),
+          token_type: z.string(),
+        })),
+      });
+      if (response.status === "FAILED") {
+        throw new Error(response.error);
+      }
+      return response.data;
+    },
+  });
+};
+
+// Revoke Token
+export const useRevokeTokenMutation = () => {
+  return useMutation({
+    mutationFn: async (data: { token: string; tokenTypeHint?: string }) => {
+      const response = await api("/hub/revoke", {
+        method: "POST",
+        body: data,
+      });
+      return response;
+    },
+  });
+};
+
+// Add Wallet
+export const useAddWalletMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: {
+      id: string;
+      walletId: string;
+      accountId: string;
+      addresses: Array<{
+        chains: string[];
+        pathFormat: string;
+        path: string;
+        curve: string;
+        addressFormat: string;
+      }>;
+    }) => {
+      const response = await api("/hub/wallet/add", {
+        method: "PATCH",
+        body: data,
+        schema: responseSchema(z.any()),
+      });
+      if (response.status === "FAILED") {
+        throw new Error(response.error);
+      }
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: hubQueries.userAuth() });
     },
   });
 };
@@ -644,6 +746,51 @@ export const useDeployPackageMutation = () => {
   });
 };
 
+export const useUpdateDeploymentPolicyMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: {
+      deploymentId: string;
+      policy: { allow: any[]; deny: any[] };
+    }) => {
+      const response = await api(`/packages/deployments/${data.deploymentId}/update-policy`, {
+        method: "PATCH",
+        body: { policy: data.policy },
+        schema: responseSchema(z.any()),
+      });
+      if (response.status === "FAILED") {
+        throw new Error(response.error);
+      }
+      return response.data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: packageQueries.deployment(variables.deploymentId),
+      });
+    },
+  });
+};
+
+export const useValidatePolicyMutation = () => {
+  return useMutation({
+    mutationFn: async (data: { policy: any; action: any }) => {
+      const response = await api("/packages/validate-policy", {
+        method: "POST",
+        body: data,
+        schema: responseSchema(z.object({
+          valid: z.boolean(),
+          reason: z.string().optional(),
+        })),
+      });
+      if (response.status === "FAILED") {
+        throw new Error(response.error);
+      }
+      return response.data;
+    },
+  });
+};
+
 // ===== CREDIT MUTATIONS =====
 export const useHelioDepositMutation = () => {
   const queryClient = useQueryClient();
@@ -914,6 +1061,32 @@ export const useDeleteKnowledgeUnitMutation = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: knowledgeQueries.all() });
+    },
+  });
+};
+
+export const useRateKnowledgeBaseMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: { knowledgeBaseId: string; rating: number }) => {
+      const response = await api(`/knowledge-base/${data.knowledgeBaseId}/rate`, {
+        method: "POST",
+        body: { rating: data.rating },
+        schema: responseSchema(z.object({
+          averageRating: z.number(),
+          totalRatings: z.number(),
+        })),
+      });
+      if (response.status === "FAILED") {
+        throw new Error(response.error);
+      }
+      return response.data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: knowledgeQueries.base(variables.knowledgeBaseId),
+      });
     },
   });
 };

@@ -37,9 +37,9 @@ if (!rootElement.innerHTML) {
       <QueryClientProvider client={queryClient}>
         <NuqsAdapter>
           <RouterProvider router={router} />
-          {process.env.NODE_ENV === "development" && (
+          {/* {process.env.NODE_ENV === "development" && (
             <ReactQueryDevtools initialIsOpen={false} position="bottom" />
-          )}
+          )} */}
           <Toaster position="top-right" />
         </NuqsAdapter>
       </QueryClientProvider>

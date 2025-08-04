@@ -48,9 +48,9 @@ export function DataTable<TData>({
 										{header.isPlaceholder
 											? null
 											: flexRender(
-													header.column.columnDef.header,
-													header.getContext(),
-												)}
+												header.column.columnDef.header,
+												header.getContext(),
+											)}
 									</TableHead>
 								))}
 							</TableRow>
@@ -92,12 +92,12 @@ export function DataTable<TData>({
 					</TableBody>
 				</Table>
 			</div>
-			<div className="flex flex-col gap-2.5">
+			{/* <div className="flex flex-col gap-2.5">
 				<DataTablePagination table={table} />
 				{actionBar &&
 					table.getFilteredSelectedRowModel().rows.length > 0 &&
 					actionBar}
-			</div>
+			</div> */}
 		</div>
 	);
 }

@@ -29,16 +29,16 @@ const data = {
       title: "MCP Hub",
       url: "/mcp",
       icon: () => <Icon name="ai" />,
-      items: [
-        {
-          title: "X Content",
-          url: "#",
-        },
-        {
-          title: "Browser Base",
-          url: "#",
-        },
-      ],
+      // items: [
+      //   {
+      //     title: "X Content",
+      //     url: "#",
+      //   },
+      //   {
+      //     title: "Browser Base",
+      //     url: "#",
+      //   },
+      // ],
     },
     {
       title: "AuthHub",

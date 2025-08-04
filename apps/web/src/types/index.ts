@@ -9,18 +9,44 @@ export const userSchema = z.object({
   updatedAt: z.string().datetime().nullable(),
 });
 
+// Main packages list schema (from GET /packages)
+export const packageListSchema = z.object({
+  packageId: z.string().uuid(),
+  name: z.string(),
+  type: z.string(),
+  url: z.string(),
+  description: z.string(),
+  latestVersion: z.string(),
+  publisherId: z.string().uuid(),
+  iconUrl: z.string().nullable(),
+  coverImageUrl: z.string().nullable(),
+  paymentConfig: z.any().nullable(),
+});
+
+// Nested package schema (from user installations/deployments)
 export const packageSchema = z.object({
   packageId: z.string().uuid(),
   name: z.string(),
-  description: z.string().nullable(),
-  publisherId: z.string().uuid().nullable(),
-  latestVersion: z.string().nullable(),
-  metadata: z.record(z.any()),
-  embedding: z.any().nullable(),
-  iconUrl: z.string().nullable().optional(),
-  coverImageUrl: z.string().nullable().optional(),
+  description: z.string(),
+  publisherId: z.string().uuid(),
+  latestVersion: z.string(),
+  metadata: z.record(z.any()).optional(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
+});
+
+// Popular packages schema (different structure)
+export const popularPackageSchema = z.object({
+  packageId: z.string().uuid(),
+  packageName: z.string(),
+  packageUrl: z.string(),
+  packageType: z.string(),
+  packageIconUrl: z.string().nullable(),
+  packageCoverImageUrl: z.string().nullable(),
+  packageDescription: z.string(),
+  packageLatestVersion: z.string(),
+  deploymentCount: z.number(),
+  paymentConfig: z.any().nullable(),
 });
 
 export const creditAccountSchema = z.object({
@@ -52,6 +78,34 @@ export const knowledgeBaseSchema = z.object({
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 });
+
+export interface Package {
+  packageId: string;
+  name: string;
+  description: string;
+  publisherId: string;
+  latestVersion: string;
+  metadata?: Record<string, any>;
+  iconUrl?: string | null;
+  coverImageUrl?: string | null;
+  paymentConfig?: any | null;
+  createdAt?: string;
+  updatedAt?: string;
+  isActive?: boolean;
+  type?: string;
+  url?: string;
+}
+
+export interface PopularPackage {
+  packageId: string;
+  packageName: string;
+  packageDescription: string;
+  packageLatestVersion: string;
+  packageIconUrl: string | null;
+  packageCoverImageUrl: string | null;
+  deploymentCount: number;
+  paymentConfig: any | null;
+}
 
 export interface PackageWithUserStatus extends Package {
   isInstalled: boolean;
@@ -99,7 +153,7 @@ export const responseSchema = <T extends z.ZodType>(dataSchema: T) =>
   ]);
 
 export type User = z.infer<typeof userSchema>;
-export type Package = z.infer<typeof packageSchema>;
+export type PackageList = z.infer<typeof packageListSchema>;
 export type CreditAccount = z.infer<typeof creditAccountSchema>;
 export type KnowledgeBase = z.infer<typeof knowledgeBaseSchema>;
 
