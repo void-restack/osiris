@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
 import {
 	AlertCircleIcon,
 	Image,
@@ -10,11 +9,14 @@ import {
 	Zap,
 } from "lucide-react";
 import { ICONS } from "@/components/icons";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useFileUpload } from "@/hooks/use-file-upload";
+import { useKnowledgeBaseUpload } from "@/hooks/use-knowledge-base-upload";
 import { cn } from "@/lib/utils";
+import { useCreateKnowledgeBaseMutation } from "@/lib/mutations";
+import { Link, useNavigate } from "@tanstack/react-router";
 
 const Permissions: SharePermissionCardProps[] = [
 	{
@@ -38,36 +40,54 @@ export function CreateNewKnowledgeBase() {
 	const [description, setDescription] = useState("");
 	const [price, setPrice] = useState("");
 	const [permission, setPermission] = useState("private");
-	const [icon, setIcon] = useState<File | null>(null);
-	const [banner, setBanner] = useState<File | null>(null);
+	const [tags, setTags] = useState<string[]>([]);
+	const [newTag, setNewTag] = useState("");
+	
+	const mutation = useCreateKnowledgeBaseMutation();
+	const uploadHook = useKnowledgeBaseUpload();
+	const navigate = useNavigate();
 
-	const mutation = useMutation({
-		mutationFn: async (data: any) => {
-			const formData = new FormData();
-			formData.append("name", data.name);
-			formData.append("description", data.description);
-			formData.append("price", data.price);
-			formData.append("permission", data.permission);
-			if (data.icon) formData.append("icon", data.icon);
-			if (data.banner) formData.append("banner", data.banner);
-			const res = await fetch("/api/knowledge-base", {
-				method: "POST",
-				body: formData,
+	const handleAddTag = () => {
+		if (newTag.trim() && !tags.includes(newTag.trim())) {
+			setTags([...tags, newTag.trim()]);
+			setNewTag("");
+		}
+	};
+
+	const handleRemoveTag = (tagToRemove: string) => {
+		setTags(tags.filter(tag => tag !== tagToRemove));
+	};
+
+	const isFormValid = name.trim() && description.trim();
+
+	const handleSave = async () => {
+		if (!isFormValid) return;
+
+		try {
+			const { logoUrl, coverImageUrl } = await uploadHook.uploadFiles();
+
+			const createdKnowledgeBase = await mutation.mutateAsync({
+				name: name.trim(),
+				description: description.trim(),
+				tags,
+				iconUrl: logoUrl || undefined,
+				coverImageUrl: coverImageUrl || undefined,
+				isPublic: permission === "public",
+				publicMetadata:
+					permission === "public" && price
+						? { price: parseFloat(price) || 0 }
+						: undefined,
 			});
-			if (!res.ok) throw new Error("Failed to create knowledge base");
-			return res.json();
-		},
-	});
 
-	const handleSave = () => {
-		mutation.mutate({
-			name,
-			description,
-			price,
-			permission,
-			icon,
-			banner,
-		});
+			// Navigate to the created knowledge base
+			navigate({
+				to: "/knowledge/$id",
+				params: { id: createdKnowledgeBase.knowledgeBaseId },
+			});
+		} catch (error) {
+			console.error("Creation failed:", error);
+			// Error is already handled in the mutation and upload hook
+		}
 	};
 
 	return (
@@ -77,12 +97,24 @@ export function CreateNewKnowledgeBase() {
 					<h1 className="text-primary-800 text-xl">Create a new Knowledge base</h1>
 					<p className="text-primary-300 text-sm">Create and upload a new knowledge base.</p>
 				</div>
-				<div className="flex items-center gap-3">
-					<Button variant={"secondary"}>Cancel</Button>
-					<Button onClick={handleSave} disabled={mutation.status === "pending"}>
-						{mutation.status === "pending" ? "Saving..." : "Save Knowledge Base"}
-					</Button>
-				</div>
+							<div className="flex items-center gap-3">
+				<Link
+					to="/knowledge/browse"
+					className={buttonVariants({ variant: "secondary" })}
+				>
+					Cancel
+				</Link>
+				<Button
+					onClick={handleSave}
+					disabled={mutation.isPending || uploadHook.isUploading || !isFormValid}
+				>
+					{uploadHook.isUploading
+						? "Uploading files..."
+						: mutation.isPending
+						? "Creating..."
+						: "Save Knowledge Base"}
+				</Button>
+			</div>
 			</div>
 			{/* Basic Info Form */}
 			<div className="mx-auto mt-[42px] flex w-full max-w-[488px] flex-col gap-y-8">
@@ -91,7 +123,7 @@ export function CreateNewKnowledgeBase() {
 					<p className="text-primary-400 text-sm">Start by filling in basic details</p>
 				</div>
 				<div className="flex w-full flex-col gap-y-6 border-primary-100 border-b border-dashed pb-8">
-					<AvatarUploader onChange={setIcon} />
+					<AvatarUploader onChange={uploadHook.setLogoFile} uploadState={uploadHook.state} />
 					<div className="flex w-full flex-col gap-y-1.5">
 						<Label required>Knowledge Base Name</Label>
 						<Input
@@ -103,14 +135,48 @@ export function CreateNewKnowledgeBase() {
 					</div>
 					<div className="flex w-full flex-col gap-y-1.5">
 						<Label required>Description</Label>
-						<Input
-							placeholder="Describe your knowledge base in a one liner"
-							type="text"
-							value={description}
-							onChange={e => setDescription(e.target.value)}
-						/>
+										<Input
+					placeholder="Describe your knowledge base in a one liner"
+					type="text"
+					value={description}
+					onChange={e => setDescription(e.target.value)}
+				/>
+			</div>
+			<div className="flex w-full flex-col gap-y-1.5">
+				<Label>Tags</Label>
+				<div className="flex gap-2">
+					<Input
+						placeholder="Add a tag"
+						type="text"
+						value={newTag}
+						onChange={e => setNewTag(e.target.value)}
+						onKeyPress={e => e.key === 'Enter' && handleAddTag()}
+					/>
+					<Button type="button" onClick={handleAddTag} variant="outline">
+						Add
+					</Button>
+				</div>
+				{tags.length > 0 && (
+					<div className="flex flex-wrap gap-2 mt-2">
+						{tags.map((tag) => (
+							<div
+								key={tag}
+								className="flex items-center gap-1 bg-primary-50 text-primary-600 px-2 py-1 rounded-md text-sm"
+							>
+								{tag}
+								<button
+									type="button"
+									onClick={() => handleRemoveTag(tag)}
+									className="text-primary-400 hover:text-primary-600"
+								>
+									<XIcon className="size-3" />
+								</button>
+							</div>
+						))}
 					</div>
-					<BannerUploader onChange={setBanner} />
+				)}
+			</div>
+			<BannerUploader onChange={uploadHook.setCoverImageFile} uploadState={uploadHook.state} />
 				</div>
 			</div>
 			{/* Sharing Configuration */}
@@ -131,35 +197,55 @@ export function CreateNewKnowledgeBase() {
 						/>
 					))}
 				</div>
-				<div className="flex w-full flex-col gap-y-1.5">
-					<Label required>Set the price</Label>
-					<div className="flex h-10 items-center rounded-[8px] border border-primary-100">
-						<div className="flex h-full items-center justify-center border-r border-r-primary-100 bg-primary-50 px-3 text-primary-300 text-sm">
-							Credits
+				{permission === "public" && (
+					<div className="flex w-full flex-col gap-y-1.5">
+						<Label required>Set the price</Label>
+						<div className="flex h-10 items-center rounded-[8px] border border-primary-100">
+							<div className="flex h-full items-center justify-center border-r border-r-primary-100 bg-primary-50 px-3 text-primary-300 text-sm">
+								Credits
+							</div>
+							<input
+								type="text"
+								className="h-full w-full px-3 outline-none placeholder:text-primary-300 focus:border-none focus:ring-0"
+								placeholder="00"
+								value={price}
+								onChange={e => setPrice(e.target.value)}
+							/>
+							<p className="w-max shrink-0 text-primary-300 text-sm">~ $0.00</p>
 						</div>
-						<input
-							type="text"
-							className="h-full w-full px-3 outline-none placeholder:text-primary-300 focus:border-none focus:ring-0"
-							placeholder="00"
-							value={price}
-							onChange={e => setPrice(e.target.value)}
-						/>
-						<p className="w-max shrink-0 text-primary-300 text-sm">~ $0.00</p>
 					</div>
+				)}
+			</div>
+					{(mutation.isError || uploadHook.state.error) && (
+			<div className="mx-auto max-w-[488px] mt-4">
+				<div className="text-red-500 text-sm">
+					{uploadHook.state.error || (mutation.error as Error)?.message}
 				</div>
 			</div>
-			{mutation.isError && (
-				<div className="text-red-500 mt-4">{(mutation.error as Error)?.message}</div>
-			)}
-			{mutation.isSuccess && (
-				<div className="text-green-600 mt-4">Knowledge base created!</div>
-			)}
+		)}
 		</section>
 	);
 }
 
-// AvatarUploader and BannerUploader now accept onChange prop
-function AvatarUploader({ onChange }: { onChange: (file: File | null) => void }) {
+// AvatarUploader and BannerUploader now accept onChange prop and upload state
+function AvatarUploader({
+	onChange,
+	uploadState,
+}: {
+	onChange: (file: File | null) => void;
+	uploadState: {
+		logoFile: File | null;
+		coverImageFile: File | null;
+		logoUrl: string | null;
+		coverImageUrl: string | null;
+		isUploading: boolean;
+		uploadProgress: {
+			logo: number;
+			coverImage: number;
+		};
+		error: string | null;
+	};
+}) {
 	const [
 		{ files, isDragging },
 		{
@@ -237,13 +323,46 @@ function AvatarUploader({ onChange }: { onChange: (file: File | null) => void })
 				<p className="text-primary-800 text-sm">
 					Upload Knowledge Base icon <span className="text-[#F03D3D]">*</span>
 				</p>
-				<p className="text-primary-400 text-sm">SVG, PNG, JPG or GIF (max. 400x400px)</p>
+				<p className="text-primary-400 text-sm">
+					SVG, PNG, JPG or GIF (max. 400x400px)
+				</p>
+				{uploadState.isUploading && uploadState.uploadProgress.logo > 0 && (
+					<div className="mt-2">
+						<div className="text-xs text-primary-600 mb-1">Uploading logo...</div>
+						<div className="w-full bg-primary-100 rounded-full h-2">
+							<div 
+								className="bg-primary-500 h-2 rounded-full transition-all duration-300" 
+								style={{ width: `${uploadState.uploadProgress.logo}%` }}
+							/>
+						</div>
+					</div>
+				)}
+				{uploadState.logoUrl && (
+					<div className="text-xs text-green-600 mt-1">✓ Logo uploaded successfully</div>
+				)}
 			</div>
 		</div>
 	);
 }
 
-function BannerUploader({ onChange }: { onChange: (file: File | null) => void }) {
+function BannerUploader({
+	onChange,
+	uploadState,
+}: {
+	onChange: (file: File | null) => void;
+	uploadState: {
+		logoFile: File | null;
+		coverImageFile: File | null;
+		logoUrl: string | null;
+		coverImageUrl: string | null;
+		isUploading: boolean;
+		uploadProgress: {
+			logo: number;
+			coverImage: number;
+		};
+		error: string | null;
+	};
+}) {
 	const maxSizeMB = 5;
 	const maxSize = maxSizeMB * 1024 * 1024; 
 
@@ -309,7 +428,23 @@ function BannerUploader({ onChange }: { onChange: (file: File | null) => void })
 							</div>
 							<div className="text-center">
 								<p className="mb-1.5 text-sm">Upload banner</p>
-								<p className="text-primary-400 text-sm">SVG, PNG, JPG or GIF (max. 400x400px)</p>
+								<p className="text-primary-400 text-sm">
+									SVG, PNG, JPG or GIF (max. 400x400px)
+								</p>
+								{uploadState.isUploading && uploadState.uploadProgress.coverImage > 0 && (
+									<div className="mt-2">
+										<div className="text-xs text-primary-600 mb-1">Uploading banner...</div>
+										<div className="w-full bg-primary-100 rounded-full h-2">
+											<div 
+												className="bg-primary-500 h-2 rounded-full transition-all duration-300" 
+												style={{ width: `${uploadState.uploadProgress.coverImage}%` }}
+											/>
+										</div>
+									</div>
+								)}
+								{uploadState.coverImageUrl && (
+									<div className="text-xs text-green-600 mt-1">✓ Banner uploaded successfully</div>
+								)}
 							</div>
 						</div>
 					)}

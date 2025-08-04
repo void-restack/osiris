@@ -46,6 +46,7 @@ export const knowledgeBaseSchema = z.object({
     downloads: z.number(),
     rating: z.number(),
   }),
+  iconUrl: z.string().nullable(),
   coverImageUrl: z.string().nullable(),
   tags: z.array(z.string()),
   createdAt: z.string().datetime(),

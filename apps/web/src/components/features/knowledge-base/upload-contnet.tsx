@@ -11,10 +11,18 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import Attach from "@/components/attach";
+import { useAddKnowledgeSourceMutation } from "@/lib/mutations";
+import { toast } from "sonner";
 
-export function UploadContentDialog() {
+interface UploadContentDialogProps {
+  knowledgeBaseId: string;
+}
+
+export function UploadContentDialog({ knowledgeBaseId }: UploadContentDialogProps) {
+  const [open, setOpen] = useState(false);
+
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button className="w-full">
           Add more source
@@ -22,7 +30,7 @@ export function UploadContentDialog() {
         </Button>
       </DialogTrigger>
       <DialogContent className="w-full max-w-[448px] rounded-[12px] border-primary-100">
-		<UploadContentInput />
+		<UploadContentInput knowledgeBaseId={knowledgeBaseId} onSuccess={() => setOpen(false)} />
       </DialogContent>
     </Dialog>
   );
@@ -112,11 +120,18 @@ function parseContent(input: string): ParsedContent {
   };
 }
 
-export function UploadContentInput() {
+interface UploadContentInputProps {
+  knowledgeBaseId: string;
+  onSuccess?: () => void;
+}
+
+export function UploadContentInput({ knowledgeBaseId, onSuccess }: UploadContentInputProps) {
 	const [files, setFiles] = useState<File[]>([]);
   const [input, setInput] = useState('');
   const [parsedContent, setParsedContent] = useState<ParsedContent | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  
+  const addSourceMutation = useAddKnowledgeSourceMutation();
 
   useEffect(() => {
     if (input.trim()) {
@@ -126,7 +141,6 @@ export function UploadContentInput() {
     }
   }, [input]);
 
-  // Clear input when files are added
   useEffect(() => {
     if (files.length > 0) {
       setInput('');
@@ -159,6 +173,62 @@ export function UploadContentInput() {
       return fileNames.join(', ');
     }
     return input;
+  };
+
+  const handleUpload = async () => {
+    if (!knowledgeBaseId) {
+      toast.error("Knowledge base ID is required");
+      return;
+    }
+
+    try {
+      if (files.length > 0) {
+        // Handle file uploads
+        for (const file of files) {
+          await addSourceMutation.mutateAsync({
+            knowledgeBaseId,
+            sourceType: "file",
+            file,
+          });
+        }
+        setFiles([]);
+        onSuccess?.();
+      } else if (input.trim() && parsedContent) {
+        if (parsedContent.type === 'links' || parsedContent.type === 'social') {
+          const urls = parsedContent.links || [];
+          for (const url of urls) {
+            const sourceType = isYouTubeUrl(url) ? "youtube_url" : "url";
+            await addSourceMutation.mutateAsync({
+              knowledgeBaseId,
+              sourceType,
+              source: url,
+            });
+          }
+        } else if (parsedContent.type === 'text') {
+          // Upload as text content
+          await addSourceMutation.mutateAsync({
+            knowledgeBaseId,
+            sourceType: "text",
+            source: input.trim(),
+          });
+        }
+        setInput('');
+        setParsedContent(null);
+        onSuccess?.();
+      }
+    } catch (error) {
+      console.error("Upload failed:", error);
+      toast.error(error instanceof Error ? error.message : "Upload failed");
+    }
+  };
+
+  const isYouTubeUrl = (url: string): boolean => {
+    try {
+      const domain = new URL(url).hostname.replace('www.', '');
+      return domain === 'youtube.com' || domain === 'youtu.be';
+    } catch {
+      return false;
+    }
   };
 
   const renderContent = () => {
@@ -261,9 +331,10 @@ export function UploadContentInput() {
             )}
             <Button 
               className="inset-shadow-search-btn"
-              disabled={!input.trim() && files.length === 0}
+              disabled={(!input.trim() && files.length === 0) || addSourceMutation.isPending}
+              onClick={handleUpload}
             >
-              <span>Upload</span>
+              <span>{addSourceMutation.isPending ? "Uploading..." : "Upload"}</span>
               <UploadCloud />
             </Button>
           </div>

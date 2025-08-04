@@ -2,51 +2,46 @@ import { Star } from "lucide-react";
 import { ICONS } from "@/components/icons";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import type { KnowledgeBaseCardProps } from "./browse-knowledge-base-list";
 import { Link } from "@tanstack/react-router";
+import type { KnowledgeBase } from "@/types";
 
 export function KnowledgeBaseCard({
-  title,
+  name,
   description,
-  logo,
-  banner,
-  isVerified,
-  stars,
-  credits,
-  id,
-  permission,
-}: KnowledgeBaseCardProps) {
+  coverImageUrl,
+  iconUrl,
+  knowledgeBaseId,
+  publicMetadata
+}: KnowledgeBase) {
   return (
     <section className="flex flex-col gap-y-4 relative">
       <div className="relative h-[120px]">
         <img
           className="h-[120px] w-full rounded-[8px] object-cover object-center"
-          src={banner}
-          alt={title}
+          src={coverImageUrl ?? ""}
+          alt={name}
         />
         <div className="absolute top-0 right-0 bottom-0 left-0 rounded-[8px] bg-black/10">
           <Avatar className="absolute bottom-4 left-4 size-12 rounded-[4px] border border-primary-00 p-0">
-            <AvatarImage src={logo} />
+            <AvatarImage src={iconUrl ?? ""} />
             <AvatarFallback className="text-2xl">B</AvatarFallback>
           </Avatar>
           <div className="absolute top-4 right-4 flex gap-2">
-            <KnowledgebaseStars stars={stars} />
-            <KnowledgebaseCredits credits={credits} />
+            <KnowledgebaseStars stars={publicMetadata.rating} />
+            <KnowledgebaseCredits credits={publicMetadata.price} />
           </div>
         </div>
       </div>
       <div className="px-3">
         <h1 className="flex items-center gap-1 font-medium text-primary-800">
-          {title}
-          {isVerified && (
+          {name}
             <span>
               <ICONS.verifiedBadge />
             </span>
-          )}
         </h1>
         <p className="line-clamp-1 text-primary-300 text-sm">{description}</p>
       </div>
-        <Link to={`/knowledge/${id}`}>
+        <Link to={`/knowledge/${knowledgeBaseId}`}>
 
       <span className="absolute w-full h-full inset-0"></span>
 		</Link>
