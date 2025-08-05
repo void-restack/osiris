@@ -31,6 +31,7 @@ interface Capability {
 	title: string;
 	description: string;
 	icon: React.ComponentType<{ className?: string }>;
+	inputSchema?: any; // MCP tool input schema
 }
 
 export const capabilities: Capability[] = [
@@ -77,20 +78,29 @@ export const columns: ColumnDef<Capability>[] = [
 				<div className="flex items-center gap-2">
 					<ICONS.cap />
 					<p>MCP Capabilities</p>
+					{/* Show indicator if using real MCP tools */}
+					{/* This header cannot access 'data' directly. Move this logic to the parent component and pass a prop if needed. */}
 				</div>
 			);
 		},
 		cell: ({ row }) => {
 			return (
-				<div className="flex items-center gap-4">
+				<div className="flex items-center gap-4 max-w-sm">
 					<div className="flex h-9 w-9 items-center justify-center rounded-[8px] bg-primary-50">
 						<row.original.icon className="h-4 w-4 stroke-primary-400" />
 					</div>
 					<div className="flex flex-col gap-0.5">
-						<h1 className="font-medium text-primary-800 text-sm">
-							{row.original.title}
-						</h1>
-						<p className="text-primary-300 text-xs">
+						<div className="flex items-center gap-2">
+							<h1 className="font-medium text-primary-800 text-sm">
+								{row.original.title}
+							</h1>
+							{row.original.inputSchema && (
+								<span className="rounded-full bg-blue-100 px-1.5 py-0.5 text-xs text-blue-700">
+									MCP
+								</span>
+							)}
+						</div>
+						<p className="text-primary-300 text-xs max-w-xs truncate">
 							{row.original.description}
 						</p>
 					</div>
@@ -152,9 +162,9 @@ export function McpCapabilitiesList({ data }: { data: Capability[] }) {
 										{header.isPlaceholder
 											? null
 											: flexRender(
-													header.column.columnDef.header,
-													header.getContext(),
-												)}
+												header.column.columnDef.header,
+												header.getContext(),
+											)}
 									</TableHead>
 								);
 							})}

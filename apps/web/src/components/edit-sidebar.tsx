@@ -302,7 +302,7 @@ function OAuthFields({
         <Label htmlFor="oauth-client" className="text-[13px] text-primary-400">
           Client ID
         </Label>
-        <div className="rounded-md bg-primary-50 px-3 py-2 font-mono text-primary-400 text-sm">
+        <div className="rounded-md bg-primary-50 px-3 py-2 font-mono text-primary-400 text-sm truncate" title={formData.clientId}>
           {formData.clientId}
         </div>
       </div>
@@ -341,6 +341,7 @@ function WalletFields({
           onChange={(e) => onChange("walletAddress", e.target.value)}
           placeholder="Enter wallet address"
           className="w-full font-mono text-sm"
+          title={formData.walletAddress}
         />
       </div>
 

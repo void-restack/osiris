@@ -3,9 +3,8 @@ import { type ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header";
-import { PackageDialog } from "./package-dialog";
 import type { PackageWithUserStatus } from "@/types";
-import { formatDistanceToNow } from "date-fns";
+import { McpDeployDialog } from "@/components/mcp-deploy-dialog";
 import { CheckCircle, ExternalLink } from "lucide-react";
 
 export const createMcpColumns = (): ColumnDef<PackageWithUserStatus>[] => [
@@ -17,20 +16,22 @@ export const createMcpColumns = (): ColumnDef<PackageWithUserStatus>[] => [
     accessorKey: "name",
     cell: ({ row }) => (
       <div className="flex items-center gap-3">
-        <div className="size-8 rounded-md bg-blue-400 flex items-center justify-center text-white font-bold text-sm">
-          {row.original.name.charAt(0).toUpperCase()}
-        </div>
+        {row.original.iconUrl ? (
+          <img
+            src={row.original.iconUrl}
+            alt={row.original.name}
+            className="size-8 rounded-md object-cover"
+          />
+        ) : (
+          <div className="size-8 rounded-md bg-blue-400 flex items-center justify-center text-white font-bold text-sm">
+            {row.original.name.charAt(0).toUpperCase()}
+          </div>
+        )}
         <div className="flex flex-col">
           <div className="flex items-center gap-2">
             <span className="font-medium text-primary-800">
               {row.original.name}
             </span>
-            {row.original.isInstalled && (
-              <CheckCircle className="size-4 text-green-600" />
-            )}
-            {row.original.isDeployed && (
-              <ExternalLink className="size-4 text-blue-600" />
-            )}
           </div>
           <span className="text-primary-400 text-xs">v{row.original.latestVersion}</span>
         </div>
@@ -38,7 +39,7 @@ export const createMcpColumns = (): ColumnDef<PackageWithUserStatus>[] => [
     ),
     enableHiding: false,
     enableSorting: false,
-    enableColumnFilter: false,
+    enableColumnFilter: true,
     meta: {
       variant: "text",
       label: "Package Name",
@@ -57,40 +58,40 @@ export const createMcpColumns = (): ColumnDef<PackageWithUserStatus>[] => [
       </div>
     ),
     enableSorting: false,
-    enableColumnFilter: false,
+    enableColumnFilter: true,
     meta: {
       variant: "text",
       label: "Description",
       placeholder: "Search descriptions...",
     },
   },
-  // {
-  //   id: "publisher",
-  //   header: ({ column }) => (
-  //     <DataTableColumnHeader column={column} title="Publisher" />
-  //   ),
-  //   accessorKey: "publisherId",
-  //   cell: ({ row }) => (
-  //     <div className="flex items-center gap-2">
-  //       <div className="size-6 rounded-full bg-purple-400 flex items-center justify-center text-white text-xs font-bold">
-  //         P
-  //       </div>
-  //       <span className="text-sm text-primary-600 truncate max-w-24" title={row.original.publisherId}>
-  //         {row.original.publisherId.split('-')[0]}...
-  //       </span>
-  //     </div>
-  //   ),
-  //   enableSorting: false,
-  //   enableColumnFilter: true,
-  //   filterFn: (row, id, value) => {
-  //     return value.includes(row.getValue(id));
-  //   },
-  //   meta: {
-  //     variant: "text",
-  //     label: "Publisher",
-  //     placeholder: "Search publishers...",
-  //   },
-  // },
+  {
+    id: "publisher",
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Publisher" />
+    ),
+    accessorKey: "publisherId",
+    cell: ({ row }) => (
+      <div className="flex items-center gap-2">
+        <div className="size-6 rounded-full bg-purple-400 flex items-center justify-center text-white text-xs font-bold">
+          {row.original.publisherId?.charAt(0).toUpperCase() || "P"}
+        </div>
+        <span className="text-sm text-primary-600 truncate max-w-24" title={row.original.publisherId}>
+          {row.original.publisherId?.split('-')[0] || "Unknown"}...
+        </span>
+      </div>
+    ),
+    enableSorting: false,
+    enableColumnFilter: true,
+    filterFn: (row, id, value) => {
+      return value.includes(row.getValue(id));
+    },
+    meta: {
+      variant: "text",
+      label: "Publisher",
+      placeholder: "Search publishers...",
+    },
+  },
   // {
   //   id: "tags",
   //   header: ({ column }) => (
@@ -216,18 +217,18 @@ export const createMcpColumns = (): ColumnDef<PackageWithUserStatus>[] => [
     header: "",
     cell: ({ row }) => (
       <div className="flex items-center gap-2">
-        {!row.original.isInstalled ? (
-          <PackageDialog
+        {!row.original.isDeployed ? (
+          <McpDeployDialog
             package={row.original}
             trigger={
               <Button variant="ghost" size="sm" className="h-7 text-xs rounded-[6px]">
-                Install
+                Deploy
               </Button>
             }
           />
         ) : (
           <Button variant="ghost" size="sm" className="h-7 text-xs rounded-[6px]" disabled>
-            Installed
+            Deployed
           </Button>
         )}
         <Link to={`/mcp/${row.original.packageId}`}>

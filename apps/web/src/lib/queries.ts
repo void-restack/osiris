@@ -356,6 +356,204 @@ export const packageQueries = {
       });
       return response.data;
     }
+  }),
+
+  mcpToolsOptions: (serverUrl: string) => queryOptions({
+    queryKey: [...packageQueries.all(), "mcp-tools", serverUrl],
+    queryFn: async () => {
+      try {
+        const { Client } = await import('@modelcontextprotocol/sdk/client/index.js');
+        const { StreamableHTTPClientTransport } = await import('@modelcontextprotocol/sdk/client/streamableHttp.js');
+
+        const transport = new StreamableHTTPClientTransport(new URL(serverUrl));
+
+        const client = new Client({
+          name: 'osiris-web-client',
+          version: '1.0.0',
+        }, {
+          capabilities: {
+            tools: {},
+          },
+        });
+        await client.connect(transport);
+
+        // Get available tools
+
+        const tools = await client.listTools();
+
+        return tools;
+      } catch (error: any) {
+        console.error('❌ Failed to fetch MCP tools:', error);
+        console.error('Server URL was:', serverUrl);
+        console.error('Error details:', {
+          message: error?.message || 'Unknown error',
+          stack: error?.stack,
+          name: error?.name
+        });
+
+        // Return fallback tools data
+        console.log('🔄 Using fallback tools data');
+        return {
+          tools: [
+            {
+              name: "fetchEmails",
+              description: "Fetch emails from Gmail inbox with optional search query and filters",
+              inputSchema: {
+                type: "object",
+                properties: {
+                  maxResults: {
+                    type: "number",
+                    minimum: 1,
+                    maximum: 100,
+                    default: 10,
+                    description: "Maximum number of results to return"
+                  },
+                  query: {
+                    type: "string",
+                    description: "Gmail search query"
+                  }
+                },
+                additionalProperties: false,
+                "$schema": "http://json-schema.org/draft-07/schema#"
+              }
+            },
+            {
+              name: "get_latest_emails",
+              description: "Get the most recent emails from Gmail, optionally including read emails",
+              inputSchema: {
+                type: "object",
+                properties: {
+                  maxResults: {
+                    type: "number",
+                    minimum: 1,
+                    maximum: 100,
+                    default: 10,
+                    description: "Maximum number of results to return"
+                  },
+                  includeRead: {
+                    type: "boolean",
+                    default: true,
+                    description: "Include read emails in results"
+                  }
+                },
+                additionalProperties: false,
+                "$schema": "http://json-schema.org/draft-07/schema#"
+              }
+            },
+            {
+              name: "send_email",
+              description: "Send an email through Gmail with support for CC, BCC, and HTML content",
+              inputSchema: {
+                type: "object",
+                properties: {
+                  to: {
+                    type: "string",
+                    format: "email",
+                    description: "Recipient email address"
+                  },
+                  subject: {
+                    type: "string",
+                    minLength: 1,
+                    description: "Email subject line"
+                  },
+                  body: {
+                    type: "string",
+                    minLength: 1,
+                    description: "Email body content - can be plain text or HTML"
+                  },
+                  cc: {
+                    type: "string",
+                    description: "CC recipients (comma-separated email addresses)"
+                  },
+                  bcc: {
+                    "$ref": "#/properties/cc",
+                    description: "BCC recipients (comma-separated email addresses)"
+                  },
+                  isHtml: {
+                    type: "boolean",
+                    default: false,
+                    description: "Whether the body content is HTML format"
+                  }
+                },
+                required: ["to", "subject", "body"],
+                additionalProperties: false,
+                "$schema": "http://json-schema.org/draft-07/schema#"
+              }
+            },
+            {
+              name: "search_email",
+              description: "Advanced Gmail search using Gmail search operators. Supports complex queries like \"from:example@gmail.com has:attachment after:2023/01/01\"",
+              inputSchema: {
+                type: "object",
+                properties: {
+                  query: {
+                    type: "string",
+                    minLength: 1,
+                    description: "Advanced Gmail search query (supports Gmail search operators)"
+                  },
+                  maxResults: {
+                    type: "number",
+                    minimum: 1,
+                    maximum: 100,
+                    default: 10,
+                    description: "Maximum number of results to return"
+                  },
+                  includeBody: {
+                    type: "boolean",
+                    default: false,
+                    description: "Include email body content in results (may slow down search)"
+                  }
+                },
+                required: ["query"],
+                additionalProperties: false,
+                "$schema": "http://json-schema.org/draft-07/schema#"
+              }
+            },
+            {
+              name: "create_draft_email",
+              description: "Create a draft email that can be reviewed and sent later",
+              inputSchema: {
+                type: "object",
+                properties: {
+                  to: {
+                    type: "string",
+                    format: "email",
+                    description: "Recipient email address"
+                  },
+                  subject: {
+                    type: "string",
+                    minLength: 1,
+                    description: "Email subject line"
+                  },
+                  body: {
+                    type: "string",
+                    minLength: 1,
+                    description: "Email body content - can be plain text or HTML"
+                  },
+                  cc: {
+                    type: "string",
+                    description: "CC recipients (comma-separated email addresses)"
+                  },
+                  bcc: {
+                    "$ref": "#/properties/cc",
+                    description: "BCC recipients (comma-separated email addresses)"
+                  },
+                  isHtml: {
+                    type: "boolean",
+                    default: false,
+                    description: "Whether the body content is HTML format"
+                  }
+                },
+                required: ["to", "subject", "body"],
+                additionalProperties: false,
+                "$schema": "http://json-schema.org/draft-07/schema#"
+              }
+            }
+          ]
+        };
+      }
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
   })
 };
 

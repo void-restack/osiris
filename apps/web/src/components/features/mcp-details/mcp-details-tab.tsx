@@ -5,59 +5,59 @@ import { McpActionTable } from "./mcp-action-table";
 import { authenticators, McpAuthList } from "./mcp-auth";
 import { McpDetailsView } from "./mcp-details-view";
 import { type McpServer, ServerList } from "./mcp-servers";
+import { useParams } from "@tanstack/react-router";
+import { useSuspenseQuery } from "@tanstack/react-query";
+import { packageQueries } from "@/lib/queries";
+import { Mail } from "lucide-react";
 
-const servers: McpServer[] = [
-	{
-		name: "Server 1",
-		createdAt: "2021-01-01",
-		apps: [
-			{
-				icon: "/test/gmail.svg",
-				name: "Gmail",
-				scopes: 1,
-				isAuthenticated: false,
-			},
-			{
-				icon: "/test/calander.svg",
-				name: "Calendar",
-				scopes: 1,
-				isAuthenticated: false,
-			},
-			{
-				icon: "/test/contact.svg",
-				name: "Contact",
-				scopes: 10,
-				isAuthenticated: true,
-			},
-		],
-	},
-	{
-		name: "Server 1",
-		createdAt: "2021-01-01",
-		apps: [
-			{
-				icon: "/test/gmail.svg",
-				name: "Gmail",
-				scopes: 1,
-				isAuthenticated: false,
-			},
-			{
-				icon: "/test/calander.svg",
-				name: "Calendar",
-				scopes: 1,
-				isAuthenticated: false,
-			},
-			{
-				icon: "/test/contact.svg",
-				name: "Contact",
-				scopes: 10,
-				isAuthenticated: true,
-			},
-		],
-	},
-];
+// This will be replaced with real API data
+const servers: McpServer[] = [];
 
 export function McpTabs() {
+	const { mcpId } = useParams({ from: "/_hub/mcp/$mcpId" });
+	const { data: packageData } = useSuspenseQuery(packageQueries.detailOptions(mcpId));
+	const { data: authScopes } = useSuspenseQuery(packageQueries.authScopesOptions(mcpId));
+	const { data: actions } = useSuspenseQuery(packageQueries.actionsOptions(mcpId));
+	console.log("mcpId", mcpId)
+
+	// Fetch MCP tools if server URL is available
+	const { data: mcpTools } = useSuspenseQuery(
+		packageQueries.mcpToolsOptions(packageData?.url || '')
+	);
+
+	// Transform MCP tools data for the capabilities component
+	const transformedCapabilities = (mcpTools as any)?.tools?.map((tool: any, index: number) => ({
+		id: tool.name || `tool-${index}`,
+		title: tool.name || 'Unknown Tool',
+		description: tool.description || 'No description available',
+		icon: Mail, // Default icon, could be mapped based on tool type
+		inputSchema: tool.inputSchema, // Keep the input schema for future use
+	})) || capabilities; // Fallback to existing capabilities if MCP tools fail
+
+	console.log('🛠️ Transformed capabilities:', transformedCapabilities);
+
+	// Transform auth scopes data for the authenticators component
+	// Based on the oauth consent structure, authScopes has serviceClientMap
+	const transformedAuthenticators = authScopes?.serviceClientMap ?
+		Object.entries(authScopes.serviceClientMap).map(([serviceName, serviceData]: [string, any]) => ({
+			id: serviceName.toLowerCase(),
+			name: serviceName,
+			icon: `/test/${serviceName.toLowerCase()}.svg`, // Placeholder icon
+			scopes: serviceData.requiredScopes || [],
+		})) : [];
+
+
+	// Transform actions data for the actions table
+	const transformedActions = actions?.map((action: any) => ({
+		name: action.name || action.actionName,
+		description: action.description || action.actionDescription,
+		method: action.method || action.httpMethod,
+		path: action.path || action.endpoint,
+		service: action.service || action.serviceName,
+	})) || [];
+
+	console.log("Actions", actions, "Transformed Actions", transformedActions);
+
 	return (
 		<Tabs defaultValue="readme" className="flex w-full flex-col gap-y-8">
 			<TabsList className="flex h-12 w-full justify-start border-b border-b-primary-100 px-6 py-0">
@@ -80,18 +80,21 @@ export function McpTabs() {
 			<TabsContent value="readme">
 				<TabLayout>
 					<div>
-						<h1>Readme</h1>
+						<h1 className="text-xl font-medium text-primary-800 mb-4">Readme</h1>
+						<div className="prose prose-sm max-w-none">
+							<p className="text-primary-600">{packageData?.description || "No description available."}</p>
+						</div>
 					</div>
 				</TabLayout>
 			</TabsContent>
 			<TabsContent value="capabilities">
 				<TabLayout>
-					<McpCapabilitiesList data={capabilities} />
+					<McpCapabilitiesList data={transformedCapabilities} />
 				</TabLayout>
 			</TabsContent>
 			<TabsContent value="authenticators">
 				<TabLayout>
-					<McpAuthList data={authenticators} />
+					<McpAuthList data={transformedAuthenticators} />
 				</TabLayout>
 			</TabsContent>
 			<TabsContent value="servers">
@@ -101,7 +104,7 @@ export function McpTabs() {
 			</TabsContent>
 			<TabsContent value="actions">
 				<TabLayout>
-					<McpActionTable />
+					<McpActionTable data={transformedActions} />
 				</TabLayout>
 			</TabsContent>
 		</Tabs>

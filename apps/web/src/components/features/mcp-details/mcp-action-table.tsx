@@ -138,7 +138,17 @@ export const columns: ColumnDef<McpAction>[] = [
 	},
 ];
 
-export function McpActionTable() {
+interface McpActionTableProps {
+	data?: Array<{
+		name: string;
+		description?: string;
+		method?: string;
+		path?: string;
+		service?: string;
+	}>;
+}
+
+export function McpActionTable({ data = [] }: McpActionTableProps) {
 	const [sorting, setSorting] = React.useState<SortingState>([]);
 	const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
 		[],
@@ -147,8 +157,16 @@ export function McpActionTable() {
 		React.useState<VisibilityState>({});
 	const [rowSelection, setRowSelection] = React.useState({});
 
+	// Transform API data to match the table structure
+	const transformedData: McpAction[] = data.map((action, index) => ({
+		name: action.name,
+		id: index + 1,
+		status: "Success" as actionStatus, // Default status
+		timestamp: new Date(),
+	}));
+
 	const table = useReactTable({
-		data,
+		data: transformedData,
 		columns,
 		onSortingChange: setSorting,
 		onColumnFiltersChange: setColumnFilters,
@@ -181,9 +199,9 @@ export function McpActionTable() {
 										{header.isPlaceholder
 											? null
 											: flexRender(
-													header.column.columnDef.header,
-													header.getContext(),
-												)}
+												header.column.columnDef.header,
+												header.getContext(),
+											)}
 									</TableHead>
 								);
 							})}

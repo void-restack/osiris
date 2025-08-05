@@ -22,6 +22,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface Authenticator {
 	id: string;
@@ -58,19 +59,26 @@ export const columns: ColumnDef<Authenticator>[] = [
 			return (
 				<div className="flex items-center gap-2">
 					<ICONS.auth />
-					<p>MCP requires 3 Authenticators.</p>
+					<p>MCP requires these Authenticators.</p>
 				</div>
 			);
 		},
 		cell: ({ row }) => {
 			return (
 				<div className="flex items-center gap-3">
-					<img
-						width={36}
-						height={36}
-						src={row.original.icon}
-						alt={row.original.name}
-					/>
+					<div className="h-9 w-9">
+						<Avatar>
+							<AvatarImage
+								src={row.original.icon}
+								alt={row.original.name}
+								width={36}
+								height={36}
+							/>
+							<AvatarFallback>
+								{row.original.name.charAt(0).toUpperCase()}
+							</AvatarFallback>
+						</Avatar>
+					</div>
 					<p className="font-medium text-primary-800">{row.original.name}</p>
 				</div>
 			);
@@ -134,9 +142,9 @@ export function McpAuthList({ data }: { data: Authenticator[] }) {
 										{header.isPlaceholder
 											? null
 											: flexRender(
-													header.column.columnDef.header,
-													header.getContext(),
-												)}
+												header.column.columnDef.header,
+												header.getContext(),
+											)}
 									</TableHead>
 								);
 							})}

@@ -108,7 +108,9 @@ export function PackageDialog({
                 <div className="flex items-center gap-2 text-sm">
                   <User className="size-4 text-muted-foreground" />
                   <span className="text-muted-foreground">Publisher:</span>
-                  <span>{pkg.publisherId}</span>
+                  <span className="truncate max-w-32" title={pkg.publisherId}>
+                    {pkg.publisherId}
+                  </span>
                 </div>
 
                 <div className="flex items-center gap-2 text-sm">
