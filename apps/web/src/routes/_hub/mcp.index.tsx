@@ -1,11 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo } from "react";
+import { useMemo, Suspense } from "react";
 import { useSuspenseQuery, useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { Autocomplete } from "@/components/ui/autocomplete";
 import { packageQueries, userQueries } from "@/lib/queries";
+import { isAuthenticated } from "@/lib/auth-optimized";
 import type { Package, PackageWithUserStatus } from "@/types";
 import { McpTableComponent } from "@/components/features/mcp-list/mcp-table-component";
+import { McpListSkeleton } from "@/components/skeletons/mcp-skeleton";
 
 const searchSchema = z.object({
   publisherId: z.string().optional(),
@@ -15,20 +17,70 @@ const searchSchema = z.object({
   perPage: z.coerce.number().optional()
 });
 
+function McpPageSkeleton() {
+  return (
+    <div>
+      <div className="flex flex-1 flex-col pt-4">
+        {/* Header Skeleton */}
+        <div className="mx-auto mt-8 max-w-[496px] pb-6 text-center md:w-[496px] space-y-4">
+          <div className="h-6 bg-gray-200 rounded-md animate-pulse" />
+          <div className="h-4 bg-gray-100 rounded-md animate-pulse w-3/4 mx-auto" />
+        </div>
+
+        {/* Search Skeleton */}
+        <div className="w-full px-4 mb-14 md:px-0">
+          <div className="h-12 bg-gray-100 rounded-lg animate-pulse max-w-md mx-auto mt-6" />
+        </div>
+
+        {/* Content Skeleton */}
+        <div className="px-4 md:px-6">
+          <div className="flex w-full items-center justify-between border-b border-b-primary-100 px-6 py-4">
+            <div className="h-6 bg-gray-200 rounded-md animate-pulse w-40" />
+            <div className="flex items-center gap-4">
+              <div className="h-8 bg-gray-100 rounded-md animate-pulse w-24" />
+              <div className="h-8 bg-gray-100 rounded-md animate-pulse w-20" />
+            </div>
+          </div>
+          <div className="p-6">
+            <div className="h-10 bg-gray-100 rounded-md animate-pulse mb-4" />
+            <McpListSkeleton count={6} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export const Route = createFileRoute("/_hub/mcp/")({
   shouldReload: false,
-  component: RouteComponent,
+  component: () => (
+    <Suspense fallback={<McpPageSkeleton />}>
+      <RouteComponent />
+    </Suspense>
+  ),
   validateSearch: searchSchema,
+  beforeLoad: () => {
+    const authenticated = isAuthenticated();
+    return { authenticated };
+  },
   loader: async ({ context: { queryClient } }) => {
-    // Fetch user's installed MCPs
-    await queryClient.ensureQueryData(packageQueries.userInstalledOptions());
-    // Fetch user's deployed MCPs
-    await queryClient.ensureQueryData(packageQueries.userDeploymentsOptions());
-    // Fetch popular packages for autocomplete
+    // Check auth state again in loader (since beforeLoad might not pass data as expected)
+    const authenticated = isAuthenticated();
+
+    // Always fetch popular packages for autocomplete (public data)
     await queryClient.ensureQueryData(packageQueries.popularOptions());
-    // Fetch user info
-    await queryClient.ensureQueryData(userQueries.meOptions());
-    return { breadcrumb: "MCP Packages" };
+
+    // Only fetch user-specific data if authenticated
+    if (authenticated) {
+      // Fetch user's installed MCPs
+      await queryClient.ensureQueryData(packageQueries.userInstalledOptions());
+      // Fetch user's deployed MCPs  
+      await queryClient.ensureQueryData(packageQueries.userDeploymentsOptions());
+      // Fetch user info
+      await queryClient.ensureQueryData(userQueries.meOptions());
+    }
+
+    return { breadcrumb: "MCP Packages", authenticated };
   },
 });
 
@@ -82,6 +134,7 @@ function normalizePackage(pkg: any): Package {
 
 function RouteComponent() {
   const search = Route.useSearch();
+  const { authenticated: isAuth } = Route.useLoaderData();
 
   const { data: packageData, isPending } = useQuery({
     ...packageQueries.listOptions({
@@ -93,13 +146,16 @@ function RouteComponent() {
     }),
   });
 
-  const { data: userInstalled } = useSuspenseQuery(
-    packageQueries.userInstalledOptions()
-  );
+  // Conditionally fetch user data only if authenticated
+  const { data: userInstalled } = useQuery({
+    ...packageQueries.userInstalledOptions(isAuth),
+    enabled: isAuth,
+  });
 
-  const { data: userDeployments } = useSuspenseQuery(
-    packageQueries.userDeploymentsOptions()
-  );
+  const { data: userDeployments } = useQuery({
+    ...packageQueries.userDeploymentsOptions(isAuth),
+    enabled: isAuth,
+  });
 
   const { data: popularPackages } = useSuspenseQuery(
     packageQueries.popularOptions()
@@ -111,24 +167,26 @@ function RouteComponent() {
     const allPackages = packageData.data;
     const normalizedPackages: Package[] = allPackages.map(normalizePackage);
 
+    // Only process user data if authenticated and data is available
     const installedMap = new Map(
-      userInstalled?.map((item: any) => [item.packageId, item]) || []
+      isAuth && userInstalled ? userInstalled.map((item: any) => [item.packageId, item]) : []
     );
 
     const deployedMap = new Map(
-      userDeployments?.map((item: any) => [item.package.packageId, item]) || []
+      isAuth && userDeployments ? userDeployments.map((item: any) => [item.package.packageId, item]) : []
     );
 
     const combined: PackageWithUserStatus[] = normalizedPackages.map(pkg => ({
       ...pkg,
-      isInstalled: installedMap.has(pkg.packageId),
-      isDeployed: deployedMap.has(pkg.packageId),
-      userInstallation: installedMap.get(pkg.packageId) as any,
-      userDeployment: deployedMap.get(pkg.packageId) as any,
+      // For non-authenticated users, these will always be false
+      isInstalled: isAuth ? installedMap.has(pkg.packageId) : false,
+      isDeployed: isAuth ? deployedMap.has(pkg.packageId) : false,
+      userInstallation: isAuth ? installedMap.get(pkg.packageId) as any : undefined,
+      userDeployment: isAuth ? deployedMap.get(pkg.packageId) as any : undefined,
     }));
 
     return combined;
-  }, [packageData, userInstalled, userDeployments]);
+  }, [packageData, userInstalled, userDeployments, isAuth]);
 
   const searchPackages = (query: string) => {
     const filtered = packages

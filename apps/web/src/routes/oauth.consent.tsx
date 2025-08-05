@@ -1,5 +1,6 @@
 import { hubQueries, packageQueries, userQueries } from '@/lib/queries'
 import { useCreateServiceConnectionMutation, useDeployPackageMutation, useAuthorizeOsirisMutation } from '@/lib/mutations'
+import { isAuthenticated } from '@/lib/auth-optimized'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { useState, useCallback, useMemo } from 'react'
@@ -28,6 +29,14 @@ import { PolicyBuilder } from '@/components/rule-builder/index'
 
 export const Route = createFileRoute('/oauth/consent')({
   component: RouteComponent,
+  beforeLoad: () => {
+    const authenticated = isAuthenticated();
+    if (!authenticated) {
+      // Redirect to login if not authenticated
+      throw new Error('Authentication required for OAuth consent');
+    }
+    return { authenticated };
+  },
 })
 
 function RouteComponent() {
@@ -49,9 +58,9 @@ function RouteComponent() {
   // API queries
   const { data: packageDetails } = useSuspenseQuery(packageQueries.detailOptions(package_id as string))
   const { data: authScopes } = useSuspenseQuery(packageQueries.authScopesOptions(package_id as string))
-  const { data: userInfo } = useSuspenseQuery(userQueries.meOptions())
+  const { data: userInfo } = useSuspenseQuery(userQueries.meOptions(isAuthenticated()))
 
-  let { data: userAuthConnections } = useSuspenseQuery(hubQueries.userAuthOptions())
+  let { data: userAuthConnections } = useSuspenseQuery(hubQueries.userAuthOptions(isAuthenticated()))
   const filteredUserAuthConnections = userAuthConnections?.filter((connection: any) => {
     const allowed = Object.keys(authScopes.serviceClientMap)
     return allowed.includes(connection.service_clients.name)
@@ -95,7 +104,7 @@ function RouteComponent() {
       name: `${serviceName} connection for ${packageDetails?.name}`,
       serviceClientName: serviceName,
       scopes: permissionsToUse,
-      redirectUri: "http://localhost:3000/oauth/consent"
+      redirectUri: window.location.href
     })
   }, [selectedPermissions, packageDetails, createServiceConnectionMutation])
 
@@ -153,7 +162,7 @@ function RouteComponent() {
           scopes: selectedScopes,
           authData: {},
           connectionIds: Object.values(selectedAuthConnections),
-          policy: policyObject
+          // policy: policyObject
         })
 
         deploymentId = deploymentResult.deployment.deploymentId
@@ -330,24 +339,47 @@ function RouteComponent() {
               (connection: any) => connection.service_clients.name === serviceName
             ) || []
 
+            // Default scope definitions for consistent mapping
+            const DEFAULT_SCOPE_DEFINITIONS: Record<string, string> = {
+              "read": "Read",
+              "write": "Write",
+              "admin": "Admin",
+              "user": "User",
+              "profile": "Profile",
+              "email": "Email",
+              "openid": "OpenID",
+              "offline_access": "Offline Access",
+              "full_access": "Full Access",
+              "limited_access": "Limited Access"
+            };
+
             const permissions = useMemo(() => {
-              return (requiredScopes as string[]).map((scope: string) => {
-                const cleanScope = scope.replace(`${serviceName}:`, '')
-                const label = cleanScope
-                  .split(/[./]/)
-                  .pop()
-                  ?.replace(/([a-z])([A-Z])/g, '$1 $2')
-                  .replace(/[_-]/g, ' ')
-                  .toLowerCase()
-                  .replace(/\b\w/g, l => l.toUpperCase())
-                  || cleanScope
+              const mappedPermissions = (requiredScopes as string[]).map((scope: string) => {
+                // Use default mapping if available
+                let label = DEFAULT_SCOPE_DEFINITIONS[scope];
+
+                if (!label) {
+                  // Fallback to existing formatting logic
+                  label = scope
+                    .split(/[./]/)
+                    .pop()
+                    ?.replace(/([a-z])([A-Z])/g, '$1 $2')
+                    .replace(/[_-]/g, ' ')
+                    .toLowerCase()
+                    .replace(/\b\w/g, l => l.toUpperCase())
+                    || scope
+                }
 
                 return {
-                  id: cleanScope,
+                  id: scope,
                   label: label
                 }
-              })
-            }, [serviceName, requiredScopes])
+              });
+
+
+
+              return mappedPermissions;
+            }, [serviceName, requiredScopes, selectedPermissions])
 
             const handleServicePermissionSelect = useCallback((permissions: Permission[]) => {
               handlePermissionSelect(serviceName, permissions)

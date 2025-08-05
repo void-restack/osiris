@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { Link2, RefreshCcw, Loader2, Loader } from "lucide-react";
 import { useSuspenseQuery, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -24,6 +25,7 @@ import {
   useCreateWalletMutation
 } from "@/lib/mutations";
 import { getInitials } from "@/lib/utils";
+import { isAuthenticated } from "@/lib/auth-optimized";
 import type { ServiceClient } from "@/types/auth";
 import type { Permission } from "@/types";
 import { Icon } from "@/components/ui/icon";
@@ -43,6 +45,7 @@ interface AuthMethodDialogProps {
     success: boolean;
     connectionId?: string;
   };
+  trigger?: React.ReactNode;
 }
 
 export function AuthMethodDialog({
@@ -50,7 +53,8 @@ export function AuthMethodDialog({
   open,
   onOpenChange,
   mode = 'connect',
-  callbackData
+  callbackData,
+  trigger
 }: AuthMethodDialogProps) {
   const [selectedScopes, setSelectedScopes] = useState<Permission[]>([]);
   const [authHubName, setAuthHubName] = useState(`${method.name} connection`);
@@ -61,15 +65,32 @@ export function AuthMethodDialog({
     policy: {}
   });
 
+
   const createServiceConnection = useCreateServiceConnectionMutation();
   const createSecretSharing = useCreateSecretSharingMutation();
   const createWallet = useCreateWalletMutation();
-  const { data: user } = useSuspenseQuery(userQueries.meOptions());
+  const { data: user } = useSuspenseQuery(userQueries.meOptions(isAuthenticated()));
 
   const { data: connectionData, isLoading: isLoadingConnection, error: _connectionError } = useQuery({
     ...hubQueries.userAuthConnectionOptions(callbackData?.connectionId || ''),
     enabled: mode === 'callback' && !!callbackData?.connectionId
   });
+
+  const navigate = useNavigate();
+
+  // Clean up URL params when dialog closes
+  const handleDialogOpenChange = (isOpen: boolean) => {
+    onOpenChange?.(isOpen);
+
+    if (!isOpen) {
+      // Strip query parameters from URL when dialog closes
+      const currentUrl = new URL(window.location.href);
+      const pathname = currentUrl.pathname;
+
+      // Navigate to clean URL without query params
+      navigate({ to: pathname, replace: true });
+    }
+  };
 
   const handleSaveAuthenticator = async () => {
     try {
@@ -82,12 +103,12 @@ export function AuthMethodDialog({
           await createServiceConnection.mutateAsync({
             serviceClientName: method?.name || 'oauth',
             scopes: selectedScopes.map(scope => scope.id),
-            name: authHubName
+            name: authHubName,
+            redirectUri: window.location.href
           });
           break;
 
         case 'secret_sharing':
-          // Validate required fields
           const metadata = method.metadata;
           if (metadata?.required) {
             for (const field of metadata.required) {
@@ -303,11 +324,22 @@ export function AuthMethodDialog({
           <div className="border-t border-t-primary-200 border-dashed" />
 
           {isPending ? (
-            <div className="w-full max-w-md flex flex-col items-center mt-20 text-[18px]">
+            <div className="w-full flex flex-col items-center justify-center py-12 text-[18px]">
               <div className="flex flex-col text-center mb-8">
-                <h3 className="inline">Connecting
-                  <img src="" className="size-[18px] mx-2 inline" />
-                  {method.name}</h3>
+                <h3 className="flex items-center justify-center gap-2">
+                  Connecting
+                  <Avatar className="size-[18px] rounded-sm">
+                    <AvatarImage src="/logo.png" alt="Osiris" />
+                    <AvatarFallback className="text-xs">O</AvatarFallback>
+                  </Avatar>
+                  <Avatar className="size-[18px] rounded-sm">
+                    <AvatarImage src={method.iconUrl || undefined} alt={method.name} />
+                    <AvatarFallback className="text-xs">
+                      {method.name.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  {method.name}
+                </h3>
                 <span className="text-sm text-primary-400">
                   {method.type === 'oauth' ? 'Review the pop-up and connect' : 'Creating connection...'}
                 </span>
@@ -315,13 +347,22 @@ export function AuthMethodDialog({
 
               <div className="flex items-center w-full relative max-w-[294px]">
                 <div className="flex z-20 w-full items-center justify-between">
-                  <div className="bg-purple-400 rounded-[6px] w-full size-14"></div>
+                  <Avatar className="size-14 rounded-[6px]">
+                    <AvatarImage src="/logo.png" alt="Osiris" />
+                    <AvatarFallback className="text-lg font-bold">O</AvatarFallback>
+                  </Avatar>
                   <div className="bg-primary-600/20 w-full h-0.5" />
                   <div className="h-fit text-xs border flex items-center gap-1 border-primary-600/15 rounded-[6px] text-primary-400 p-1 bg-primary-50">
                     <Loader2 className="size-3 animate-spin" />
-                    Connecting</div>
+                    Connecting
+                  </div>
                   <div className="bg-primary-600/20 w-full h-0.5" />
-                  <div className="bg-green-400 w-full rounded-[6px] size-14"></div>
+                  <Avatar className="size-14 rounded-[6px]">
+                    <AvatarImage src={method.iconUrl || undefined} alt={method.name} />
+                    <AvatarFallback className="text-lg font-bold">
+                      {method.name.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
                 </div>
               </div>
             </div>
@@ -424,67 +465,124 @@ export function AuthMethodDialog({
           <div className="border-t border-t-primary-200 border-dashed my-6" />
 
           {isLoading ? (
-            <div className="w-full flex flex-col items-center justify-center mb-6 text-[18px]">
+            <div className="w-full flex flex-col items-center justify-center py-12 text-[18px]">
               <div className="flex flex-col text-center mb-8">
-                <h3 className="inline">Connecting
-                  <img src="" className="size-[18px] mx-2 inline" />
-                  {method.name.toWellFormed()}</h3>
+                <h3 className="flex items-center justify-center gap-2">
+                  Connecting
+                  <Avatar className="size-[18px] rounded-sm">
+                    <AvatarImage src="/logo.png" alt="Osiris" />
+                    <AvatarFallback className="text-xs">O</AvatarFallback>
+                  </Avatar>
+                  <Avatar className="size-[18px] rounded-sm">
+                    <AvatarImage src={method.iconUrl || undefined} alt={method.name} />
+                    <AvatarFallback className="text-xs">
+                      {method.name.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  {method.name}
+                </h3>
                 <span className="text-sm text-primary-400">Review the pop-up and connect {method.name}</span>
               </div>
 
               <div className="flex items-center w-full relative max-w-[294px]">
-                {/* <div className="absolute w-full h-0.5 bg-gradient-to-r from-connector-line via-white to-connector-line z-10" /> */}
                 <div className="flex z-20 w-full items-center justify-between">
-                  <div className="bg-purple-400 rounded-[6px] w-full size-14"></div>
+                  <Avatar className="size-14 rounded-[6px]">
+                    <AvatarImage src="/logo.png" alt="Osiris" />
+                    <AvatarFallback className="text-lg font-bold">O</AvatarFallback>
+                  </Avatar>
                   <div className="bg-primary-600/20 w-full h-0.5" />
                   <div className="h-fit text-xs border flex items-center gap-1 border-primary-600/15 rounded-[6px] text-primary-400 p-1 bg-primary-50">
                     <Loader className="size-3" />
-                    Connecting</div>
+                    Connecting
+                  </div>
                   <div className="bg-primary-600/20 w-full h-0.5" />
-                  <div className="bg-green-400 w-full rounded-[6px] size-14"></div>
+                  <Avatar className="size-14 rounded-[6px]">
+                    <AvatarImage src={method.iconUrl || undefined} alt={method.name} />
+                    <AvatarFallback className="text-lg font-bold">
+                      {method.name.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
                 </div>
               </div>
             </div>
           ) : isSuccess && connectionData ? (
-            <div className="w-full flex flex-col items-center justify-center mb-6 text-[18px]">
+            <div className="w-full flex flex-col items-center justify-center py-12 text-[18px]">
               <div className="flex flex-col text-center mb-8">
-                <h3 className="inline">Connecting
-                  <img src="#" className="size-[18px] mx-2 inline" />
-                  {method.name.toWellFormed()}</h3>
-                <span className="text-sm text-primary-400">Review the pop-up and connect {method.name}</span>
+                <h3 className="flex items-center justify-center gap-2">
+                  Connected
+                  <Avatar className="size-[18px] rounded-sm">
+                    <AvatarImage src="/logo.png" alt="Osiris" />
+                    <AvatarFallback className="text-xs">O</AvatarFallback>
+                  </Avatar>
+                  <Avatar className="size-[18px] rounded-sm">
+                    <AvatarImage src={method.iconUrl || undefined} alt={method.name} />
+                    <AvatarFallback className="text-xs">
+                      {method.name.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  {method.name}
+                </h3>
+                <span className="text-sm text-primary-400">Successfully connected to {method.name}</span>
               </div>
               <div className="flex items-center w-full relative max-w-[294px]">
-                {/* <div className="absolute w-full h-0.5 bg-gradient-to-r from-connector-line via-white to-connector-line z-10" /> */}
                 <div className="flex z-20 w-full items-center justify-between">
-                  <div className="bg-purple-400 rounded-[6px] w-full size-14"></div>
+                  <Avatar className="size-14 rounded-[6px]">
+                    <AvatarImage src="/logo.png" alt="Osiris" />
+                    <AvatarFallback className="text-lg font-bold">O</AvatarFallback>
+                  </Avatar>
                   <div className="bg-success-600/20 w-full h-0.5" />
                   <div className="h-fit text-xs border flex items-center gap-1 border-success-600/15 rounded-[6px] text-success-600 p-1 bg-success-50">
                     <Link2 className="-rotate-45 size-4" />
-                    Connected</div>
+                    Connected
+                  </div>
                   <div className="bg-success-600/20 w-full h-0.5" />
-                  <div className="bg-green-400 w-full rounded-[6px] size-14"></div>
+                  <Avatar className="size-14 rounded-[6px]">
+                    <AvatarImage src={method.iconUrl || undefined} alt={method.name} />
+                    <AvatarFallback className="text-lg font-bold">
+                      {method.name.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
                 </div>
               </div>
             </div>
 
           ) : (
-            <div className="w-full flex flex-col items-center justify-center mb-6 text-[18px]">
+            <div className="w-full flex flex-col items-center justify-center py-12 text-[18px]">
               <div className="flex flex-col text-center mb-8">
-                <h3 className="inline">Connecting
-                  <img src="" className="size-[18px] mx-2 inline" />
-                  {method.name.toWellFormed()}</h3>
-                <span className="text-sm text-primary-400">Review the pop-up and connect {method.name}</span>
+                <h3 className="flex items-center justify-center gap-2">
+                  Connection Failed
+                  <Avatar className="size-[18px] rounded-sm">
+                    <AvatarImage src="/logo.png" alt="Osiris" />
+                    <AvatarFallback className="text-xs">O</AvatarFallback>
+                  </Avatar>
+                  <Avatar className="size-[18px] rounded-sm">
+                    <AvatarImage src={method.iconUrl || undefined} alt={method.name} />
+                    <AvatarFallback className="text-xs">
+                      {method.name.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  {method.name}
+                </h3>
+                <span className="text-sm text-primary-400">Failed to connect to {method.name}</span>
               </div>
               <div className="flex items-center w-full relative max-w-[294px]">
-                {/* <div className="absolute w-full h-0.5 bg-gradient-to-r from-connector-line via-white to-connector-line z-10" /> */}
                 <div className="flex z-20 w-full items-center justify-between">
-                  <div className="bg-purple-400 rounded-[6px] w-full size-14"></div>
+                  <Avatar className="size-14 rounded-[6px]">
+                    <AvatarImage src="/logo.png" alt="Osiris" />
+                    <AvatarFallback className="text-lg font-bold">O</AvatarFallback>
+                  </Avatar>
                   <div className="bg-warning-600/20 w-full h-0.5" />
                   <div className="h-fit text-xs border flex items-center gap-1 border-warning-600/15 rounded-[6px] text-warning-600 p-1 bg-warning-50">
                     <Icon name="warning" />
-                    Error</div>
+                    Error
+                  </div>
                   <div className="bg-warning-600/20 w-full h-0.5" />
-                  <div className="bg-green-400 w-full rounded-[6px] size-14"></div>
+                  <Avatar className="size-14 rounded-[6px]">
+                    <AvatarImage src={method.iconUrl || undefined} alt={method.name} />
+                    <AvatarFallback className="text-lg font-bold">
+                      {method.name.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
                 </div>
               </div>
             </div>
@@ -496,7 +594,7 @@ export function AuthMethodDialog({
 
   if (mode === 'callback') {
     return (
-      <AlertDialog open={open} onOpenChange={onOpenChange}>
+      <AlertDialog open={open} onOpenChange={handleDialogOpenChange}>
         <AlertDialogContent className="w-full max-w-[448px] rounded-[12px] border-primary-100 p-0">
           {renderCallbackMode()}
         </AlertDialogContent>
@@ -505,67 +603,25 @@ export function AuthMethodDialog({
   }
 
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogTrigger asChild>
-        <Button
-          variant="ghost"
-          className="flex h-fit items-center gap-1 rounded-[6px] bg-badge-success px-2 py-1 font-medium text-badge-success-text text-xs"
-        >
-          <Link2 /> Connect
-        </Button>
-      </AlertDialogTrigger>
+    <AlertDialog open={open} onOpenChange={handleDialogOpenChange}>
+      {trigger && (
+        <AlertDialogTrigger asChild>
+          {trigger}
+        </AlertDialogTrigger>
+      )}
+      {!trigger && (
+        <AlertDialogTrigger asChild>
+          <Button
+            variant="ghost"
+            className="flex h-fit items-center gap-1 rounded-[6px] bg-badge-success px-2 py-1 font-medium text-badge-success-text text-xs"
+          >
+            <Link2 /> Connect
+          </Button>
+        </AlertDialogTrigger>
+      )}
       <AlertDialogContent className="w-full max-w-[448px] rounded-[12px] border-primary-100 p-0">
         {renderConnectMode()}
       </AlertDialogContent>
     </AlertDialog>
   );
 }
-
-
-{/* <div className="flex items-center justify-center py-4"> */ }
-{/*   <div className="text-center space-y-2"> */ }
-{/*     <CheckCircle className="size-12 text-green-500 mx-auto" /> */ }
-{/*     <h3 className="font-medium text-primary-800">Connection Established!</h3> */ }
-{/*     <p className="text-sm text-primary-400">You can now use this authentication method</p> */ }
-{/*   </div> */ }
-{/* </div> */ }
-
-{/* <div className="border rounded-lg p-4 bg-green-50 space-y-3"> */ }
-{/* <div className="flex items-center gap-3"> */ }
-{/*   <Avatar className="size-8 rounded-lg"> */ }
-{/*     <AvatarImage src={connectionData.metadata?.user?.picture || connectionData.metadata?.user?.avatar_url} /> */ }
-{/*     <AvatarFallback className="rounded-sm text-xs"> */ }
-{/*       {getInitials(connectionData.metadata?.user?.name || method.name)} */ }
-{/*     </AvatarFallback> */ }
-{/*   </Avatar> */ }
-{/*   <div className="flex-1"> */ }
-{/*     <p className="font-medium text-sm text-primary-800"> */ }
-{/*       {connectionData.metadata?.user?.name || connectionData.name || `${method.name} Account`} */ }
-{/*     </p> */ }
-{/*     <p className="text-xs text-primary-400"> */ }
-{/*       {connectionData.metadata?.user?.email || connectionData.uniqueId} */ }
-{/*     </p> */ }
-{/*   </div> */ }
-{/*   <Badge variant="secondary" className="text-xs"> */ }
-{/*     Connected */ }
-{/*   </Badge> */ }
-{/* </div> */ }
-
-{/* {connectionData.scopes && connectionData.scopes.length > 0 && ( */ }
-{/*   <div> */ }
-{/*     <p className="text-xs text-primary-400 mb-2">Granted Permissions:</p> */ }
-{/*     <div className="flex flex-wrap gap-1"> */ }
-{/*       {connectionData.scopes.slice(0, 3).map((scope: string) => ( */ }
-{/*         <Badge key={scope} variant="outline" className="text-xs"> */ }
-{/*           {method.scopeDefinitions[scope] || scope} */ }
-{/*         </Badge> */ }
-{/*       ))} */ }
-{/*       {connectionData.scopes.length > 3 && ( */ }
-{/*         <Badge variant="outline" className="text-xs"> */ }
-{/*           +{connectionData.scopes.length - 3} more */ }
-{/*         </Badge> */ }
-{/*       )} */ }
-{/*     </div> */ }
-{/*   </div> */ }
-{/* )} */ }
-{/* </div> */ }

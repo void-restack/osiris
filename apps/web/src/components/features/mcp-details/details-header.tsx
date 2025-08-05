@@ -9,10 +9,12 @@ import { packageQueries } from "@/lib/queries";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Rocket, CheckCircle } from "lucide-react";
+import { isAuthenticated } from "@/lib/auth-optimized";
 
 export function McpDetailsHeader() {
   const { mcpId } = useParams({ from: "/_hub/mcp/$mcpId" });
   const { data: packageData } = useSuspenseQuery(packageQueries.detailOptions(mcpId));
+  const authenticated = isAuthenticated();
 
   // For now, we'll use a default value since user deployment check requires authentication
   const isDeployed = false;
@@ -63,25 +65,29 @@ export function McpDetailsHeader() {
             ]}
           />
           <div className="flex items-center gap-2">
-            {isDeployed && (
+            {authenticated && isDeployed && (
               <Badge variant="secondary" className="gap-1">
                 <CheckCircle className="size-3" />
                 Deployed
               </Badge>
             )}
-            <McpDeployDialog
-              package={packageWithUserStatus}
-              trigger={
-                <Button
-                  variant={isDeployed ? "secondary" : "outline"}
-                  size="sm"
-                  className="gap-2"
-                >
-                  <Rocket className="size-4" />
-                  {isDeployed ? "Redeploy" : "Deploy"}
-                </Button>
-              }
-            />
+            {authenticated ? (
+              <McpDeployDialog
+                package={packageWithUserStatus}
+                trigger={
+                  <Button
+                    variant={isDeployed ? "secondary" : "outline"}
+                    size="sm"
+                    className="gap-2"
+                  >
+                    <Rocket className="size-4" />
+                    {isDeployed ? "Redeploy" : "Deploy"}
+                  </Button>
+                }
+              />
+            ) : (
+              null
+            )}
           </div>
         </div>
       </div>

@@ -1,6 +1,7 @@
 import { LogOut, User, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { useSuspenseQuery } from "@tanstack/react-query";
+import { isAuthenticated } from "@/lib/auth-optimized";
 import { ICONS } from "./icons";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Button } from "./ui/button";
@@ -13,7 +14,8 @@ import { toast } from "sonner";
 export function UserPopover() {
   const [isOpen, setIsOpen] = useState(false);
 
-  const { data: user } = useSuspenseQuery(userQueries.meOptions());
+  // Only fetch user data if authenticated (this should always be true when this component renders)
+  const { data: user } = useSuspenseQuery(userQueries.meOptions(isAuthenticated()));
 
   const getInitials = (name: string) => {
     return name

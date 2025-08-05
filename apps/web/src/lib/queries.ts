@@ -9,12 +9,13 @@ import {
   userSchema,
 } from "@/types";
 import { api } from "./api";
+import { isAuthenticated } from "./auth-optimized";
 
 export const userQueries = {
   all: () => ["users"] as const,
   me: () => [...userQueries.all(), "me"] as const,
 
-  meOptions: () =>
+  meOptions: (enabled: boolean = true) =>
     queryOptions({
       queryKey: userQueries.me(),
       queryFn: async () => {
@@ -27,11 +28,12 @@ export const userQueries = {
         return response.data;
       },
       staleTime: 5 * 60 * 1000,
+      enabled: enabled && isAuthenticated(),
     }),
 
   authProviders: () => [...userQueries.all(), "auth-providers"] as const,
 
-  authProvidersOptions: () =>
+  authProvidersOptions: (enabled: boolean = true) =>
     queryOptions({
       queryKey: userQueries.authProviders(),
       queryFn: async () => {
@@ -54,6 +56,7 @@ export const userQueries = {
         return response.data;
       },
       staleTime: 5 * 60 * 1000,
+      enabled: enabled && isAuthenticated(),
     }),
 };
 
@@ -133,7 +136,7 @@ export const packageQueries = {
       staleTime: 5 * 60 * 1000,
     }),
 
-  userInstalledOptions: () =>
+  userInstalledOptions: (enabled: boolean = true) =>
     queryOptions({
       queryKey: packageQueries.userInstalled(),
       queryFn: async () => {
@@ -158,9 +161,10 @@ export const packageQueries = {
         return response.data;
       },
       staleTime: 1 * 60 * 1000,
+      enabled: enabled && isAuthenticated(),
     }),
 
-  userDeploymentsOptions: () =>
+  userDeploymentsOptions: (enabled: boolean = true) =>
     queryOptions({
       queryKey: packageQueries.userDeployments(),
       queryFn: async () => {
@@ -189,6 +193,7 @@ export const packageQueries = {
         return response.data; // Not response.data.data
       },
       staleTime: 1 * 60 * 1000,
+      enabled: enabled && isAuthenticated(),
     }),
 
   popularOptions: () =>
@@ -345,27 +350,48 @@ export const packageQueries = {
     }
   }),
 
-  actionsOptions: (packageId?: string) => queryOptions({
+  actionsOptions: (packageId?: string, enabled: boolean = true) => queryOptions({
     queryKey: packageQueries.actions(packageId),
     queryFn: async () => {
       const params = packageId ? { packageId } : {};
+      // Note: This is a user-specific endpoint that requires authentication
+      // For public access, we'll return empty actions
+      if (!isAuthenticated()) {
+        return [];
+      }
       const response = await api("/packages/packages/user/actions", {
         // @ts-ignore
         params,
         schema: responseSchema(z.any())
       });
       return response.data;
-    }
+    },
+    enabled: enabled && isAuthenticated(),
   }),
 
   mcpToolsOptions: (serverUrl: string) => queryOptions({
     queryKey: [...packageQueries.all(), "mcp-tools", serverUrl],
     queryFn: async () => {
+      // Skip if no valid URL provided
+      if (!serverUrl || serverUrl.trim() === '') {
+        console.log('⚠️ No MCP server URL provided, using fallback data');
+        return { tools: [] };
+      }
+
       try {
+        // Validate URL format
+        const url = new URL(serverUrl);
+
+        // Skip localhost or development URLs unless we're in development
+        if (url.hostname === 'localhost' && !import.meta.env.DEV) {
+          console.log('⚠️ Localhost URL detected in production, using fallback data');
+          return { tools: [] };
+        }
+
         const { Client } = await import('@modelcontextprotocol/sdk/client/index.js');
         const { StreamableHTTPClientTransport } = await import('@modelcontextprotocol/sdk/client/streamableHttp.js');
 
-        const transport = new StreamableHTTPClientTransport(new URL(serverUrl));
+        const transport = new StreamableHTTPClientTransport(url);
 
         const client = new Client({
           name: 'osiris-web-client',
@@ -375,10 +401,16 @@ export const packageQueries = {
             tools: {},
           },
         });
-        await client.connect(transport);
+
+        // Add timeout to prevent hanging
+        const connectPromise = client.connect(transport);
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Connection timeout')), 5000)
+        );
+
+        await Promise.race([connectPromise, timeoutPromise]);
 
         // Get available tools
-
         const tools = await client.listTools();
 
         return tools;
@@ -391,7 +423,7 @@ export const packageQueries = {
           name: error?.name
         });
 
-        // Return fallback tools data
+        // Return fallback tools data for demo purposes
         console.log('🔄 Using fallback tools data');
         return {
           tools: [
@@ -1054,7 +1086,7 @@ export const hubQueries = {
       staleTime: 10 * 60 * 1000, // 10 minutes - rarely changes
     }),
 
-  userAuthOptions: () =>
+  userAuthOptions: (enabled: boolean = true) =>
     queryOptions({
       queryKey: hubQueries.userAuth(),
       queryFn: async () => {
@@ -1115,9 +1147,10 @@ export const hubQueries = {
         return response.data;
       },
       staleTime: 2 * 60 * 1000,
+      enabled: enabled && isAuthenticated(),
     }),
 
-  userAuthConnectionOptions: (id: string) =>
+  userAuthConnectionOptions: (id: string, enabled: boolean = true) =>
     queryOptions({
       queryKey: hubQueries.userAuthConnection(id),
       queryFn: async () => {
@@ -1159,6 +1192,7 @@ export const hubQueries = {
         }
         return response.data;
       },
+      enabled: enabled && isAuthenticated(),
     }),
 
   oauthClientsOptions: () =>
@@ -1229,5 +1263,33 @@ export const hubQueries = {
         return response.data;
       },
       staleTime: 10 * 60 * 1000,
+    }),
+
+  userAuthConnectionUnencryptedOptions: (id: string, enabled: boolean = false) =>
+    queryOptions({
+      queryKey: [...hubQueries.userAuthConnection(id), "unencrypted"] as const,
+      queryFn: async () => {
+        const response = await api(`/hub/auth/user/${id}`, {
+          schema: responseSchema(
+            z.object({
+              id: z.string().uuid(),
+              userId: z.string().uuid(),
+              clientId: z.string().uuid(),
+              uniqueId: z.string(),
+              credentials: z.record(z.any()), // Unencrypted credentials
+              metadata: z.record(z.any()),
+              scopes: z.array(z.string()),
+              name: z.string().nullable(),
+              createdAt: z.string().datetime(),
+              updatedAt: z.string().datetime(),
+            }),
+          ),
+        });
+        if (response.status === "FAILED") {
+          throw new Error(response.error);
+        }
+        return response.data;
+      },
+      enabled: enabled && isAuthenticated(), // Only fetch when explicitly requested AND authenticated
     }),
 };

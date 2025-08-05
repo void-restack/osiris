@@ -2,8 +2,10 @@ import { Link } from "@tanstack/react-router";
 import { type ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header";
 import { AuthMethodDialog } from "./auth-method-dialog";
+import { isAuthenticated } from "@/lib/auth-optimized";
 import type { ServiceClient } from "@/types/auth";
 import { formatDistanceToNow } from "date-fns";
 
@@ -16,9 +18,18 @@ export const createColumns = (): ColumnDef<ServiceClient>[] => [
     accessorKey: "name",
     cell: ({ row }) => (
       <div className="flex items-center gap-3">
-        <div className="size-8 rounded-md bg-purple-400 flex items-center justify-center text-white font-bold text-sm capitalize">
-          {row.original.name.charAt(0)}
-        </div>
+        {row.original.iconUrl ? (
+          <Avatar className="size-8 rounded-md">
+            <AvatarImage src={row.original.iconUrl} alt={row.original.name} />
+            <AvatarFallback className="text-sm font-bold capitalize">
+              {row.original.name.charAt(0)}
+            </AvatarFallback>
+          </Avatar>
+        ) : (
+          <div className="size-8 rounded-md bg-purple-400 flex items-center justify-center text-white font-bold text-sm capitalize">
+            {row.original.name.charAt(0)}
+          </div>
+        )}
         <div className="flex flex-col">
           <span className="font-medium text-primary-800 capitalize">
             {row.original.name}
@@ -169,16 +180,20 @@ export const createColumns = (): ColumnDef<ServiceClient>[] => [
   {
     id: "actions",
     header: "",
-    cell: ({ row }) => (
-      <div className="flex items-center gap-2">
-        <AuthMethodDialog method={row.original} />
-        <Link to={`/auth/${row.original.clientId}`}>
-          <Button variant="outline" size="sm" className="h-7 text-xs rounded-[6px]">
-            View
-          </Button>
-        </Link>
-      </div>
-    ),
+    cell: ({ row }) => {
+      const authenticated = isAuthenticated();
+
+      return (
+        <div className="flex items-center gap-2">
+          {authenticated && <AuthMethodDialog method={row.original} />}
+          <Link to={`/auth/${row.original.clientId}`}>
+            <Button variant="outline" size="sm" className="h-7 text-xs rounded-[6px]">
+              View
+            </Button>
+          </Link>
+        </div>
+      );
+    },
     enableSorting: false,
     enableHiding: false,
   },

@@ -6,8 +6,9 @@ import { authenticators, McpAuthList } from "./mcp-auth";
 import { McpDetailsView } from "./mcp-details-view";
 import { type McpServer, ServerList } from "./mcp-servers";
 import { useParams } from "@tanstack/react-router";
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useSuspenseQuery, useQuery } from "@tanstack/react-query";
 import { packageQueries } from "@/lib/queries";
+import { isAuthenticated } from "@/lib/auth-optimized";
 import { Mail } from "lucide-react";
 
 // This will be replaced with real API data
@@ -15,10 +16,18 @@ const servers: McpServer[] = [];
 
 export function McpTabs() {
 	const { mcpId } = useParams({ from: "/_hub/mcp/$mcpId" });
+	const authenticated = isAuthenticated();
+
 	const { data: packageData } = useSuspenseQuery(packageQueries.detailOptions(mcpId));
 	const { data: authScopes } = useSuspenseQuery(packageQueries.authScopesOptions(mcpId));
-	const { data: actions } = useSuspenseQuery(packageQueries.actionsOptions(mcpId));
-	console.log("mcpId", mcpId)
+
+	// Actions are user-specific - only fetch if authenticated
+	const { data: actions } = useQuery({
+		...packageQueries.actionsOptions(mcpId, authenticated),
+		enabled: authenticated,
+	});
+
+	console.log("mcpId", mcpId, "authenticated", authenticated)
 
 	// Fetch MCP tools if server URL is available
 	const { data: mcpTools } = useSuspenseQuery(
@@ -48,13 +57,14 @@ export function McpTabs() {
 
 
 	// Transform actions data for the actions table
-	const transformedActions = actions?.map((action: any) => ({
+	// For non-authenticated users, actions will be undefined/empty
+	const transformedActions = (authenticated && actions) ? actions.map((action: any) => ({
 		name: action.name || action.actionName,
 		description: action.description || action.actionDescription,
 		method: action.method || action.httpMethod,
 		path: action.path || action.endpoint,
 		service: action.service || action.serviceName,
-	})) || [];
+	})) : [];
 
 	console.log("Actions", actions, "Transformed Actions", transformedActions);
 
@@ -104,7 +114,16 @@ export function McpTabs() {
 			</TabsContent>
 			<TabsContent value="actions">
 				<TabLayout>
-					<McpActionTable data={transformedActions} />
+					{!authenticated ? (
+						<div className="text-center py-8">
+							<p className="text-primary-600 mb-4">Sign in to view package actions and deployment history.</p>
+							<div className="text-sm text-primary-500">
+								Actions show the available operations and recent activity for this package.
+							</div>
+						</div>
+					) : (
+						<McpActionTable data={transformedActions} />
+					)}
 				</TabLayout>
 			</TabsContent>
 		</Tabs>

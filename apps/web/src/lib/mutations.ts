@@ -327,11 +327,18 @@ export const useCreateSecretSharingMutation = () => {
   return useMutation({
     mutationFn: async (data: {
       serviceClientId: string;
+      name?: string;
       secret: Record<string, any>;
     }) => {
+      const payload = {
+        serviceClientId: data.serviceClientId,
+        name: data.name || 'Database Connection',
+        secret: data.secret
+      };
+
       const response = await api("/hub/secret/create", {
         method: "POST",
-        body: data,
+        body: payload,
         schema: responseSchema(z.any()),
       });
       if (response.status === "FAILED") {

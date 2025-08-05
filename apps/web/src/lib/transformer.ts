@@ -9,9 +9,23 @@ import type {
 export const transformBackendUserAuth = (
   backendData: any[],
 ): UserServiceConnection[] => {
-  return backendData.map((item) => {
+  const transformedData = backendData.map((item) => {
     const connection = item.user_service_connections;
     const serviceClient = item.service_clients;
+
+    // Normalize scopes by removing service prefix to match scopeDefinitions keys
+    const normalizeScopes = (scopes: string[], serviceName: string): string[] => {
+      return scopes.map(scope => {
+        // Remove service prefix (e.g., "linear:read" -> "read", "github:repo" -> "repo")
+        const prefix = `${serviceName}:`;
+        if (scope.startsWith(prefix)) {
+          return scope.substring(prefix.length);
+        }
+        return scope;
+      });
+    };
+
+    const normalizedScopes = normalizeScopes(connection.scopes || [], serviceClient.name);
 
     const baseConnection = {
       id: connection.id,
@@ -19,7 +33,7 @@ export const transformBackendUserAuth = (
       userId: connection.userId,
       uniqueId: connection.uniqueId || connection.id,
       name: connection.name || serviceClient.name,
-      scopes: connection.scopes || [],
+      scopes: normalizedScopes,
       createdAt: connection.createdAt,
       updatedAt: connection.updatedAt,
       serviceClient: transformBackendServiceClient(serviceClient),
@@ -71,6 +85,8 @@ export const transformBackendUserAuth = (
         } as OAuthConnection;
     }
   });
+
+  return transformedData;
 };
 
 export const transformBackendServiceClient = (

@@ -6,6 +6,7 @@ import { DataTableColumnHeader } from "@/components/data-table/data-table-column
 import type { PackageWithUserStatus } from "@/types";
 import { McpDeployDialog } from "@/components/mcp-deploy-dialog";
 import { CheckCircle, ExternalLink } from "lucide-react";
+import { isAuthenticated } from "@/lib/auth-optimized";
 
 export const createMcpColumns = (): ColumnDef<PackageWithUserStatus>[] => [
   {
@@ -215,29 +216,37 @@ export const createMcpColumns = (): ColumnDef<PackageWithUserStatus>[] => [
   {
     id: "actions",
     header: "",
-    cell: ({ row }) => (
-      <div className="flex items-center gap-2">
-        {!row.original.isDeployed ? (
-          <McpDeployDialog
-            package={row.original}
-            trigger={
-              <Button variant="ghost" size="sm" className="h-7 text-xs rounded-[6px]">
-                Deploy
-              </Button>
-            }
-          />
-        ) : (
-          <Button variant="ghost" size="sm" className="h-7 text-xs rounded-[6px]" disabled>
-            Deployed
-          </Button>
-        )}
-        <Link to={`/mcp/${row.original.packageId}`}>
-          <Button variant="outline" size="sm" className="h-7 text-xs rounded-[6px]">
-            View
-          </Button>
-        </Link>
-      </div>
-    ),
+    cell: ({ row }) => {
+      const authenticated = isAuthenticated();
+
+      return (
+        <div className="flex items-center gap-2">
+          {authenticated && (
+            <>
+              {!row.original.isDeployed ? (
+                <McpDeployDialog
+                  package={row.original}
+                  trigger={
+                    <Button variant="ghost" size="sm" className="h-7 text-xs rounded-[6px]">
+                      Deploy
+                    </Button>
+                  }
+                />
+              ) : (
+                <Button variant="ghost" size="sm" className="h-7 text-xs rounded-[6px]" disabled>
+                  Deployed
+                </Button>
+              )}
+            </>
+          )}
+          <Link to={`/mcp/${row.original.packageId}`}>
+            <Button variant="outline" size="sm" className="h-7 text-xs rounded-[6px]">
+              View
+            </Button>
+          </Link>
+        </div>
+      );
+    },
     enableSorting: false,
     enableHiding: false,
   },

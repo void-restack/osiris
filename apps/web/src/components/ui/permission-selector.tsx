@@ -27,6 +27,8 @@ export function PermissionSelector({
   const [searchQuery, setSearchQuery] = useState("");
   const selectedsContainerRef = useRef<HTMLDivElement>(null);
 
+
+
   useEffect(() => {
     setSelectedPermissions(initialSelected);
   }, [JSON.stringify(initialSelected)]);
@@ -45,9 +47,7 @@ export function PermissionSelector({
     if (checked) {
       setSelectedPermissions((prev) => [...prev, permission]);
     } else {
-      setSelectedPermissions((prev) =>
-        prev.filter((p) => p.id !== permission.id),
-      );
+      setSelectedPermissions((prev) => prev.filter((p) => p.id !== permission.id));
     }
   };
 
@@ -121,7 +121,7 @@ export function PermissionSelector({
                 key={`selected-${permission.id}-${index}`}
                 className="flex items-center gap-1.5 rounded-md bg-primary-50 px-2 py-0.5 text-[13px]"
               >
-                <span className="font-medium text-sm">{permission.label}</span>
+                <span className="font-medium text-xs">{permission.label}</span>
                 <button
                   type="button"
                   onClick={() => removeSelectedPermission(permission.id)}
@@ -150,7 +150,7 @@ export function PermissionSelector({
                 />
                 <label
                   htmlFor={`checkbox-${permission.id}`}
-                  className="flex-1 cursor-pointer leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  className="flex-1 text-[13px] cursor-pointer leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                 >
                   <span>{permission.label}</span>
                 </label>

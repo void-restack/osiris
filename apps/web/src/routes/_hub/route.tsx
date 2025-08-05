@@ -3,7 +3,7 @@ import { DynamicBreadcrumb } from "@/components/dynamic-breadcrumb";
 import HubLayout from "@/components/layouts/hub-layout";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { UserPopover } from "@/components/user-popover";
+import { AuthHeader } from "@/components/auth-header";
 
 export const Route = createFileRoute("/_hub")({
   component: RouteComponent,
@@ -21,7 +21,7 @@ function RouteComponent() {
           />
           <DynamicBreadcrumb />
         </div>
-        <UserPopover />
+        <AuthHeader />
       </header>
       <div className="hidebar h-full w-full overflow-y-scroll pb-8">
         <Outlet />

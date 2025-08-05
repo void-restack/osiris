@@ -3,16 +3,20 @@ import { AuthMethodDialog } from "./auth-method-dialog";
 import type { ServiceClient } from "@/types/auth";
 import { Link } from "@tanstack/react-router";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { isAuthenticated } from "@/lib/auth-optimized";
 
 interface AuthGridViewProps {
   methods: ServiceClient[];
 }
 
 export function AuthGridView({ methods }: AuthGridViewProps) {
+  const authenticated = isAuthenticated();
+
   return (
     <div className="grid w-full grid-cols-1 gap-6 p-6 md:grid-cols-2 lg:grid-cols-3">
       {methods.map((method: ServiceClient) => (
         <div
+          key={method.clientId}
           className="relative group h-fit min-h-52 rounded-xl border border-primary-100 p-6 transition-all hover:border-primary-200 hover:shadow-md block cursor-pointer"
           style={{ zIndex: 0 }}
           aria-label={`Go to ${method.name}`}
@@ -60,17 +64,19 @@ export function AuthGridView({ methods }: AuthGridViewProps) {
                   <p className="text-[13px] text-primary-300">{Object.keys(method.scopeDefinitions).length} Scopes</p>
                 </div>
               </div>
-              <div
-                className="relative z-30 pointer-events-auto auth-method-dialog-trigger"
-                onClick={e => {
-                  e.stopPropagation();
-                }}
-                onMouseDown={e => {
-                  e.stopPropagation();
-                }}
-              >
-                <AuthMethodDialog method={method} />
-              </div>
+              {authenticated && (
+                <div
+                  className="relative z-30 pointer-events-auto auth-method-dialog-trigger"
+                  onClick={e => {
+                    e.stopPropagation();
+                  }}
+                  onMouseDown={e => {
+                    e.stopPropagation();
+                  }}
+                >
+                  <AuthMethodDialog method={method} />
+                </div>
+              )}
             </div>
 
             {/* Content */}

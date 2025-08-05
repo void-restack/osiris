@@ -22,6 +22,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { PermissionSelector, type Permission } from "@/components/ui/permission-selector";
 import { userQueries, hubQueries, packageQueries } from "@/lib/queries";
 import { useDeployPackageMutation } from "@/lib/mutations";
+import { isAuthenticated } from "@/lib/auth-optimized";
 import { getInitials } from "@/lib/utils";
 import type { PackageWithUserStatus } from "@/types";
 
@@ -43,9 +44,9 @@ export function McpDeployDialog({
   const [deploymentName, setDeploymentName] = useState(`${pkg.name} deployment`);
 
   const deployMutation = useDeployPackageMutation();
-  const { data: user } = useSuspenseQuery(userQueries.meOptions());
+  const { data: user } = useSuspenseQuery(userQueries.meOptions(isAuthenticated()));
   const { data: authScopes } = useSuspenseQuery(packageQueries.authScopesOptions(pkg.packageId));
-  const { data: allUserAuth } = useSuspenseQuery(hubQueries.userAuthOptions());
+  const { data: allUserAuth } = useSuspenseQuery(hubQueries.userAuthOptions(isAuthenticated()));
 
   // Filter user auth connections to only show relevant services
   const userAuth = allUserAuth?.filter((connection: any) => {
@@ -74,16 +75,16 @@ export function McpDeployDialog({
     }
 
     try {
-      // Format scopes as "serviceName:permission"
-      const formattedScopes = Object.entries(selectedPermissions).flatMap(([serviceName, permissions]) =>
-        permissions.map(permission => `${serviceName}:${permission.id}`)
+      // Collect all selected permission IDs (already in correct format)
+      const allScopes = Object.values(selectedPermissions).flatMap(permissions =>
+        permissions.map(permission => permission.id)
       );
 
       await deployMutation.mutateAsync({
         packageId: pkg.packageId,
         version: pkg.latestVersion,
         url: `https://api.osirislabs.xyz/mcps/${pkg.name}/mcp`,
-        scopes: formattedScopes,
+        scopes: allScopes,
         authData: {},
         connectionIds: Object.values(selectedConnections),
       });
@@ -121,25 +122,48 @@ export function McpDeployDialog({
       (connection: any) => connection.service_clients.name === serviceName
     );
 
-    // Clean scope names for display
+    // Default scope definitions fallback
+    const DEFAULT_SCOPE_DEFINITIONS: Record<string, string> = {
+      "read": "Read",
+      "write": "Write",
+      "admin": "Admin",
+      "user": "User",
+      "profile": "Profile",
+      "email": "Email",
+      "openid": "OpenID",
+      "offline_access": "Offline Access",
+      "full_access": "Full Access",
+      "limited_access": "Limited Access"
+    };
+
+    // Map scope names for display with improved mapping
     const permissions = useMemo(() => {
-      return requiredScopes.map(scope => {
-        const cleanScope = scope.replace(`${serviceName}:`, '')
-        const label = cleanScope
-          .split(/[./]/)
-          .pop()
-          ?.replace(/([a-z])([A-Z])/g, '$1 $2')
-          .replace(/[_-]/g, ' ')
-          .toLowerCase()
-          .replace(/\b\w/g, l => l.toUpperCase())
-          || cleanScope
+      const mappedPermissions = requiredScopes.map(scope => {
+        // Use default mapping if available  
+        let label = DEFAULT_SCOPE_DEFINITIONS[scope];
+
+        if (!label) {
+          // Fallback to existing formatting logic
+          label = scope
+            .split(/[./]/)
+            .pop()
+            ?.replace(/([a-z])([A-Z])/g, '$1 $2')
+            .replace(/[_-]/g, ' ')
+            .toLowerCase()
+            .replace(/\b\w/g, l => l.toUpperCase())
+            || scope
+        }
 
         return {
-          id: cleanScope,
+          id: scope,
           label: label
         }
-      })
-    }, [serviceName, requiredScopes]);
+      });
+
+
+
+      return mappedPermissions;
+    }, [serviceName, requiredScopes, selectedPermissions]);
 
     const handleServicePermissionSelect = useCallback((permissions: Permission[]) => {
       handlePermissionSelect(serviceName, permissions)
