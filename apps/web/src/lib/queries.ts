@@ -11,6 +11,8 @@ import {
 import { api } from "./api";
 import { isAuthenticated } from "./auth-optimized";
 
+
+
 export const userQueries = {
   all: () => ["users"] as const,
   me: () => [...userQueries.all(), "me"] as const,
@@ -888,26 +890,47 @@ export const creditQueries = {
 };
 
 export const knowledgeQueries = {
-  all: () => ["knowledge"] as const,
-  bases: () => [...knowledgeQueries.all(), "bases"] as const,
+  all: (filters?: { search?: string; page?: number; limit?: number} ) => ["knowledge", ...(filters ? Object.entries(filters) : [])] as const,
+  bases: (filters?: { search?: string; page?: number; limit?: number} ) => [...knowledgeQueries.all(), "bases", ...(filters ? Object.entries(filters) : [])] as const,
   base: (id: string) => [...knowledgeQueries.bases(), id] as const,
-  my: () => [...knowledgeQueries.all(), "my"] as const,
+  my: (filters?: { search?: string; page?: number; limit?: number} ) => [...knowledgeQueries.all(), "my", ...(filters ? Object.entries(filters) : [])] as const,
   sources: (baseId: string) =>
     [...knowledgeQueries.base(baseId), "sources"] as const,
   units: (baseId: string) =>
     [...knowledgeQueries.base(baseId), "units"] as const,
 
-  basesOptions: () =>
+  basesOptions: (filters?: { search?: string; page?: number; limit?: number} ) =>
     queryOptions({
-      queryKey: knowledgeQueries.bases(),
+      queryKey: knowledgeQueries.bases(filters),
       queryFn: async () => {
-        const response = await api("/knowledge-base", {
-          schema: responseSchema(z.array(knowledgeBaseSchema)),
+        const searchParams = new URLSearchParams();
+        if (filters?.search) searchParams.set("search", filters.search);
+        if (filters?.page) searchParams.set("page", String(filters.page));
+        if (filters?.limit) searchParams.set("limit", String(filters.limit));
+
+        const response = await api(`/knowledge-base?${searchParams}`, {
+          schema: z.object({
+            status: z.literal("SUCCESS"),
+            data: z.array(knowledgeBaseSchema.extend({
+              user: z.object({
+                userId: z.string().uuid(),
+                name: z.string(),
+                email: z.string(),
+                imageUrl: z.string().nullable(),
+              }),
+            })),
+            pagination: z.object({
+              total: z.number(),
+              page: z.number(),
+              limit: z.number(),
+              totalPages: z.number(),
+            }),
+          }),
         });
         if (response.status === "FAILED") {
           throw new Error(response.error);
         }
-        return response.data;
+        return response;
       },
       staleTime: 2 * 60 * 1000,
     }),
@@ -927,21 +950,38 @@ export const knowledgeQueries = {
       staleTime: 5 * 60 * 1000,
     }),
 
-  myOptions: (params?: { limit?: number; page?: number }) =>
+  myOptions: (filters?: { search?: string; page?: number; limit?: number} ) =>
     queryOptions({
-      queryKey: [...knowledgeQueries.my(), params],
+      queryKey: [...knowledgeQueries.my(filters)],
       queryFn: async () => {
         const searchParams = new URLSearchParams();
-        searchParams.set("limit", String(params?.limit || 10));
-        searchParams.set("page", String(params?.page || 1));
+        if (filters?.search) searchParams.set("search", filters.search);
+        if (filters?.page) searchParams.set("page", String(filters.page));
+        if (filters?.limit) searchParams.set("limit", String(filters.limit));
 
         const response = await api(`/knowledge-base/my?${searchParams}`, {
-          schema: responseSchema(z.array(knowledgeBaseSchema)),
+          schema: z.object({
+            status: z.literal("SUCCESS"),
+            data: z.array(knowledgeBaseSchema.extend({
+              user: z.object({
+                userId: z.string().uuid(),
+                name: z.string(),
+                email: z.string(),
+                imageUrl: z.string().nullable(),
+              }),
+            })),
+            pagination: z.object({
+              total: z.number(),
+              page: z.number(),
+              limit: z.number(),
+              totalPages: z.number(),
+            }),
+          }),
         });
         if (response.status === "FAILED") {
           throw new Error(response.error);
         }
-        return response.data;
+        return response;
       },
       staleTime: 2 * 60 * 1000,
     }),

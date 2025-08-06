@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { BrowseKnowledgeBaseList } from "./browse-knowledge-base-list";
 import { KnowledgeBaseFilters } from "./knowlege-base-filters";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useRouter } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
 import { McpListPagination } from "../mcp-list/mcp-list-pagination";
 import type { KnowledgeBase } from "@/types";
@@ -12,21 +12,31 @@ import { useIsMobile } from "@/hooks/use-mobile";
 type KnowledgeBaseListContainerProps = {
 	cards: KnowledgeBase[];
 	showOnlyMyKBs: boolean;
-	onShowOnlyMyKBsChange: (showOnly: boolean) => void;
+	filters: {
+		search: string;
+		page: number;
+		limit: number;
+	};
+	pagination?: {
+		total: number;
+		page: number;
+		limit: number;
+		totalPages: number;
+	};
 };
 
 export function KnowledgeBaseListContainer({ 
 	cards, 
 	showOnlyMyKBs, 
-	onShowOnlyMyKBsChange 
+	filters,
+	pagination
 }: KnowledgeBaseListContainerProps) {
 	const isMobile = useIsMobile()
 	const navigate = useNavigate();
-	const [currentPage, setCurrentPage] = useState(1);
+	const router = useRouter();
 	const [selectedTag, setSelectedTag] = useState("all");
 	const [permission, setPermission] = useState("all");
 	const [sortBy, setSortBy] = useState("latest");
-	const pageSize = 6;
 
 	const allTags = useMemo(() => {
 		const tagSet = new Set<string>();
@@ -38,9 +48,13 @@ export function KnowledgeBaseListContainer({
 
 	const filteredAndSorted = useMemo(() => {
 		let data = [...cards];
+		
+		// Apply tag filter (client-side since server doesn't handle this yet)
 		if (selectedTag !== "all") {
 			data = data.filter((item) => item.tags.includes(selectedTag));
 		}
+		
+		// Apply sorting (client-side since server doesn't handle this yet)
 		if (sortBy === "latest") {
 			data = data.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 		} else if (sortBy === "stars") {
@@ -51,16 +65,43 @@ export function KnowledgeBaseListContainer({
 		return data;
 	}, [cards, selectedTag, permission, sortBy]);
 
-	const totalResults = filteredAndSorted.length;
-	const totalPages = Math.ceil(totalResults / pageSize);
-	const paginatedCards = useMemo(() => {
-		const start = (currentPage - 1) * pageSize;
-		return filteredAndSorted.slice(start, start + pageSize);
-	}, [filteredAndSorted, currentPage, pageSize]);
 
-	useMemo(() => {
-		setCurrentPage(1);
-	}, [selectedTag, permission, sortBy, showOnlyMyKBs]);
+	
+	const totalResults = pagination?.total ?? filteredAndSorted.length;
+	const totalPages = pagination?.totalPages ?? Math.ceil(filteredAndSorted.length / filters.limit);
+	const currentPage = filters.page;
+	
+	const handlePageChange = (page: number) => {
+		router.navigate({
+			to: "/knowledge",
+			search: {
+				...router.state.location.search,
+				page,
+			},
+		});
+	};
+
+	const handleShowOnlyMyKBsChange = (showOnly: boolean) => {
+		router.navigate({
+			to: "/knowledge",
+			search: {
+				...router.state.location.search,
+				showOnlyMyKBs: showOnly,
+				page: 1, // Reset to first page
+			},
+		});
+	};
+
+	const handleFilterChange = (newFilters: Partial<typeof filters>) => {
+		router.navigate({
+			to: "/knowledge",
+			search: {
+				...router.state.location.search,
+				...newFilters,
+				page: 1, 
+			},
+		});
+	};
 
 	return (
 		<div className="flex min-h-0 flex-1 flex-col gap-3">
@@ -79,7 +120,9 @@ export function KnowledgeBaseListContainer({
 						sortBy={sortBy}
 						onSortByChange={setSortBy}
 						showOnlyMyKBs={showOnlyMyKBs}
-						onShowOnlyMyKBsChange={onShowOnlyMyKBsChange}
+						onShowOnlyMyKBsChange={handleShowOnlyMyKBsChange}
+						searchQuery={filters.search}
+						onSearchChange={(search) => handleFilterChange({ search })}
 					/>
 					<Button
 					className="cursor-pointer"
@@ -102,13 +145,13 @@ export function KnowledgeBaseListContainer({
 			</div>
 			<Separator />
 			<div className="mt-5 px-6 flex-1 flex flex-col min-h-0 mb-8">
-				<BrowseKnowledgeBaseList cards={paginatedCards} />
+				<BrowseKnowledgeBaseList cards={filteredAndSorted} />
 			</div>
 			<div className="absolute bottom-0 flex h-12 w-full items-center overflow-hidden rounded-b-xl bg-primary-00 py-6">
 				<McpListPagination
 					totalPages={totalPages}
 					currentPage={currentPage}
-					onPageChange={setCurrentPage}
+					onPageChange={handlePageChange}
 					totalResults={totalResults}
 				/>
 			</div>

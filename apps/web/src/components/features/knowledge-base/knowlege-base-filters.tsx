@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, SortAsc, Clock, Star, CreditCard, Shield, Users } from "lucide-react";
+import { ChevronDown, SortAsc, Clock, Star, CreditCard, Shield, Users, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Popover,
   PopoverTrigger,
@@ -23,6 +24,8 @@ export type KnowledgeBaseFiltersProps = {
   onSortByChange: (sort: string) => void;
   showOnlyMyKBs: boolean;
   onShowOnlyMyKBsChange: (showOnly: boolean) => void;
+  searchQuery?: string;
+  onSearchChange?: (search: string) => void;
 };
 
 const sortOptions = [
@@ -36,6 +39,8 @@ export function KnowledgeBaseFilters({
   onSortByChange,
   showOnlyMyKBs,
   onShowOnlyMyKBsChange,
+  searchQuery = "",
+  onSearchChange,
 }: KnowledgeBaseFiltersProps) {
 	const isMobile = useIsMobile()
   
