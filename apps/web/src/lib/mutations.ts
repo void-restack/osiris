@@ -166,6 +166,8 @@ export const useLogoutMutation = () => {
       await api("/users/auth/revoke-refresh", { method: "POST" });
       localStorage.removeItem("access_token");
       localStorage.removeItem("refresh_token");
+      // Clear refresh_token cookie
+      document.cookie = 'refresh_token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
     },
     onSuccess: () => {
       queryClient.clear();
@@ -352,14 +354,47 @@ export const useCreateSecretSharingMutation = () => {
   });
 };
 
+export const useUpdateSecretSharingMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: {
+      id: string;
+      name?: string;
+      secret: Record<string, any>;
+    }) => {
+      const response = await api("/hub/secret/update", {
+        method: "PATCH",
+        body: data,
+        schema: responseSchema(z.any()),
+      });
+      if (response.status === "FAILED") {
+        throw new Error(response.error);
+      }
+      return response.data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: hubQueries.userAuthConnection(variables.id),
+      });
+      queryClient.invalidateQueries({ queryKey: hubQueries.userAuth() });
+    },
+  });
+};
+
 export const useCreateWalletMutation = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (data: {
-      chain: string;
-      options?: { curve?: string; path?: string };
-      policy: Record<string, any>;
+      name: string;
+      accounts: Array<{
+        chains: string[];
+        pathFormat: string;
+        path: string;
+        curve: string;
+        addressFormat: string;
+      }>;
     }) => {
       const response = await api("/hub/wallet/create", {
         method: "POST",
@@ -396,6 +431,41 @@ export const useUpdateWalletMutation = () => {
       queryClient.invalidateQueries({
         queryKey: hubQueries.userAuthConnection(variables.id),
       });
+    },
+  });
+};
+
+export const useAddWalletAccountMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: {
+      id: string;
+      walletId: string;
+      accountId: string;
+      addresses: Array<{
+        chains: string[];
+        pathFormat: string;
+        path: string;
+        curve: string;
+        addressFormat: string;
+      }>;
+    }) => {
+      const response = await api("/wallet/add", {
+        method: "PATCH",
+        body: data,
+        schema: responseSchema(z.any()),
+      });
+      if (response.status === "FAILED") {
+        throw new Error(response.error);
+      }
+      return response.data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: hubQueries.userAuthConnection(variables.id),
+      });
+      queryClient.invalidateQueries({ queryKey: hubQueries.userAuth() });
     },
   });
 };

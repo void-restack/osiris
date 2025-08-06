@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { Link2, RefreshCcw, Loader2, Loader } from "lucide-react";
+import { Link2, Loader2, Loader, Plus, X } from "lucide-react";
 import { useSuspenseQuery, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -22,7 +22,7 @@ import { userQueries, hubQueries } from "@/lib/queries";
 import {
   useCreateServiceConnectionMutation,
   useCreateSecretSharingMutation,
-  useCreateWalletMutation
+  useCreateWalletMutation,
 } from "@/lib/mutations";
 import { getInitials } from "@/lib/utils";
 import { isAuthenticated } from "@/lib/auth-optimized";
@@ -35,6 +35,35 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select"
+
+const BLOCKCHAIN_OPTIONS = {
+  EVM: {
+    label: "EVM",
+    chains: {
+      "Ethereum": "evm:eip155:1",
+      "Polygon": "evm:eip155:137",
+      "Hyperliquid": "evm:eip155:999",
+      "Base": "evm:eip155:8453",
+      "Arbitrum": "evm:eip155:42161"
+    }
+  },
+  SVM: {
+    label: "SVM",
+    chains: {
+      "Solana Mainnet": "solana:mainnet-beta"
+    }
+  }
+};
 
 interface AuthMethodDialogProps {
   method: ServiceClient;
@@ -57,13 +86,36 @@ export function AuthMethodDialog({
   trigger
 }: AuthMethodDialogProps) {
   const [selectedScopes, setSelectedScopes] = useState<Permission[]>([]);
-  const [authHubName, setAuthHubName] = useState(`${method.name} connection`);
+  const [authHubName, setAuthHubName] = useState(
+    method.type === 'embedded_wallet' ? `${method.name} wallet` : `${method.name} connection`
+  );
   const [secretData, setSecretData] = useState<Record<string, any>>({});
-  const [walletData, setWalletData] = useState({
-    chain: '',
-    options: { curve: '', path: '' },
-    policy: {}
+  const [walletData, setWalletData] = useState<{
+    accounts: Array<{
+      chains: string[];
+      pathFormat: string;
+      path: string;
+      curve: string;
+      addressFormat: string;
+    }>;
+  }>({
+    accounts: [
+      {
+        chains: ['evm:eip155:1'], // Default to Ethereum
+        pathFormat: '',
+        path: '',
+        curve: '',
+        addressFormat: ''
+      }
+    ]
   });
+
+  // State for managing success/error for non-OAuth connections
+  const [connectionState, setConnectionState] = useState<{
+    status: 'idle' | 'connecting' | 'success' | 'error';
+    error?: string;
+    connectionId?: string;
+  }>({ status: 'idle' });
 
 
   const createServiceConnection = useCreateServiceConnectionMutation();
@@ -83,6 +135,9 @@ export function AuthMethodDialog({
     onOpenChange?.(isOpen);
 
     if (!isOpen) {
+      // Reset connection state when dialog closes
+      setConnectionState({ status: 'idle' });
+
       // Strip query parameters from URL when dialog closes
       const currentUrl = new URL(window.location.href);
       const pathname = currentUrl.pathname;
@@ -94,10 +149,13 @@ export function AuthMethodDialog({
 
   const handleSaveAuthenticator = async () => {
     try {
+      setConnectionState({ status: 'connecting' });
+
       switch (method.type) {
         case 'oauth':
           if (Object.keys(method.scopeDefinitions).length > 0 && selectedScopes.length === 0) {
             toast.error("Please select at least one permission");
+            setConnectionState({ status: 'idle' });
             return;
           }
           await createServiceConnection.mutateAsync({
@@ -106,6 +164,7 @@ export function AuthMethodDialog({
             name: authHubName,
             redirectUri: window.location.href
           });
+          // OAuth redirects, so no success state needed here
           break;
 
         case 'secret_sharing':
@@ -114,39 +173,61 @@ export function AuthMethodDialog({
             for (const field of metadata.required) {
               if (!secretData[field]) {
                 toast.error(`${metadata.properties?.[field]?.title || field} is required`);
+                setConnectionState({ status: 'idle' });
                 return;
               }
             }
           }
-          await createSecretSharing.mutateAsync({
+          const secretResult = await createSecretSharing.mutateAsync({
             serviceClientId: method.clientId,
+            name: authHubName,
             secret: secretData
           });
+          setConnectionState({
+            status: 'success',
+            connectionId: secretResult?.[0]?.id || 'created'
+          });
+          toast.success("Database connection created successfully!");
           break;
 
         case 'embedded_wallet':
-          if (!walletData.chain) {
-            toast.error("Chain is required");
+          if (!authHubName.trim()) {
+            toast.error("Auth Hub Name is required");
+            setConnectionState({ status: 'idle' });
             return;
           }
-          await createWallet.mutateAsync({
-            chain: walletData.chain,
-            options: walletData.options,
-            policy: walletData.policy
+          if (!walletData.accounts[0]?.chains[0] || walletData.accounts[0].chains[0].trim() === '') {
+            toast.error("At least one blockchain chain is required");
+            setConnectionState({ status: 'idle' });
+            return;
+          }
+          const walletResult = await createWallet.mutateAsync({
+            name: authHubName,
+            accounts: walletData.accounts.filter(account =>
+              account.chains.some(chain => chain.trim() !== '')
+            )
           });
+          setConnectionState({
+            status: 'success',
+            connectionId: walletResult?.[0]?.id || 'created'
+          });
+          toast.success("Wallet created successfully!");
           break;
 
         default:
           toast.error("Unknown authentication type");
+          setConnectionState({ status: 'idle' });
           return;
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Authentication error:", error);
-      toast.error("Failed to start authentication process");
+      const errorMessage = error?.message || "Failed to create connection";
+      setConnectionState({ status: 'error', error: errorMessage });
+      toast.error(errorMessage);
     }
   };
 
-  const isPending = createServiceConnection.isPending || createSecretSharing.isPending || createWallet.isPending;
+  const isPending = createServiceConnection.isPending || createSecretSharing.isPending || createWallet.isPending || connectionState.status === 'connecting';
 
   const renderOAuthForm = () => (
     <>
@@ -207,53 +288,219 @@ export function AuthMethodDialog({
 
   const renderWalletForm = () => (
     <div className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="chain" className="text-sm font-medium">
-          Blockchain Network <span className="text-red-500">*</span>
+      <div className="space-y-4">
+        <Label className="text-sm font-medium">
+          Accounts <span className="text-red-500">*</span>
         </Label>
-        <Input
-          id="chain"
-          placeholder="e.g., ethereum, solana, bitcoin"
-          value={walletData.chain}
-          onChange={(e) => setWalletData(prev => ({
-            ...prev,
-            chain: e.target.value
-          }))}
-          required
-        />
-      </div>
 
-      <Accordion type="single" collapsible>
-        <AccordionItem value="item-1">
-          <AccordionTrigger className="p-0">Advanced</AccordionTrigger>
-          <AccordionContent className="mt-4 flex flex-col gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="curve" className="text-sm font-medium">Curve (Optional)</Label>
-              <Input
-                id="curve"
-                placeholder="e.g., secp256k1, ed25519"
-                value={walletData.options.curve}
-                onChange={(e) => setWalletData(prev => ({
-                  ...prev,
-                  options: { ...prev.options, curve: e.target.value }
-                }))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="path" className="text-sm font-medium">Derivation Path (Optional)</Label>
-              <Input
-                id="path"
-                placeholder="e.g., m/44'/0'/0'/0/0"
-                value={walletData.options.path}
-                onChange={(e) => setWalletData(prev => ({
-                  ...prev,
-                  options: { ...prev.options, path: e.target.value }
-                }))}
-              />
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-      </Accordion>
+        <ScrollArea className="h-[300px] w-full">
+          <div className="space-y-4 pr-4">
+            {walletData.accounts.map((account, index) => (
+              <div key={index} className="border rounded-lg p-4 space-y-4">
+                <div className="flex justify-between items-center">
+                  <Label className="text-sm font-medium">Account {index + 1}</Label>
+                  {walletData.accounts.length > 1 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setWalletData(prev => ({
+                        ...prev,
+                        accounts: prev.accounts.filter((_, i) => i !== index)
+                      }))}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      Remove
+                    </Button>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">
+                    Blockchain Chains <span className="text-red-500">*</span>
+                  </Label>
+
+                  {/* Display selected chains */}
+                  {account.chains.length > 0 && account.chains[0] !== '' && (
+                    <div className="flex flex-wrap gap-2 mb-2">
+                      {account.chains.map((chainValue, chainIndex) => {
+                        // Find the display name for this chain value
+                        const displayName = Object.entries(BLOCKCHAIN_OPTIONS).reduce((found, [groupKey, group]) => {
+                          if (found) return found;
+                          const chainName = Object.entries(group.chains).find(([name, value]) => value === chainValue)?.[0];
+                          return chainName || found;
+                        }, '');
+
+                        return (
+                          <div key={chainIndex} className="flex items-center gap-1 bg-primary-100 text-primary-700 px-2 py-1 rounded-md text-xs">
+                            <span>{displayName || chainValue}</span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-auto p-0 text-primary-500 hover:text-primary-700"
+                              onClick={() => setWalletData(prev => ({
+                                ...prev,
+                                accounts: prev.accounts.map((acc, i) =>
+                                  i === index
+                                    ? { ...acc, chains: acc.chains.filter((_, ci) => ci !== chainIndex) }
+                                    : acc
+                                )
+                              }))}
+                            >
+                              ×
+                            </Button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Chain selector */}
+                  <Select
+                    onValueChange={(value) => {
+                      if (value && !account.chains.includes(value)) {
+                        setWalletData(prev => ({
+                          ...prev,
+                          accounts: prev.accounts.map((acc, i) =>
+                            i === index
+                              ? { ...acc, chains: acc.chains[0] === '' ? [value] : [...acc.chains, value] }
+                              : acc
+                          )
+                        }));
+                      }
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select blockchain chains" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(BLOCKCHAIN_OPTIONS).map(([groupKey, group]) => (
+                        <SelectGroup key={groupKey}>
+                          <SelectLabel>{group.label}</SelectLabel>
+                          {Object.entries(group.chains).map(([chainName, chainValue]) => (
+                            <SelectItem
+                              key={chainValue}
+                              value={chainValue}
+                              disabled={account.chains.includes(chainValue)}
+                            >
+                              {chainName}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <p className="text-xs text-primary-400">
+                    Select one or more blockchain networks for this account
+                  </p>
+                </div>
+
+                <Accordion type="single" collapsible>
+                  <AccordionItem value={`advanced-${index}`}>
+                    <AccordionTrigger className="p-0">Advanced Settings</AccordionTrigger>
+                    <AccordionContent className="mt-4 flex flex-col gap-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor={`curve-${index}`} className="text-sm font-medium">Curve</Label>
+                          <select
+                            id={`curve-${index}`}
+                            value={account.curve}
+                            onChange={(e) => setWalletData(prev => ({
+                              ...prev,
+                              accounts: prev.accounts.map((acc, i) =>
+                                i === index ? { ...acc, curve: e.target.value } : acc
+                              )
+                            }))}
+                            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                          >
+                            <option value="">Select curve (optional)</option>
+                            <option value="CURVE_SECP256K1">SECP256K1 (Ethereum/Bitcoin)</option>
+                            <option value="CURVE_ED25519">ED25519 (Solana)</option>
+                          </select>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor={`addressFormat-${index}`} className="text-sm font-medium">Address Format</Label>
+                          <select
+                            id={`addressFormat-${index}`}
+                            value={account.addressFormat}
+                            onChange={(e) => setWalletData(prev => ({
+                              ...prev,
+                              accounts: prev.accounts.map((acc, i) =>
+                                i === index ? { ...acc, addressFormat: e.target.value } : acc
+                              )
+                            }))}
+                            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                          >
+                            <option value="">Select address format (optional)</option>
+                            <option value="ADDRESS_FORMAT_ETHEREUM">Ethereum</option>
+                            <option value="ADDRESS_FORMAT_SOLANA">Solana</option>
+                            <option value="ADDRESS_FORMAT_BITCOIN">Bitcoin</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor={`path-${index}`} className="text-sm font-medium">Derivation Path</Label>
+                        <Input
+                          id={`path-${index}`}
+                          placeholder="e.g., m/44'/60'/0'/0/0 (optional)"
+                          value={account.path}
+                          onChange={(e) => setWalletData(prev => ({
+                            ...prev,
+                            accounts: prev.accounts.map((acc, i) =>
+                              i === index ? { ...acc, path: e.target.value } : acc
+                            )
+                          }))}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor={`pathFormat-${index}`} className="text-sm font-medium">Path Format</Label>
+                        <select
+                          id={`pathFormat-${index}`}
+                          value={account.pathFormat}
+                          onChange={(e) => setWalletData(prev => ({
+                            ...prev,
+                            accounts: prev.accounts.map((acc, i) =>
+                              i === index ? { ...acc, pathFormat: e.target.value } : acc
+                            )
+                          }))}
+                          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        >
+                          <option value="">Select path format (optional)</option>
+                          <option value="PATH_FORMAT_BIP32">BIP32</option>
+                        </select>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+              </div>
+            ))}
+
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setWalletData(prev => ({
+                ...prev,
+                accounts: [...prev.accounts, {
+                  chains: ['evm:eip155:1'], // Default to Ethereum
+                  pathFormat: '',
+                  path: '',
+                  curve: '',
+                  addressFormat: ''
+                }]
+              }))}
+              className="w-full"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add Account
+            </Button>
+          </div>
+        </ScrollArea>
+      </div>
     </div>
   );
 
@@ -277,9 +524,18 @@ export function AuthMethodDialog({
   const renderConnectMode = () => (
     <>
       <AlertDialogHeader className="border-b border-b-primary-100 px-4 py-3">
-        <AlertDialogTitle className="font-normal text-base text-primary-400 capitalize">
-          Connect {method.name}
-        </AlertDialogTitle>
+        <div className="flex items-center justify-between">
+          <AlertDialogTitle className="font-normal text-base text-primary-400 capitalize">
+            Connect {method.name}
+          </AlertDialogTitle>
+          <button
+            onClick={() => handleDialogOpenChange(false)}
+            className="rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
+          >
+            <X className="h-4 w-4" />
+            <span className="sr-only">Close</span>
+          </button>
+        </div>
       </AlertDialogHeader>
       <div className="w-full">
         <div className="flex flex-col space-y-6">
@@ -306,9 +562,9 @@ export function AuthMethodDialog({
                 </span>
               </div>
             </div>
-            <div className="rounded-md border border-primary-300 p-1">
+            {/* <div className="rounded-md border border-primary-300 p-1">
               <RefreshCcw className="size-4 text-primary-300" />
-            </div>
+            </div> */}
           </div>
 
           <div className="flex flex-col space-y-1.5 px-4 text-[13px] text-primary-400">
@@ -386,7 +642,29 @@ export function AuthMethodDialog({
           )}
         </div>
       </div>
-      {isPending ? null : (
+      {(isPending || connectionState.status === 'success' || connectionState.status === 'error') ? (
+        connectionState.status === 'error' ? (
+          <AlertDialogFooter className="flex w-full items-center rounded-b-[12px] border-t border-t-primary-100 bg-primary-25 px-4 py-3 sm:justify-between">
+            <AlertDialogCancel
+              className="bg-primary-50"
+              onClick={() => {
+                setConnectionState({ status: 'idle' });
+              }}
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="inset-shadow-search-btn"
+              onClick={(e) => {
+                e.preventDefault();
+                setConnectionState({ status: 'idle' });
+              }}
+            >
+              Try Again
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        ) : null
+      ) : (
         <AlertDialogFooter className="flex w-full items-center rounded-b-[12px] border-t border-t-primary-100 bg-primary-25 px-4 py-3 sm:justify-between">
           <AlertDialogCancel className="bg-primary-50">
             Cancel
@@ -417,9 +695,18 @@ export function AuthMethodDialog({
     return (
       <>
         <AlertDialogHeader className="border-b border-b-primary-100 px-4 py-3">
-          <AlertDialogTitle className="font-normal text-base text-primary-400 capitalize">
-            Connect {method.name}
-          </AlertDialogTitle>
+          <div className="flex items-center justify-between">
+            <AlertDialogTitle className="font-normal text-base text-primary-400 capitalize">
+              Connect {method.name}
+            </AlertDialogTitle>
+            <button
+              onClick={() => handleDialogOpenChange(false)}
+              className="rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
+            >
+              <X className="h-4 w-4" />
+              <span className="sr-only">Close</span>
+            </button>
+          </div>
         </AlertDialogHeader>
 
         <div className="w-full">
@@ -446,9 +733,9 @@ export function AuthMethodDialog({
                 </span>
               </div>
             </div>
-            <div className="rounded-md border border-primary-300 p-1">
+            {/* <div className="rounded-md border border-primary-300 p-1">
               <RefreshCcw className="size-4 text-primary-300" />
-            </div>
+            </div> */}
           </div>
 
           <div className="flex flex-col space-y-1.5 mt-6 px-4 text-[13px] text-primary-400">

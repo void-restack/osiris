@@ -44,6 +44,13 @@ export const useReactiveAuth = (): boolean => {
 };
 
 /**
+ * Utility function to clear cookie
+ */
+const clearCookie = (name: string): void => {
+    document.cookie = name + '=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+};
+
+/**
  * Clear all authentication data
  */
 export const clearAuthData = (): void => {
@@ -51,4 +58,5 @@ export const clearAuthData = (): void => {
 
     localStorage.removeItem("access_token");
     localStorage.removeItem("refresh_token");
+    clearCookie("refresh_token");
 };

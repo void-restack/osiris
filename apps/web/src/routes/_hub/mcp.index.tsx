@@ -75,7 +75,7 @@ export const Route = createFileRoute("/_hub/mcp/")({
       // Fetch user's installed MCPs
       await queryClient.ensureQueryData(packageQueries.userInstalledOptions());
       // Fetch user's deployed MCPs  
-      await queryClient.ensureQueryData(packageQueries.userDeploymentsOptions());
+      // await queryClient.ensureQueryData(packageQueries.userDeploymentsOptions());
       // Fetch user info
       await queryClient.ensureQueryData(userQueries.meOptions());
     }
@@ -152,10 +152,12 @@ function RouteComponent() {
     enabled: isAuth,
   });
 
-  const { data: userDeployments } = useQuery({
-    ...packageQueries.userDeploymentsOptions(isAuth),
-    enabled: isAuth,
-  });
+  // const { data: userDeployments } = useQuery({
+  //   ...packageQueries.userDeploymentsOptions(isAuth),
+  //   enabled: isAuth,
+  // });
+
+  const userDeployments: any = []
 
   const { data: popularPackages } = useSuspenseQuery(
     packageQueries.popularOptions()

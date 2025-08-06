@@ -71,7 +71,7 @@ export interface WalletConnection extends BaseUserServiceConnection {
     walletAddress?: string;
     balance?: string;
     chain?: string;
-    accounts?: Array<{
+    accounts?: {
       id: string;
       addresses: Array<{
         chains: string[];
@@ -81,7 +81,7 @@ export interface WalletConnection extends BaseUserServiceConnection {
         addressFormat: string;
       }>;
       chains: string[];
-    }>;
+    };
   };
   policy?: {
     allow: any[];
@@ -135,8 +135,14 @@ export interface DatabaseFormData {
 export interface WalletFormData {
   id: string;
   name: string;
-  walletAddress: string;
-  chain: string;
+  addresses: Array<{
+    address: string;
+    chains: string[];
+    curve: string;
+    addressFormat: string;
+    derivationPath: string;
+  }>;
+  chains: string[];
   balance?: string;
 }
 
@@ -167,14 +173,21 @@ export const connectionToFormData = (
       };
 
     case "embedded_wallet":
+      const accounts = connection.metadata.accounts;
+      const addresses = accounts?.addresses || [];
+      const chains = accounts?.chains || [];
+
       return {
         id: connection.id,
         name: connection.name,
-        walletAddress: connection.metadata.walletAddress || "",
-        chain:
-          connection.metadata.chain ||
-          connection.metadata.accounts?.[0]?.chains?.[0] ||
-          "",
+        addresses: addresses.map((addr: any) => ({
+          address: addr.address || "",
+          chains: addr.chains || [],
+          curve: addr.curve || "",
+          addressFormat: addr.addressFormat || "",
+          derivationPath: addr.derivationPath || "",
+        })),
+        chains: chains,
         balance: connection.metadata.balance,
       };
   }
@@ -211,11 +224,12 @@ export const getConnectionDisplayInfo = (connection: UserServiceConnection) => {
       };
 
     case "embedded_wallet":
+      const primaryAddress = connection.metadata.accounts?.addresses?.[0]?.address;
       return {
         ...baseInfo,
-        subtitle: connection.metadata.walletAddress || "Wallet connection",
+        subtitle: primaryAddress || "Wallet connection",
         status: "Active",
-        details: connection.metadata.walletAddress,
+        details: primaryAddress,
       };
   }
 };

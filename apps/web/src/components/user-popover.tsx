@@ -14,7 +14,6 @@ import { toast } from "sonner";
 export function UserPopover() {
   const [isOpen, setIsOpen] = useState(false);
 
-  // Only fetch user data if authenticated (this should always be true when this component renders)
   const { data: user } = useSuspenseQuery(userQueries.meOptions(isAuthenticated()));
 
   const getInitials = (name: string) => {

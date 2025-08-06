@@ -3,6 +3,26 @@ import { ICONS } from "@/components/icons";
 import { useParams } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { packageQueries } from "@/lib/queries";
+import { WeeklyDownloadsChart } from "./weekly-downloads-chart";
+
+// Simple time ago utility
+function getTimeAgo(dateString: string): string {
+	const date = new Date(dateString);
+	const now = new Date();
+	const diffInMs = now.getTime() - date.getTime();
+
+	const minutes = Math.floor(diffInMs / (1000 * 60));
+	const hours = Math.floor(diffInMs / (1000 * 60 * 60));
+	const days = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+
+	if (minutes < 60) {
+		return `${minutes}min ago`;
+	} else if (hours < 24) {
+		return `${hours}hr ago`;
+	} else {
+		return `${days}d ago`;
+	}
+}
 
 export function McpDetailsView() {
 	const { mcpId } = useParams({ from: "/_hub/mcp/$mcpId" });
@@ -32,6 +52,17 @@ export function McpDetailsView() {
 				<div className="flex items-center justify-between">
 					<p>Version</p>
 					<p>{packageData?.latestVersion || "Unknown"}</p>
+				</div>
+
+				{/* Weekly Downloads Chart */}
+				<div className="pt-2 border-t border-primary-100">
+					<WeeklyDownloadsChart packageId={mcpId} />
+				</div>
+
+				{/* Last Published */}
+				<div className="flex items-center justify-between pt-2 border-t border-primary-100">
+					<p>Last published</p>
+					<p>{packageData?.updatedAt ? getTimeAgo(packageData.updatedAt) : "Unknown"}</p>
 				</div>
 			</div>
 		</div>

@@ -7,7 +7,6 @@ import { DataTable } from "@/components/data-table/data-table";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useDataTable } from "@/hooks/use-data-table";
 import { hubQueries } from "@/lib/queries";
 import { useAppStore } from "@/lib/store";
@@ -284,11 +283,11 @@ function RouteComponent() {
           </div>
         </div>
         <div className="flex items-center gap-4">
-          <Button variant="secondary">
+          {/* <Button variant="secondary">
             {transformedServiceClient.type === 'oauth' ? `${transformedServiceClient.supportedScopes?.length || 0} scopes` :
               transformedServiceClient.type === 'secret_sharing' ? 'Database Config' :
                 transformedServiceClient.type === 'embedded_wallet' ? 'Wallet Config' : 'Config'}
-          </Button>
+          </Button> */}
 
           {authenticated && (
             <AuthMethodDialog

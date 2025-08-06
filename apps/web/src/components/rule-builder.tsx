@@ -2447,7 +2447,7 @@ export default function PolicyBuilder({ value, onChange }: PolicyBuilderProps): 
   };
 
   return (
-    <div className="w-full max-w-md mx-auto p-4 rounded-md">
+    <div className="w-full max-w-md mx-auto rounded-md">
       <Tabs value={activeTab} onValueChange={setActiveTab} className='gap-6'>
         <TabsList className="w-full inset-shadow-tabs h-10 p-1 max-w-[416px]">
           <TabsTrigger value="interactive" className='font-normal data-[state=active]:text-primary-800 text-primary-400'>Interactive <Icon name='swipe' /></TabsTrigger>
