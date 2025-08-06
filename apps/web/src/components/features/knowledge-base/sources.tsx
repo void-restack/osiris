@@ -26,10 +26,11 @@ import {
   Clock,
   CheckCircle,
   XCircle,
+  RefreshCw,
 } from "lucide-react";
 import * as React from "react";
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -55,7 +56,8 @@ import {
 import { McpListPagination } from "../mcp-list/mcp-list-pagination";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { knowledgeQueries } from "@/lib/queries";
+import { knowledgeQueries, userQueries } from "@/lib/queries";
+import { useRetryKnowledgeSourceMutation } from "@/lib/mutations";
 import { Route } from "@/routes/_hub/knowledge/$id";
 import { UploadContentInput } from "./upload-contnet";
 import { GetStartedAlerts } from "./get-started-alert";
@@ -393,9 +395,14 @@ export const columns: ColumnDef<KnowledgeSource>[] = [
     enableSorting: false,
     cell: ({ row }) => {
       const source = row.original;
+      const retryMutation = useRetryKnowledgeSourceMutation();
+
+      const handleRetry = () => {
+        retryMutation.mutate(source.sourceId);
+      };
 
       return (
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-1">
           {source.processingErrorMessage && (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -409,6 +416,24 @@ export const columns: ColumnDef<KnowledgeSource>[] = [
               </TooltipTrigger>
               <TooltipContent>
                 <p>{source.processingErrorMessage}</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
+          {source.processingStatus === 'failed' && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0 text-blue-600 hover:text-blue-800"
+                  onClick={handleRetry}
+                  disabled={retryMutation.isPending}
+                >
+                  <RefreshCw className={`h-3 w-3 ${retryMutation.isPending ? 'animate-spin' : ''}`} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Retry processing</p>
               </TooltipContent>
             </Tooltip>
           )}
