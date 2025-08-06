@@ -89,7 +89,7 @@ export function McpDeployDialog({
         connectionIds: Object.values(selectedConnections),
       });
     } catch (error) {
-      console.error('Deploy error:', error);
+
     }
   };
 

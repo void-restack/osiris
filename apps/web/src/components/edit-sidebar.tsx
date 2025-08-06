@@ -152,7 +152,7 @@ export function EditConnectionSidebar() {
         setHasChanges(false);
         toast.success("Connection saved successfully!");
       } catch (error: any) {
-        console.error("Error saving connection:", error);
+
         toast.error(error.message || "Failed to save connection");
       }
     }
@@ -189,7 +189,7 @@ export function EditConnectionSidebar() {
 
       toast.success("Address added successfully!");
     } catch (error: any) {
-      console.error("Error adding address:", error);
+
       toast.error(error.message || "Failed to add address");
     }
   };

@@ -177,15 +177,7 @@ function RouteComponent() {
         deploymentId: deploymentId
       })
 
-      console.log('Authorization successful:', {
-        authResult,
-        selectedDeploymentAction,
-        deploymentId,
-        selectedAuthConnections,
-        packageDetails,
-        authScopes,
-        policy: policyJson
-      })
+
 
     } catch (error) {
       setError('Authorization failed. Please try again.')
@@ -195,7 +187,7 @@ function RouteComponent() {
   }
 
   const handleDenyConsent = () => {
-    console.log('Deny clicked')
+
   }
 
   return (

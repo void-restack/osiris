@@ -29,7 +29,7 @@ export class AuthErrorBoundary extends Component<Props, State> {
     componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
         // Log auth errors
         if (this.state.hasError) {
-            console.warn('Authentication error caught:', error.message);
+
         }
     }
 
@@ -52,8 +52,7 @@ export function useAuthErrorHandler() {
                 error.message.includes('401');
 
             if (isAuthError) {
-                console.warn('Authentication error:', error.message);
-                // Could trigger a toast or redirect here
+
                 return true; // Handled
             }
         }

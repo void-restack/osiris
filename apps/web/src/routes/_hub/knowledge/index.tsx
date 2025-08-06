@@ -46,7 +46,7 @@ function RouteComponent() {
 
 	let cards, pagination;
 
-	console.log('Knowledge Base API Response:', activeResponse);
+
 
 	if (activeResponse && 'pagination' in activeResponse) {
 		cards = (activeResponse as any).data || [];

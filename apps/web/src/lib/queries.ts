@@ -414,6 +414,7 @@ export const packageQueries = {
   mcpToolsOptions: (serverUrl: string) => queryOptions({
     queryKey: [...packageQueries.all(), "mcp-tools", serverUrl],
     queryFn: async () => {
+
       if (!serverUrl || serverUrl.trim() === '') {
         return { tools: [] };
       }
@@ -426,21 +427,15 @@ export const packageQueries = {
           }
         });
 
-        if (response.status === 'FAILED') {
-          throw new Error(response.error || 'Failed to fetch MCP tools');
-        }
+        // @ts-ignore
+        const tools = response?.tools || [];
 
-        return { tools: response.data?.tools || [] };
-
+        return { tools };
       } catch (error) {
-        console.error('❌ Failed to fetch MCP tools:', error);
-        console.error('Server URL was:', serverUrl);
-
-        // Return empty tools list when API fails
         return { tools: [] };
       }
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
   })
 };
 

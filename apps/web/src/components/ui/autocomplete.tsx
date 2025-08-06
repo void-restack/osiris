@@ -87,7 +87,7 @@ export function Autocomplete<T extends AutocompleteItem>({
 					const results = await onSearch(debouncedSearch);
 					setItems(Array.isArray(results) ? results : []);
 				} catch (error) {
-					console.error("Search error:", error);
+
 					setItems([]);
 				} finally {
 					setInternalLoading(false);
