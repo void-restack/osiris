@@ -5,8 +5,17 @@ import {
 	PopoverTrigger,
 } from "@/components/ui/popover";
 import { Button } from "./ui/button";
+import { useQuery } from "@tanstack/react-query";
+import { creditQueries } from "@/lib/queries";
+import { Skeleton } from "./ui/skeleton";
 
-export function CreditsMenu({ credits }: { credits: number }) {
+export function CreditsMenu() {
+	const { data: creditsData, isLoading: creditsLoading } = useQuery({
+		...creditQueries.balanceOptions(),
+	});
+
+	const credits = creditsData ? parseFloat(creditsData.totalCredits).toFixed(2) : "0.00";
+
 	return (
 		<Popover>
 			<PopoverTrigger asChild>
@@ -14,7 +23,11 @@ export function CreditsMenu({ credits }: { credits: number }) {
 					variant={"secondary"}
 					className="flex h-8 min-w-[130px] cursor-pointer items-center gap-1 rounded-6px text-sm"
 				>
-					<span className="text-[#171717]">{credits}</span>
+					{creditsLoading ? (
+						<Skeleton className="h-4 w-8" />
+					) : (
+						<span className="text-[#171717]">{credits}</span>
+					)}
 					<span className="text-[#A3A3A3]">Credits</span>
 					<ChevronDown className="h-[14px] w-[14px] stroke-[#A3A3A3]" />
 				</Button>

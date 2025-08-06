@@ -10,6 +10,7 @@ import {
 } from "@/types";
 import { api } from "./api";
 import { isAuthenticated } from "./auth-optimized";
+import { ListToolsResultSchema } from "@modelcontextprotocol/sdk/types.js";
 
 
 
@@ -69,6 +70,14 @@ export const packageQueries = {
     publisherId?: string;
     name?: string;
     search?: string;
+    type?: string;
+    isFree?: boolean;
+    minPrice?: number;
+    maxPrice?: number;
+    createdAfter?: string;
+    createdBefore?: string;
+    sortBy?: string;
+    sortOrder?: string;
     page?: number;
     limit?: number;
   }) => [...packageQueries.lists(), filters] as const,
@@ -88,6 +97,14 @@ export const packageQueries = {
     publisherId?: string;
     name?: string;
     search?: string;
+    type?: string;
+    isFree?: boolean;
+    minPrice?: number;
+    maxPrice?: number;
+    createdAfter?: string;
+    createdBefore?: string;
+    sortBy?: string;
+    sortOrder?: string;
     page?: number;
     limit?: number;
   }) =>
@@ -98,21 +115,37 @@ export const packageQueries = {
         if (filters.publisherId) params.set("publisherId", filters.publisherId);
         if (filters.name) params.set("name", filters.name);
         if (filters.search) params.set("search", filters.search);
+        if (filters.type) params.set("type", filters.type);
+        if (filters.isFree !== undefined) params.set("isFree", String(filters.isFree));
+        if (filters.minPrice !== undefined) params.set("minPrice", String(filters.minPrice));
+        if (filters.maxPrice !== undefined) params.set("maxPrice", String(filters.maxPrice));
+        if (filters.createdAfter) params.set("createdAfter", filters.createdAfter);
+        if (filters.createdBefore) params.set("createdBefore", filters.createdBefore);
+        if (filters.sortBy) params.set("sortBy", filters.sortBy);
+        if (filters.sortOrder) params.set("sortOrder", filters.sortOrder);
         params.set("page", String(filters.page || 1));
         params.set("limit", String(filters.limit || 10));
 
         const response = await api(`/packages?${params}`, {
-          schema: responseSchema(
-            z.object({
-              data: z.array(packageListSchema),
-              pagination: z.object({
-                total: z.number(),
-                totalPages: z.number(),
-                page: z.number(),
-                limit: z.number(),
-              }),
-            })
-          ),
+          schema: z.object({
+            status: z.literal("SUCCESS"),
+            data: z.array(packageListSchema),
+            pagination: z.object({
+              total: z.number(),
+              totalPages: z.number(),
+              page: z.number(),
+              limit: z.number(),
+            }),
+            filters: z.object({
+              page: z.number(),
+              limit: z.number(),
+              sortBy: z.string().optional(),
+              sortOrder: z.string().optional(),
+              search: z.string().optional(),
+              name: z.string().optional(),
+              publisherId: z.string().optional(),
+            }).optional(),
+          }),
         });
         if (response.status === "FAILED") {
           throw new Error(response.error);
@@ -203,12 +236,21 @@ export const packageQueries = {
       queryKey: packageQueries.popular(),
       queryFn: async () => {
         const response = await api("/packages/popular", {
-          schema: responseSchema(z.array(popularPackageSchema)),
+          schema: z.object({
+            status: z.literal("SUCCESS"),
+            data: z.array(popularPackageSchema),
+            pagination: z.object({
+              total: z.number(),
+              totalPages: z.number(),
+              page: z.number(),
+              limit: z.number(),
+            }),
+          }),
         });
         if (response.status === "FAILED") {
           throw new Error(response.error);
         }
-        return response.data;
+        return response; // Return full response to match listOptions structure
       },
       staleTime: 10 * 60 * 1000,
     }),
@@ -356,8 +398,6 @@ export const packageQueries = {
     queryKey: packageQueries.actions(packageId),
     queryFn: async () => {
       const params = packageId ? { packageId } : {};
-      // Note: This is a user-specific endpoint that requires authentication
-      // For public access, we'll return empty actions
       if (!isAuthenticated()) {
         return [];
       }
@@ -374,217 +414,30 @@ export const packageQueries = {
   mcpToolsOptions: (serverUrl: string) => queryOptions({
     queryKey: [...packageQueries.all(), "mcp-tools", serverUrl],
     queryFn: async () => {
-      // Skip if no valid URL provided
       if (!serverUrl || serverUrl.trim() === '') {
-        console.log('⚠️ No MCP server URL provided, using fallback data');
         return { tools: [] };
       }
 
       try {
-        // Validate URL format
-        const url = new URL(serverUrl);
+        const response = await api('/packages/mcp-proxy', {
+          method: 'POST',
+          body: {
+            url: serverUrl
+          }
+        });
 
-        // Skip localhost or development URLs unless we're in development
-        if (url.hostname === 'localhost' && !import.meta.env.DEV) {
-          console.log('⚠️ Localhost URL detected in production, using fallback data');
-          return { tools: [] };
+        if (response.status === 'FAILED') {
+          throw new Error(response.error || 'Failed to fetch MCP tools');
         }
 
-        const { Client } = await import('@modelcontextprotocol/sdk/client/index.js');
-        const { StreamableHTTPClientTransport } = await import('@modelcontextprotocol/sdk/client/streamableHttp.js');
+        return { tools: response.data?.tools || [] };
 
-        const transport = new StreamableHTTPClientTransport(url);
-
-        const client = new Client({
-          name: 'osiris-web-client',
-          version: '1.0.0',
-        }, {
-          capabilities: {
-            tools: {},
-          },
-        });
-
-        // Add timeout to prevent hanging
-        const connectPromise = client.connect(transport);
-        const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Connection timeout')), 5000)
-        );
-
-        await Promise.race([connectPromise, timeoutPromise]);
-
-        // Get available tools
-        const tools = await client.listTools();
-
-        return tools;
-      } catch (error: any) {
+      } catch (error) {
         console.error('❌ Failed to fetch MCP tools:', error);
         console.error('Server URL was:', serverUrl);
-        console.error('Error details:', {
-          message: error?.message || 'Unknown error',
-          stack: error?.stack,
-          name: error?.name
-        });
 
-        // Return fallback tools data for demo purposes
-        console.log('🔄 Using fallback tools data');
-        return {
-          tools: [
-            {
-              name: "fetchEmails",
-              description: "Fetch emails from Gmail inbox with optional search query and filters",
-              inputSchema: {
-                type: "object",
-                properties: {
-                  maxResults: {
-                    type: "number",
-                    minimum: 1,
-                    maximum: 100,
-                    default: 10,
-                    description: "Maximum number of results to return"
-                  },
-                  query: {
-                    type: "string",
-                    description: "Gmail search query"
-                  }
-                },
-                additionalProperties: false,
-                "$schema": "http://json-schema.org/draft-07/schema#"
-              }
-            },
-            {
-              name: "get_latest_emails",
-              description: "Get the most recent emails from Gmail, optionally including read emails",
-              inputSchema: {
-                type: "object",
-                properties: {
-                  maxResults: {
-                    type: "number",
-                    minimum: 1,
-                    maximum: 100,
-                    default: 10,
-                    description: "Maximum number of results to return"
-                  },
-                  includeRead: {
-                    type: "boolean",
-                    default: true,
-                    description: "Include read emails in results"
-                  }
-                },
-                additionalProperties: false,
-                "$schema": "http://json-schema.org/draft-07/schema#"
-              }
-            },
-            {
-              name: "send_email",
-              description: "Send an email through Gmail with support for CC, BCC, and HTML content",
-              inputSchema: {
-                type: "object",
-                properties: {
-                  to: {
-                    type: "string",
-                    format: "email",
-                    description: "Recipient email address"
-                  },
-                  subject: {
-                    type: "string",
-                    minLength: 1,
-                    description: "Email subject line"
-                  },
-                  body: {
-                    type: "string",
-                    minLength: 1,
-                    description: "Email body content - can be plain text or HTML"
-                  },
-                  cc: {
-                    type: "string",
-                    description: "CC recipients (comma-separated email addresses)"
-                  },
-                  bcc: {
-                    "$ref": "#/properties/cc",
-                    description: "BCC recipients (comma-separated email addresses)"
-                  },
-                  isHtml: {
-                    type: "boolean",
-                    default: false,
-                    description: "Whether the body content is HTML format"
-                  }
-                },
-                required: ["to", "subject", "body"],
-                additionalProperties: false,
-                "$schema": "http://json-schema.org/draft-07/schema#"
-              }
-            },
-            {
-              name: "search_email",
-              description: "Advanced Gmail search using Gmail search operators. Supports complex queries like \"from:example@gmail.com has:attachment after:2023/01/01\"",
-              inputSchema: {
-                type: "object",
-                properties: {
-                  query: {
-                    type: "string",
-                    minLength: 1,
-                    description: "Advanced Gmail search query (supports Gmail search operators)"
-                  },
-                  maxResults: {
-                    type: "number",
-                    minimum: 1,
-                    maximum: 100,
-                    default: 10,
-                    description: "Maximum number of results to return"
-                  },
-                  includeBody: {
-                    type: "boolean",
-                    default: false,
-                    description: "Include email body content in results (may slow down search)"
-                  }
-                },
-                required: ["query"],
-                additionalProperties: false,
-                "$schema": "http://json-schema.org/draft-07/schema#"
-              }
-            },
-            {
-              name: "create_draft_email",
-              description: "Create a draft email that can be reviewed and sent later",
-              inputSchema: {
-                type: "object",
-                properties: {
-                  to: {
-                    type: "string",
-                    format: "email",
-                    description: "Recipient email address"
-                  },
-                  subject: {
-                    type: "string",
-                    minLength: 1,
-                    description: "Email subject line"
-                  },
-                  body: {
-                    type: "string",
-                    minLength: 1,
-                    description: "Email body content - can be plain text or HTML"
-                  },
-                  cc: {
-                    type: "string",
-                    description: "CC recipients (comma-separated email addresses)"
-                  },
-                  bcc: {
-                    "$ref": "#/properties/cc",
-                    description: "BCC recipients (comma-separated email addresses)"
-                  },
-                  isHtml: {
-                    type: "boolean",
-                    default: false,
-                    description: "Whether the body content is HTML format"
-                  }
-                },
-                required: ["to", "subject", "body"],
-                additionalProperties: false,
-                "$schema": "http://json-schema.org/draft-07/schema#"
-              }
-            }
-          ]
-        };
+        // Return empty tools list when API fails
+        return { tools: [] };
       }
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
@@ -890,16 +743,16 @@ export const creditQueries = {
 };
 
 export const knowledgeQueries = {
-  all: (filters?: { search?: string; page?: number; limit?: number} ) => ["knowledge", ...(filters ? Object.entries(filters) : [])] as const,
-  bases: (filters?: { search?: string; page?: number; limit?: number} ) => [...knowledgeQueries.all(), "bases", ...(filters ? Object.entries(filters) : [])] as const,
+  all: (filters?: { search?: string; page?: number; limit?: number }) => ["knowledge", ...(filters ? Object.entries(filters) : [])] as const,
+  bases: (filters?: { search?: string; page?: number; limit?: number }) => [...knowledgeQueries.all(), "bases", ...(filters ? Object.entries(filters) : [])] as const,
   base: (id: string) => [...knowledgeQueries.bases(), id] as const,
-  my: (filters?: { search?: string; page?: number; limit?: number} ) => [...knowledgeQueries.all(), "my", ...(filters ? Object.entries(filters) : [])] as const,
+  my: (filters?: { search?: string; page?: number; limit?: number }) => [...knowledgeQueries.all(), "my", ...(filters ? Object.entries(filters) : [])] as const,
   sources: (baseId: string) =>
     [...knowledgeQueries.base(baseId), "sources"] as const,
   units: (baseId: string) =>
     [...knowledgeQueries.base(baseId), "units"] as const,
 
-  basesOptions: (filters?: { search?: string; page?: number; limit?: number} ) =>
+  basesOptions: (filters?: { search?: string; page?: number; limit?: number }) =>
     queryOptions({
       queryKey: knowledgeQueries.bases(filters),
       queryFn: async () => {
@@ -950,7 +803,7 @@ export const knowledgeQueries = {
       staleTime: 5 * 60 * 1000,
     }),
 
-  myOptions: (filters?: { search?: string; page?: number; limit?: number} ) =>
+  myOptions: (filters?: { search?: string; page?: number; limit?: number }) =>
     queryOptions({
       queryKey: [...knowledgeQueries.my(filters)],
       queryFn: async () => {

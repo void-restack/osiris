@@ -153,7 +153,7 @@ function ClickableSource({ source }: { source: KnowledgeSource }) {
     if (source.sourceType === "file") {
       const fileUrl =
         source.source.startsWith("http://") ||
-        source.source.startsWith("https://")
+          source.source.startsWith("https://")
           ? source.source
           : source.source.startsWith("/")
             ? source.source
@@ -166,8 +166,8 @@ function ClickableSource({ source }: { source: KnowledgeSource }) {
     const isTruncated = title.includes("...");
     const fullText =
       source.sourceType === "url" ||
-      source.sourceType === "youtube_url" ||
-      source.sourceType === "file"
+        source.sourceType === "youtube_url" ||
+        source.sourceType === "file"
         ? source.source
         : source.sourceType === "text"
           ? source.source.replace(/\s+/g, " ").trim()
@@ -452,7 +452,7 @@ export function SourcesTable() {
   const [rowSelection, setRowSelection] = React.useState({});
 
   const authenticated = isAuthenticated();
-  
+
   // Fetch current user data if authenticated
   const { data: currentUser } = useQuery({
     ...userQueries.meOptions(authenticated),
@@ -477,8 +477,8 @@ export function SourcesTable() {
     return sources.slice(start, start + pageSize);
   }, [sources, currentPage, pageSize]);
 
-  const columns = React.useMemo(() => 
-    createColumns(currentUser, knowledgeBase?.userId), 
+  const columns = React.useMemo(() =>
+    createColumns(currentUser, knowledgeBase?.userId),
     [currentUser, knowledgeBase?.userId]
   );
 
@@ -516,8 +516,8 @@ export function SourcesTable() {
   if (sources.length === 0) {
     return (
       <div className="w-full flex flex-col gap-4">
-        <UploadContentInput 
-          knowledgeBaseId={knowledgeBaseId} 
+        <UploadContentInput
+          knowledgeBaseId={knowledgeBaseId}
         />
         <GetStartedAlerts />
       </div>
@@ -534,17 +534,16 @@ export function SourcesTable() {
                 {headerGroup.headers.map((header, index) => {
                   return (
                     <TableHead
-                      className={`bg-primary-25 font-normal text-primary-400 text-sm ${
-                        index === 0 ? "pr-0" : index === 1 ? "pl-0" : ""
-                      }`}
+                      className={`bg-primary-25 font-normal text-primary-400 text-sm ${index === 0 ? "pr-0" : index === 1 ? "pl-0" : ""
+                        }`}
                       key={header.id}
                     >
                       {header.isPlaceholder
                         ? null
                         : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
                     </TableHead>
                   );
                 })}
@@ -561,14 +560,13 @@ export function SourcesTable() {
                 >
                   {row.getVisibleCells().map((cell, index) => (
                     <TableCell
-                      className={`h-14 ${
-                        index === 0 ||
-                        index === table.getVisibleFlatColumns().length - 1
+                      className={`h-14 ${index === 0 ||
+                          index === table.getVisibleFlatColumns().length - 1
                           ? "w-[42px] pr-3"
                           : index === 1
                             ? "pl-0"
                             : ""
-                      }`}
+                        }`}
                       key={cell.id}
                     >
                       {flexRender(

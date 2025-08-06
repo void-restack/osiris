@@ -7,11 +7,12 @@ import ReactDOM from "react-dom/client";
 import { Toaster } from "sonner";
 import { queryClient } from "./lib/query-client";
 import { routeTree } from "./routeTree.gen";
+import { FullPageLoadingScreen } from "./components/ui/loading-screen";
 
 const router = createRouter({
   routeTree,
   defaultPreload: "intent",
-  defaultPendingComponent: () => <div>Loading...</div>,
+  defaultPendingComponent: () => <FullPageLoadingScreen message="Loading page..." />,
   context: {
     queryClient: queryClient,
   },

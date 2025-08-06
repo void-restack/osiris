@@ -20,6 +20,9 @@ export const packageListSchema = z.object({
   publisherId: z.string().uuid(),
   iconUrl: z.string().nullable(),
   coverImageUrl: z.string().nullable(),
+  tags: z.array(z.string()).default([]),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
   paymentConfig: z.any().nullable(),
 });
 

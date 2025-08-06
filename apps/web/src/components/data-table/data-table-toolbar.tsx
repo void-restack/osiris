@@ -77,6 +77,8 @@ function DataTableToolbarFilter<TData>({
 	{
 		const columnMeta = column.columnDef.meta;
 
+
+
 		const onFilterRender = React.useCallback(() => {
 			if (!columnMeta?.variant) return null;
 
@@ -86,7 +88,9 @@ function DataTableToolbarFilter<TData>({
 						<Input
 							placeholder={columnMeta.placeholder ?? columnMeta.label}
 							value={(column.getFilterValue() as string) ?? ""}
-							onChange={(event) => column.setFilterValue(event.target.value)}
+							onChange={(event) => {
+								column.setFilterValue(event.target.value);
+							}}
 							className="h-8 w-40 lg:w-56"
 						/>
 					);

@@ -17,6 +17,9 @@ import {
 import { Button } from "./ui/button";
 import { Icon } from "./ui/icon";
 import { isAuthenticated } from "@/lib/auth-optimized";
+import { useQuery } from "@tanstack/react-query";
+import { creditQueries } from "@/lib/queries";
+import { Skeleton } from "./ui/skeleton";
 
 const data = {
   navMain: [
@@ -76,6 +79,24 @@ const data = {
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const authenticated = isAuthenticated();
 
+  // Fetch credits balance if authenticated
+  const { data: creditsData, isLoading: creditsLoading } = useQuery({
+    ...creditQueries.balanceOptions(),
+    enabled: authenticated,
+  });
+
+  // Format credits for display
+  const formatCredits = (credits: string) => {
+    const numCredits = parseFloat(credits);
+    const dollars = numCredits.toFixed(2);
+    return {
+      credits: dollars,
+      dollars: `(~ $${dollars})`
+    };
+  };
+
+  const creditsDisplay = creditsData ? formatCredits(creditsData.totalCredits) : { credits: "0.00", dollars: "(~ $0.00)" };
+
   return (
     <Sidebar variant="inset" {...props}>
       <SidebarHeader className="flex min-h-[86px] w-full items-center justify-center border-b border-b-primary-100">
@@ -105,9 +126,16 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <div className="inset-shadow-credit-card rounded-[6px] bg-white px-2 py-3">
             <p className="mb-2 text-primary-300 text-xs">Available Credits</p>
             <div className="mb-6 flex items-center justify-between">
-              <span className="text-lg text-primary-800">
-                00.00 <span className="text-primary-300">(~ $00.00)</span>{" "}
-              </span>
+              {creditsLoading ? (
+                <div className="flex items-center gap-2">
+                  <Skeleton className="h-6 w-16" />
+                  <Skeleton className="h-4 w-12" />
+                </div>
+              ) : (
+                <span className="text-lg text-primary-800">
+                  {creditsDisplay.credits} <span className="text-primary-300">{creditsDisplay.dollars}</span>
+                </span>
+              )}
               <ExternalLink className="size-4 text-primary-300 hover:text-primary-800" />
             </div>
             <Button

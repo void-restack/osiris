@@ -188,7 +188,10 @@ export function McpCapabilitiesList({ data }: { data: Capability[] }) {
 					) : (
 						<TableRow>
 							<TableCell colSpan={columns.length} className="h-24 text-center">
-								No results.
+								<div className="flex flex-col items-center gap-2">
+									<p className="text-primary-600 font-medium">No tools available</p>
+									<p className="text-primary-400 text-sm">This MCP server doesn't provide any tools</p>
+								</div>
 							</TableCell>
 						</TableRow>
 					)}

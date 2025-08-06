@@ -25,9 +25,9 @@ type KnowledgeBaseListContainerProps = {
 	};
 };
 
-export function KnowledgeBaseListContainer({ 
-	cards, 
-	showOnlyMyKBs, 
+export function KnowledgeBaseListContainer({
+	cards,
+	showOnlyMyKBs,
 	filters,
 	pagination
 }: KnowledgeBaseListContainerProps) {
@@ -48,12 +48,12 @@ export function KnowledgeBaseListContainer({
 
 	const filteredAndSorted = useMemo(() => {
 		let data = [...cards];
-		
+
 		// Apply tag filter (client-side since server doesn't handle this yet)
 		if (selectedTag !== "all") {
 			data = data.filter((item) => item.tags.includes(selectedTag));
 		}
-		
+
 		// Apply sorting (client-side since server doesn't handle this yet)
 		if (sortBy === "latest") {
 			data = data.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -66,11 +66,11 @@ export function KnowledgeBaseListContainer({
 	}, [cards, selectedTag, permission, sortBy]);
 
 
-	
+
 	const totalResults = pagination?.total ?? filteredAndSorted.length;
 	const totalPages = pagination?.totalPages ?? Math.ceil(filteredAndSorted.length / filters.limit);
 	const currentPage = filters.page;
-	
+
 	const handlePageChange = (page: number) => {
 		router.navigate({
 			to: "/knowledge",
@@ -98,7 +98,7 @@ export function KnowledgeBaseListContainer({
 			search: {
 				...router.state.location.search,
 				...newFilters,
-				page: 1, 
+				page: 1,
 			},
 		});
 	};
@@ -125,7 +125,7 @@ export function KnowledgeBaseListContainer({
 						onSearchChange={(search) => handleFilterChange({ search })}
 					/>
 					<Button
-					className="cursor-pointer"
+						className="cursor-pointer"
 						onClick={() => {
 							navigate({
 								to: "/knowledge/new",

@@ -15,6 +15,7 @@ import { Route as OauthConsentRouteImport } from './routes/oauth.consent'
 import { Route as HubMcpIndexRouteImport } from './routes/_hub/mcp.index'
 import { Route as HubKnowledgeIndexRouteImport } from './routes/_hub/knowledge/index'
 import { Route as HubAuthIndexRouteImport } from './routes/_hub/auth.index'
+import { Route as HubPackagesTableRouteImport } from './routes/_hub/packages.table'
 import { Route as HubMcpMcpIdRouteImport } from './routes/_hub/mcp.$mcpId'
 import { Route as HubKnowledgeNewRouteImport } from './routes/_hub/knowledge/new'
 import { Route as HubKnowledgeIdRouteImport } from './routes/_hub/knowledge/$id'
@@ -49,6 +50,11 @@ const HubAuthIndexRoute = HubAuthIndexRouteImport.update({
   path: '/auth/',
   getParentRoute: () => HubRouteRoute,
 } as any)
+const HubPackagesTableRoute = HubPackagesTableRouteImport.update({
+  id: '/packages/table',
+  path: '/packages/table',
+  getParentRoute: () => HubRouteRoute,
+} as any)
 const HubMcpMcpIdRoute = HubMcpMcpIdRouteImport.update({
   id: '/mcp/$mcpId',
   path: '/mcp/$mcpId',
@@ -77,6 +83,7 @@ export interface FileRoutesByFullPath {
   '/knowledge/$id': typeof HubKnowledgeIdRoute
   '/knowledge/new': typeof HubKnowledgeNewRoute
   '/mcp/$mcpId': typeof HubMcpMcpIdRoute
+  '/packages/table': typeof HubPackagesTableRoute
   '/auth': typeof HubAuthIndexRoute
   '/knowledge': typeof HubKnowledgeIndexRoute
   '/mcp': typeof HubMcpIndexRoute
@@ -88,6 +95,7 @@ export interface FileRoutesByTo {
   '/knowledge/$id': typeof HubKnowledgeIdRoute
   '/knowledge/new': typeof HubKnowledgeNewRoute
   '/mcp/$mcpId': typeof HubMcpMcpIdRoute
+  '/packages/table': typeof HubPackagesTableRoute
   '/auth': typeof HubAuthIndexRoute
   '/knowledge': typeof HubKnowledgeIndexRoute
   '/mcp': typeof HubMcpIndexRoute
@@ -101,6 +109,7 @@ export interface FileRoutesById {
   '/_hub/knowledge/$id': typeof HubKnowledgeIdRoute
   '/_hub/knowledge/new': typeof HubKnowledgeNewRoute
   '/_hub/mcp/$mcpId': typeof HubMcpMcpIdRoute
+  '/_hub/packages/table': typeof HubPackagesTableRoute
   '/_hub/auth/': typeof HubAuthIndexRoute
   '/_hub/knowledge/': typeof HubKnowledgeIndexRoute
   '/_hub/mcp/': typeof HubMcpIndexRoute
@@ -114,6 +123,7 @@ export interface FileRouteTypes {
     | '/knowledge/$id'
     | '/knowledge/new'
     | '/mcp/$mcpId'
+    | '/packages/table'
     | '/auth'
     | '/knowledge'
     | '/mcp'
@@ -125,6 +135,7 @@ export interface FileRouteTypes {
     | '/knowledge/$id'
     | '/knowledge/new'
     | '/mcp/$mcpId'
+    | '/packages/table'
     | '/auth'
     | '/knowledge'
     | '/mcp'
@@ -137,6 +148,7 @@ export interface FileRouteTypes {
     | '/_hub/knowledge/$id'
     | '/_hub/knowledge/new'
     | '/_hub/mcp/$mcpId'
+    | '/_hub/packages/table'
     | '/_hub/auth/'
     | '/_hub/knowledge/'
     | '/_hub/mcp/'
@@ -192,6 +204,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HubAuthIndexRouteImport
       parentRoute: typeof HubRouteRoute
     }
+    '/_hub/packages/table': {
+      id: '/_hub/packages/table'
+      path: '/packages/table'
+      fullPath: '/packages/table'
+      preLoaderRoute: typeof HubPackagesTableRouteImport
+      parentRoute: typeof HubRouteRoute
+    }
     '/_hub/mcp/$mcpId': {
       id: '/_hub/mcp/$mcpId'
       path: '/mcp/$mcpId'
@@ -228,6 +247,7 @@ interface HubRouteRouteChildren {
   HubKnowledgeIdRoute: typeof HubKnowledgeIdRoute
   HubKnowledgeNewRoute: typeof HubKnowledgeNewRoute
   HubMcpMcpIdRoute: typeof HubMcpMcpIdRoute
+  HubPackagesTableRoute: typeof HubPackagesTableRoute
   HubAuthIndexRoute: typeof HubAuthIndexRoute
   HubKnowledgeIndexRoute: typeof HubKnowledgeIndexRoute
   HubMcpIndexRoute: typeof HubMcpIndexRoute
@@ -238,6 +258,7 @@ const HubRouteRouteChildren: HubRouteRouteChildren = {
   HubKnowledgeIdRoute: HubKnowledgeIdRoute,
   HubKnowledgeNewRoute: HubKnowledgeNewRoute,
   HubMcpMcpIdRoute: HubMcpMcpIdRoute,
+  HubPackagesTableRoute: HubPackagesTableRoute,
   HubAuthIndexRoute: HubAuthIndexRoute,
   HubKnowledgeIndexRoute: HubKnowledgeIndexRoute,
   HubMcpIndexRoute: HubMcpIndexRoute,

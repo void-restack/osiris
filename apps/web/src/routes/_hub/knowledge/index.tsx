@@ -7,10 +7,10 @@ import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 
 const searchSchema = z.object({
-  search: z.string().optional(),
-  page: z.coerce.number().optional(),
-  limit: z.coerce.number().optional(),
-  showOnlyMyKBs: z.coerce.boolean().optional(),
+	search: z.string().optional(),
+	page: z.coerce.number().optional(),
+	limit: z.coerce.number().optional(),
+	showOnlyMyKBs: z.coerce.boolean().optional(),
 });
 
 export const Route = createFileRoute("/_hub/knowledge/")({
@@ -24,7 +24,7 @@ export const Route = createFileRoute("/_hub/knowledge/")({
 function RouteComponent() {
 	const search = Route.useSearch();
 	const showOnlyMyKBs = search.showOnlyMyKBs ?? false;
-	
+
 	const filters = {
 		search: search.search || "",
 		page: search.page || 1,
@@ -35,7 +35,7 @@ function RouteComponent() {
 		...knowledgeQueries.basesOptions(filters),
 		enabled: !showOnlyMyKBs,
 	})
-	
+
 	const { data: myKBsResponse, isLoading: myKBsLoading } = useQuery({
 		...knowledgeQueries.myOptions(filters),
 		enabled: showOnlyMyKBs,
@@ -43,11 +43,11 @@ function RouteComponent() {
 
 	const activeResponse = showOnlyMyKBs ? myKBsResponse : allKBsResponse;
 	const isLoading = showOnlyMyKBs ? myKBsLoading : allKBsLoading;
-	
+
 	let cards, pagination;
-	
+
 	console.log('Knowledge Base API Response:', activeResponse);
-	
+
 	if (activeResponse && 'pagination' in activeResponse) {
 		cards = (activeResponse as any).data || [];
 		pagination = (activeResponse as any).pagination;
@@ -58,7 +58,7 @@ function RouteComponent() {
 		cards = [];
 		pagination = undefined;
 	}
-	
+
 
 	return (
 		<div className="px-4 md:px-0">
@@ -76,7 +76,7 @@ function RouteComponent() {
 					</div>
 				</div>
 			) : (
-				<KnowledgeBaseListContainer 
+				<KnowledgeBaseListContainer
 					cards={cards}
 					showOnlyMyKBs={showOnlyMyKBs}
 					filters={filters}

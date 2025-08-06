@@ -1,13 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, Suspense } from "react";
+import { useMemo, Suspense, useState } from "react";
 import { useSuspenseQuery, useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { Autocomplete } from "@/components/ui/autocomplete";
 import { packageQueries, userQueries } from "@/lib/queries";
 import { isAuthenticated } from "@/lib/auth-optimized";
-import type { Package, PackageWithUserStatus } from "@/types";
-import { McpTableComponent } from "@/components/features/mcp-list/mcp-table-component";
-import { McpListSkeleton } from "@/components/skeletons/mcp-skeleton";
+import type { Package } from "@/types";
+import { PackagesTable } from "@/components/features/packages-table/packages-table-advanced";
+import { DataTablePagination } from "@/components/data-table/data-table-pagination";
 
 const searchSchema = z.object({
   publisherId: z.string().optional(),
@@ -43,7 +43,11 @@ function McpPageSkeleton() {
           </div>
           <div className="p-6">
             <div className="h-10 bg-gray-100 rounded-md animate-pulse mb-4" />
-            <McpListSkeleton count={6} />
+            <div className="space-y-3">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="h-16 bg-gray-100 rounded-md animate-pulse" />
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -135,6 +139,7 @@ function normalizePackage(pkg: any): Package {
 function RouteComponent() {
   const search = Route.useSearch();
   const { authenticated: isAuth } = Route.useLoaderData();
+  const [packagesTable, setPackagesTable] = useState<any>(null);
 
   const { data: packageData, isPending } = useQuery({
     ...packageQueries.listOptions({
@@ -178,16 +183,7 @@ function RouteComponent() {
       isAuth && userDeployments ? userDeployments.map((item: any) => [item.package.packageId, item]) : []
     );
 
-    const combined: PackageWithUserStatus[] = normalizedPackages.map(pkg => ({
-      ...pkg,
-      // For non-authenticated users, these will always be false
-      isInstalled: isAuth ? installedMap.has(pkg.packageId) : false,
-      isDeployed: isAuth ? deployedMap.has(pkg.packageId) : false,
-      userInstallation: isAuth ? installedMap.get(pkg.packageId) as any : undefined,
-      userDeployment: isAuth ? deployedMap.get(pkg.packageId) as any : undefined,
-    }));
-
-    return combined;
+    return normalizedPackages;
   }, [packageData, userInstalled, userDeployments, isAuth]);
 
   const searchPackages = (query: string) => {
@@ -208,7 +204,7 @@ function RouteComponent() {
   };
 
   const normalizedPopularPackages = useMemo(() => {
-    return (popularPackages || []).map(normalizePackage);
+    return (popularPackages?.data || []).map(normalizePackage);
   }, [popularPackages]);
 
   return (
@@ -263,7 +259,6 @@ function RouteComponent() {
                 <div className="size-4 rounded-md bg-blue-400 flex-shrink-0" />
               )}
               <span className="flex-shrink-0">{item.name}</span>
-              {item.isInstalled && <span className="text-green-600">✓</span>}
               <span className="flex-shrink-0"> - </span>
               <span className="text-primary-400 truncate flex-1 min-w-0">{item.description}</span>
             </Link>
@@ -274,12 +269,18 @@ function RouteComponent() {
         />
       </div>
 
-      {/* Table Component - Isolated from page re-renders */}
-      <McpTableComponent
-        data={packages}
-        pageCount={(packageData as any)?.pagination?.totalPages || 1}
-        isLoading={isPending}
-      />
+      {/* New Packages Table */}
+      <div className="px-4 md:px-6">
+        <PackagesTable
+          onTableReady={(table) => {
+            setPackagesTable(table);
+          }}
+        />
+      </div>
+
+      <div className="absolute bottom-0 flex h-12 w-full items-center overflow-hidden rounded-b-xl bg-primary-100 p-6">
+        {packagesTable && <DataTablePagination table={packagesTable} />}
+      </div>
     </div>
   );
 }
