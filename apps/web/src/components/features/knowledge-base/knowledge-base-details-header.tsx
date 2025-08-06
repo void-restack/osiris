@@ -16,7 +16,7 @@ export function KnowledgeBaseDetailsHeader({ kb }: { kb: KnowledgeBase }) {
 					className="h-[160px] w-full object-cover"
 					alt="mcp banner"
 				/>
-				<Avatar className="relative bottom-10 left-6 size-[72px] rounded-[4px] border border-primary-00 p-0">
+				<Avatar className="relative bottom-10 left-6 size-[72px] rounded-[4px] border border-primary-00 bg-primary-00 p-0">
 					<AvatarImage src={kb.iconUrl ?? "/test/k.logo.svg"} />
 					<AvatarFallback className="text-2xl">B</AvatarFallback>
 				</Avatar>

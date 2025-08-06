@@ -4,31 +4,61 @@ import { KnowledgeBaseListContainer } from "@/components/features/knowledge-base
 import { KnowledgeBaseGridSkeleton } from "@/components/features/knowledge-base/knowledge-base-card-skeleton";
 import { knowledgeQueries } from "@/lib/queries";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { z } from "zod";
+
+const searchSchema = z.object({
+  search: z.string().optional(),
+  page: z.coerce.number().optional(),
+  limit: z.coerce.number().optional(),
+  showOnlyMyKBs: z.coerce.boolean().optional(),
+});
 
 export const Route = createFileRoute("/_hub/knowledge/")({
 	component: RouteComponent,
+	validateSearch: searchSchema,
 	loader: async () => {
 		return { breadcrumb: "Knowledge" };
 	},
 });
 
 function RouteComponent() {
-	const [showOnlyMyKBs, setShowOnlyMyKBs] = useState(false);
+	const search = Route.useSearch();
+	const showOnlyMyKBs = search.showOnlyMyKBs ?? false;
+	
+	const filters = {
+		search: search.search || "",
+		page: search.page || 1,
+		limit: search.limit || 6,
+	};
 
-	// Conditional data fetching based on switch state
-	const { data: allKBs, isLoading: allKBsLoading } = useQuery({
-		...knowledgeQueries.basesOptions(),
+	const { data: allKBsResponse, isLoading: allKBsLoading } = useQuery({
+		...knowledgeQueries.basesOptions(filters),
 		enabled: !showOnlyMyKBs,
 	})
 	
-	const { data: myKBs, isLoading: myKBsLoading } = useQuery({
-		...knowledgeQueries.myOptions(),
+	const { data: myKBsResponse, isLoading: myKBsLoading } = useQuery({
+		...knowledgeQueries.myOptions(filters),
 		enabled: showOnlyMyKBs,
 	})
 
-	const cards = showOnlyMyKBs ? (myKBs ?? []) : (allKBs ?? []);
+	const activeResponse = showOnlyMyKBs ? myKBsResponse : allKBsResponse;
 	const isLoading = showOnlyMyKBs ? myKBsLoading : allKBsLoading;
+	
+	let cards, pagination;
+	
+	console.log('Knowledge Base API Response:', activeResponse);
+	
+	if (activeResponse && 'pagination' in activeResponse) {
+		cards = (activeResponse as any).data || [];
+		pagination = (activeResponse as any).pagination;
+	} else if (activeResponse?.data) {
+		cards = Array.isArray(activeResponse.data) ? activeResponse.data : [];
+		pagination = undefined;
+	} else {
+		cards = [];
+		pagination = undefined;
+	}
+	
 
 	return (
 		<div className="px-4 md:px-0">
@@ -49,7 +79,8 @@ function RouteComponent() {
 				<KnowledgeBaseListContainer 
 					cards={cards}
 					showOnlyMyKBs={showOnlyMyKBs}
-					onShowOnlyMyKBsChange={setShowOnlyMyKBs}
+					filters={filters}
+					pagination={pagination}
 				/>
 			)}
 		</div>

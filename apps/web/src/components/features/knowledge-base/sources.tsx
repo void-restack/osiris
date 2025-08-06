@@ -26,10 +26,10 @@ import {
   Clock,
   CheckCircle,
   XCircle,
+  RefreshCw,
 } from "lucide-react";
 import * as React from "react";
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -55,13 +55,14 @@ import {
 import { McpListPagination } from "../mcp-list/mcp-list-pagination";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { knowledgeQueries } from "@/lib/queries";
+import { knowledgeQueries, userQueries } from "@/lib/queries";
+import { useRetryKnowledgeSourceMutation } from "@/lib/mutations";
 import { Route } from "@/routes/_hub/knowledge/$id";
+import { isAuthenticated } from "@/lib/auth-optimized";
 import { UploadContentInput } from "./upload-contnet";
 import { GetStartedAlerts } from "./get-started-alert";
 import { DataTableSkeleton } from "@/components/data-table/data-table-skeleton";
 
-// Types based on API schema
 type SourceType = "image" | "text" | "youtube_url" | "url" | "file";
 type ProcessingStatus = "pending" | "processing" | "completed" | "failed";
 
@@ -120,7 +121,6 @@ function ClickableSource({ source }: { source: KnowledgeSource }) {
       return fileName.length > 40 ? fileName.slice(0, 40) + "..." : fileName;
     }
     if (source.sourceType === "text") {
-      // Clean up the text by removing extra whitespace and newlines
       const cleanText = source.source.replace(/\s+/g, " ").trim();
       return cleanText.length > 60 ? cleanText.slice(0, 60) + "..." : cleanText;
     }
@@ -257,7 +257,7 @@ function ClickableSource({ source }: { source: KnowledgeSource }) {
   }
 }
 
-export const columns: ColumnDef<KnowledgeSource>[] = [
+export const createColumns = (currentUser?: any, knowledgeBaseUserId?: string): ColumnDef<KnowledgeSource>[] => [
   {
     accessorKey: "sourceId",
     header: ({ column }) => {
@@ -393,9 +393,14 @@ export const columns: ColumnDef<KnowledgeSource>[] = [
     enableSorting: false,
     cell: ({ row }) => {
       const source = row.original;
+      const retryMutation = useRetryKnowledgeSourceMutation();
+
+      const handleRetry = () => {
+        retryMutation.mutate(source.sourceId);
+      };
 
       return (
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-1">
           {source.processingErrorMessage && (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -409,6 +414,24 @@ export const columns: ColumnDef<KnowledgeSource>[] = [
               </TooltipTrigger>
               <TooltipContent>
                 <p>{source.processingErrorMessage}</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
+          {source.processingStatus === 'failed' && currentUser?.id === knowledgeBaseUserId && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0 text-blue-600 hover:text-blue-800"
+                  onClick={handleRetry}
+                  disabled={retryMutation.isPending}
+                >
+                  <RefreshCw className={`h-3 w-3 ${retryMutation.isPending ? 'animate-spin' : ''}`} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Retry processing</p>
               </TooltipContent>
             </Tooltip>
           )}
@@ -428,6 +451,19 @@ export function SourcesTable() {
     React.useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = React.useState({});
 
+  const authenticated = isAuthenticated();
+  
+  // Fetch current user data if authenticated
+  const { data: currentUser } = useQuery({
+    ...userQueries.meOptions(authenticated),
+    enabled: authenticated,
+  });
+
+  // Fetch knowledge base details including user information
+  const { data: knowledgeBase } = useQuery(
+    knowledgeQueries.baseOptions(knowledgeBaseId)
+  );
+
   const { data: sources = [], isLoading } = useQuery(
     knowledgeQueries.sourcesOptions(knowledgeBaseId)
   );
@@ -440,6 +476,11 @@ export function SourcesTable() {
     const start = (currentPage - 1) * pageSize;
     return sources.slice(start, start + pageSize);
   }, [sources, currentPage, pageSize]);
+
+  const columns = React.useMemo(() => 
+    createColumns(currentUser, knowledgeBase?.userId), 
+    [currentUser, knowledgeBase?.userId]
+  );
 
   const table = useReactTable({
     data: paginatedData,
@@ -475,7 +516,9 @@ export function SourcesTable() {
   if (sources.length === 0) {
     return (
       <div className="w-full flex flex-col gap-4">
-        <UploadContentInput knowledgeBaseId={knowledgeBaseId} />
+        <UploadContentInput 
+          knowledgeBaseId={knowledgeBaseId} 
+        />
         <GetStartedAlerts />
       </div>
     );

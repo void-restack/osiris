@@ -75,16 +75,7 @@ export function UnitsFilters({
 }: UnitsFiltersProps) {
   return (
     <div className="flex items-center gap-4 ml-auto">
-      <UnitsFilterBySource
-        selectedSourceIds={filters.sourceIds}
-        onSourcesChange={(sourceIds) => onFilterChange('sourceIds', sourceIds)}
-        sources={filterOptions.sources}
-      />
-      <SortByTypes
-        sortConfig={sortConfig}
-        onSortChange={onSortChange}
-      />
-      {hasActiveFilters && (
+       {hasActiveFilters && (
         <Button
           variant="ghost"
           size="sm"
@@ -95,6 +86,16 @@ export function UnitsFilters({
           <X className="ml-2 h-4 w-4" />
         </Button>
       )}
+      <UnitsFilterBySource
+        selectedSourceIds={filters.sourceIds}
+        onSourcesChange={(sourceIds) => onFilterChange('sourceIds', sourceIds)}
+        sources={filterOptions.sources}
+      />
+      <SortByTypes
+        sortConfig={sortConfig}
+        onSortChange={onSortChange}
+      />
+     
     </div>
   );
 }
