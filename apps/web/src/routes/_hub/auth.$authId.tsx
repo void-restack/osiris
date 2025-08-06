@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useDataTable } from "@/hooks/use-data-table";
 import { hubQueries } from "@/lib/queries";
 import { useAppStore } from "@/lib/store";
-import { isAuthenticated } from "@/lib/auth-optimized";
+import { isAuthenticated, useReactiveAuth } from "@/lib/auth-optimized";
 import { useDisconnectServiceMutation } from "@/lib/mutations";
 import { toast } from "sonner";
 import { AuthMethodDialog } from "@/components/features/authhub/auth-method-dialog";
@@ -200,7 +200,8 @@ export const Route = createFileRoute("/_hub/auth/$authId")({
 
 function RouteComponent() {
   const { authId } = Route.useParams();
-  const { authenticated } = Route.useLoaderData();
+  // Use reactive auth state instead of stale loader data
+  const authenticated = useReactiveAuth();
   const { data: authMethods } = useSuspenseQuery(hubQueries.authMethodsOptions());
   const { data: userAuth } = useQuery({
     ...hubQueries.userAuthOptions(authenticated),
