@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { hubQueries, userQueries } from "@/lib/queries";
 import { isAuthenticated } from "@/lib/auth-optimized";
 import type { ServiceClient } from "@/types/auth";
-import { AuthTable } from "@/components/features/authhub/auth-table-advanced";
+import { AuthTable } from "@/components/features/authhub/auth-table";
 import { AuthMethodDialog } from "@/components/features/authhub/auth-method-dialog";
 
 const searchSchema = z.object({
@@ -177,7 +177,6 @@ function RouteComponent() {
               </Link>
             )}
             onSelect={(item) => {
-              // Navigate to auth details
               navigate({ to: `/auth/${item.clientId}` });
             }}
           />

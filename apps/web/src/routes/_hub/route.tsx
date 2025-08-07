@@ -23,7 +23,7 @@ function RouteComponent() {
         </div>
         <AuthHeader />
       </header>
-      <div className="hidebar h-full w-full overflow-y-scroll pb-8">
+      <div className="h-full w-full overflow-y-hidden">
         <Outlet />
       </div>
     </HubLayout>

@@ -29,7 +29,7 @@ export function McpDetailsView() {
 	const { data: packageData } = useSuspenseQuery(packageQueries.detailOptions(mcpId));
 
 	return (
-		<div className="w-full max-w-[344px] shrink-0 rounded-lg border border-primary-100">
+		<div className="w-full max-w-[344px] h-fit shrink-0 rounded-lg border border-primary-100">
 			<div className="flex items-center gap-1 bg-primary-25 px-4 py-3 text-primary-300 text-sm">
 				<ICONS.readme />
 				<p>MCP details</p>
@@ -37,16 +37,16 @@ export function McpDetailsView() {
 			<div className="flex w-full flex-col gap-4 p-4 text-primary-300 text-sm">
 				<div className="flex items-center justify-between">
 					<p>Mcp Type</p>
-					<p>{packageData?.type || "Unknown"}</p>
+					<p>{String(packageData?.type).toUpperCase() || "Unknown"}</p>
 				</div>
 				<div className="flex items-center justify-between">
 					<p>Credits Required</p>
-					<Tag>{packageData?.paymentConfig?.credits || "Free"}</Tag>
+					{packageData?.paymentConfig !== null ? packageData?.paymentConfig?.credits : "Free"}
 				</div>
 				<div className="flex items-center justify-between">
 					<p>Publisher</p>
 					<p className="text-right truncate max-w-32" title={packageData?.publisherId || "Unknown"}>
-						{packageData?.publisherId || "Unknown"}
+						{String(packageData?.publisherId).slice(0, 4) + "..." + String(packageData?.publisherId).slice(-4) || "Unknown"}
 					</p>
 				</div>
 				<div className="flex items-center justify-between">
@@ -60,10 +60,9 @@ export function McpDetailsView() {
 				</div>
 
 				{/* Last Published */}
-				<div className="flex items-center justify-between pt-2 border-t border-primary-100">
-					<p>Last published</p>
-					<p>{packageData?.updatedAt ? getTimeAgo(packageData.updatedAt) : "Unknown"}</p>
-				</div>
+				{/* <div className="flex items-center justify-between pt-2 border-t border-primary-100">
+					<pre>{JSON.stringify(packageData, null, 2)}</pre>
+				</div> */}
 			</div>
 		</div>
 	);

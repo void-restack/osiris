@@ -1,5 +1,3 @@
-"use client";
-
 import type { Column, Table } from "@tanstack/react-table";
 import { X } from "lucide-react";
 import * as React from "react";
@@ -38,15 +36,12 @@ export function DataTableToolbar<TData>({
 			role="toolbar"
 			aria-orientation="horizontal"
 			className={cn(
-				"flex w-full items-start justify-between gap-2 p-1",
+				"flex w-full items-end justify-end gap-2 p-1",
 				className,
 			)}
 			{...props}
 		>
-			<div className="flex flex-1 flex-wrap items-center gap-2">
-				{columns.map((column) => (
-					<DataTableToolbarFilter key={column.id} column={column} />
-				))}
+			<div className="flex flex-wrap items-center gap-2">
 				{isFiltered && (
 					<Button
 						aria-label="Reset filters"
@@ -59,6 +54,10 @@ export function DataTableToolbar<TData>({
 						Reset
 					</Button>
 				)}
+				{columns.map((column) => (
+					<DataTableToolbarFilter key={column.id} column={column} />
+				))}
+
 			</div>
 			<div className="flex items-center gap-2">
 				{children}
@@ -76,8 +75,6 @@ function DataTableToolbarFilter<TData>({
 }: DataTableToolbarFilterProps<TData>) {
 	{
 		const columnMeta = column.columnDef.meta;
-
-
 
 		const onFilterRender = React.useCallback(() => {
 			if (!columnMeta?.variant) return null;

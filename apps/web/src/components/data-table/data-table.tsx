@@ -1,7 +1,7 @@
 import { flexRender, type Table as TanstackTable } from "@tanstack/react-table";
 import type * as React from "react";
 
-import { DataTablePagination } from "@/components/data-table/data-table-pagination";
+// import { DataTablePagination } from "@/components/data-table/data-table-pagination";
 import {
 	Table,
 	TableBody,
@@ -32,7 +32,7 @@ export function DataTable<TData>({
 		>
 			{children}
 			<div className="w-full overflow-x-auto rounded-md border">
-				<Table className="min-w-[700px] w-full">
+				<Table className="w-full">
 					<TableHeader>
 						{table.getHeaderGroups().map((headerGroup) => (
 							<TableRow key={headerGroup.id}>

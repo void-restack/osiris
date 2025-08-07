@@ -275,15 +275,17 @@ body {
     0px 1px 2px 0px hsla(0, 0%, 0%, 0.15),
     0px 0px 0px 1px hsla(0, 0%, 0%, 0.06) inset,
     0px 2px 0px 0px hsla(0, 0%, 100%, 0.26) inset;
+
+  --inset-shadow-card: 0px 0px 0px 0.7px hsla(0, 0%, 0%, 0.11);
 }
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border outline-primary-100/50;
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-primary-00 text-primary-800;
   }
 }
 

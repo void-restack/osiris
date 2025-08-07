@@ -1,122 +1,68 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { PackageList } from "@/types";
-import { format } from "date-fns";
-import { Download, ExternalLink, MoreHorizontal, Share2 } from "lucide-react";
 import type { Row } from "@tanstack/react-table";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface PackagesGridViewProps {
     rows: Row<PackageList>[];
-    onInstall: (pkg: PackageList) => void;
-    onViewPackage: (pkg: PackageList) => void;
-    onShare: (pkg: PackageList) => void;
 }
 
 export function PackagesGridView({
     rows,
-    onInstall,
-    onViewPackage,
-    onShare
 }: PackagesGridViewProps) {
     return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {rows.map((row) => {
-                const pkg = row.original;
-                const name = pkg.name || (pkg as any).packageName;
-                const description = pkg.description || (pkg as any).packageDescription;
-                const version = pkg.latestVersion || (pkg as any).packageLatestVersion;
-                const iconUrl = pkg.iconUrl || (pkg as any).packageIconUrl;
-                return (
-                    <Card key={row.id} className="group hover:shadow-md transition-shadow duration-200">
-                        <CardHeader className="pb-3">
-                            <div className="flex items-start justify-between">
-                                <div className="flex items-center gap-3 min-w-0 flex-1">
-                                    <Avatar className="h-10 w-10 shrink-0 border">
-                                        <AvatarImage src={iconUrl || undefined} alt={name} />
-                                        <AvatarFallback className="text-xs font-medium bg-primary-100 text-primary-700">
-                                            {name?.charAt(0).toUpperCase() || 'P'}
-                                        </AvatarFallback>
-                                    </Avatar>
-                                    <div className="min-w-0 flex-1">
-                                        <CardTitle className="text-sm font-medium text-primary-800 truncate">
-                                            {name}
-                                        </CardTitle>
-                                        <div className="flex items-center gap-2 mt-1">
-                                            <Badge variant="outline" className="font-mono text-xs">
+        <ScrollArea className="relative h-[calc(100vh-560px)] hidebar">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 p-2 pb-8 hidebar gap-4">
+                {rows.map((row) => {
+                    const pkg = row.original;
+                    const name = pkg.name || (pkg as any).packageName;
+                    const description = pkg.description || (pkg as any).packageDescription;
+                    const version = pkg.latestVersion || (pkg as any).packageLatestVersion;
+                    const iconUrl = pkg.iconUrl || (pkg as any).packageIconUrl;
+
+                    return (
+                        <div key={row.id} className="min-h-[200px] group hover:shadow-md transition-shadow duration-200 p-3 inset-shadow-card rounded-xl bg-primary-00 opacity-100 min-w-[348px] relative overflow-hidden">
+                            <div className="p-0">
+                                <div className="flex items-start justify-between">
+                                    <div className="flex flex-col items-start gap-3 min-w-0 flex-1">
+                                        <Avatar className="size-12 rounded-md shrink-0">
+                                            <AvatarImage src={iconUrl || undefined} alt={name} />
+                                            <AvatarFallback className="size-12 rounded-md text-xs font-medium bg-primary-100 text-primary-700">
+                                                {name?.charAt(0).toUpperCase() || 'P'}
+                                            </AvatarFallback>
+                                        </Avatar>
+                                        <div className="min-w-0 flex-1">
+                                            <h4 className="text-sm font-medium text-primary-800 truncate">
+                                                {String(name).toWellFormed()}
+                                            </h4>
+                                            <p className="text-[13px] text-primary-300">
                                                 v{version}
-                                            </Badge>
+                                            </p>
                                         </div>
                                     </div>
+                                    <div className="flex items-center gap-2 mt-3">
+                                        <Badge variant="secondary" className="text-xs rounded-[6px] text-[13px]">
+                                            {(pkg as any).packageType || pkg.type || "MCP"}
+                                        </Badge>
+                                        <Badge variant="secondary" className="text-xs uppercase rounded-[6px] text-[13px]">
+                                            {pkg.paymentConfig ? "Paid" : "Free"}
+                                        </Badge>
+                                    </div>
                                 </div>
-
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <MoreHorizontal className="h-4 w-4" />
-                                            <span className="sr-only">Open menu</span>
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
-                                        <DropdownMenuItem onClick={() => onViewPackage(pkg)}>
-                                            <ExternalLink className="mr-2 h-4 w-4" />
-                                            View Package
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => onShare(pkg)}>
-                                            <Share2 className="mr-2 h-4 w-4" />
-                                            Copy URL
-                                        </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
                             </div>
-                        </CardHeader>
-
-                        <CardContent className="pt-0 pb-3">
-                            <CardDescription className="text-sm text-primary-500 leading-relaxed" style={{
-                                display: '-webkit-box',
-                                WebkitLineClamp: 2,
-                                WebkitBoxOrient: 'vertical',
-                                overflow: 'hidden'
-                            }}>
+                            <div className="p-0 absolute bottom-4 text-wrap text-sm text-primary-300 line-clamp-3 truncate">
                                 {description}
-                            </CardDescription>
-
-                            <div className="flex items-center justify-between mt-3 text-xs text-primary-400">
-                                <span>Created {pkg.createdAt ? format(new Date(pkg.createdAt), "MMM d, yyyy") : "N/A"}</span>
-                                <span>Updated {pkg.updatedAt ? format(new Date(pkg.updatedAt), "MMM d, yyyy") : "N/A"}</span>
                             </div>
+                        </div>
+                    );
+                })}
+            </div>
+        </ScrollArea>
 
-                            <div className="flex items-center gap-2 mt-3">
-                                <Badge variant="secondary" className="text-xs">
-                                    {pkg.paymentConfig ? "Paid" : "Free"}
-                                </Badge>
-                                <Badge variant="outline" className="text-xs">
-                                    {(pkg as any).packageType || pkg.type || "MCP"}
-                                </Badge>
-                            </div>
-                        </CardContent>
-
-                        <CardFooter className="pt-0">
-                            <Button
-                                size="sm"
-                                className="w-full"
-                                onClick={() => onInstall(pkg)}
-                            >
-                                <Download className="mr-2 h-4 w-4" />
-                                Install
-                            </Button>
-                        </CardFooter>
-                    </Card>
-                );
-            })}
-        </div>
     );
 }
 
-// Grid view columns definition (includes search for filtering)
 export const gridViewColumns: any[] = [
     {
         id: "search",

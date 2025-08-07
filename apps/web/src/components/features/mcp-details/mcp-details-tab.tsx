@@ -10,6 +10,7 @@ import { useSuspenseQuery, useQuery } from "@tanstack/react-query";
 import { packageQueries } from "@/lib/queries";
 import { isAuthenticated } from "@/lib/auth-optimized";
 import { ToolCaseIcon } from "lucide-react";
+import { MarkdownRenderer } from "@/components/ui/markdown-renderer";
 
 const servers: McpServer[] = [];
 
@@ -77,11 +78,20 @@ export function McpTabs() {
 			</TabsList>
 			<TabsContent value="readme">
 				<TabLayout>
-					<div>
-						<h1 className="text-xl font-medium text-primary-800 mb-4">Readme</h1>
-						<div className="prose prose-sm max-w-none">
-							<p className="text-primary-600">{packageData?.description || "No description available."}</p>
-						</div>
+					<div className="w-full max-w-none">
+						{packageData?.description ? (
+							<div className="bg-white rounded-lg border border-primary-100 p-6">
+								<MarkdownRenderer
+									content={packageData.description}
+									showTableOfContents={true}
+								/>
+							</div>
+						) : (
+							<div className="text-primary-600 text-center py-12 bg-primary-25 rounded-lg border border-primary-100">
+								<p className="text-lg font-medium mb-2">No README content available</p>
+								<p className="text-sm text-primary-500">This package doesn't have documentation yet.</p>
+							</div>
+						)}
 					</div>
 				</TabLayout>
 			</TabsContent>

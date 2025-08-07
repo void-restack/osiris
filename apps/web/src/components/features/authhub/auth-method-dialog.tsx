@@ -101,7 +101,7 @@ export function AuthMethodDialog({
   }>({
     accounts: [
       {
-        chains: ['evm:eip155:1'], // Default to Ethereum
+        chains: ['evm:eip155:1'],
         pathFormat: '',
         path: '',
         curve: '',
@@ -110,13 +110,11 @@ export function AuthMethodDialog({
     ]
   });
 
-  // State for managing success/error for non-OAuth connections
   const [connectionState, setConnectionState] = useState<{
     status: 'idle' | 'connecting' | 'success' | 'error';
     error?: string;
     connectionId?: string;
   }>({ status: 'idle' });
-
 
   const createServiceConnection = useCreateServiceConnectionMutation();
   const createSecretSharing = useCreateSecretSharingMutation();
@@ -130,19 +128,15 @@ export function AuthMethodDialog({
 
   const navigate = useNavigate();
 
-  // Clean up URL params when dialog closes
   const handleDialogOpenChange = (isOpen: boolean) => {
     onOpenChange?.(isOpen);
 
     if (!isOpen) {
-      // Reset connection state when dialog closes
       setConnectionState({ status: 'idle' });
 
-      // Strip query parameters from URL when dialog closes
       const currentUrl = new URL(window.location.href);
       const pathname = currentUrl.pathname;
 
-      // Navigate to clean URL without query params
       navigate({ to: pathname, replace: true });
     }
   };
@@ -164,7 +158,6 @@ export function AuthMethodDialog({
             name: authHubName,
             redirectUri: window.location.href
           });
-          // OAuth redirects, so no success state needed here
           break;
 
         case 'secret_sharing':
@@ -528,13 +521,12 @@ export function AuthMethodDialog({
           <AlertDialogTitle className="font-normal text-base text-primary-400 capitalize">
             Connect {method.name}
           </AlertDialogTitle>
-          <button
-            onClick={() => handleDialogOpenChange(false)}
-            className="rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
-          >
-            <X className="h-4 w-4" />
-            <span className="sr-only">Close</span>
-          </button>
+          <AlertDialogCancel asChild>
+            <Button variant="ghost" size="icon">
+              <X className="h-4 w-4" />
+              <span className="sr-only">Close</span>
+            </Button>
+          </AlertDialogCancel>
         </div>
       </AlertDialogHeader>
       <div className="w-full">

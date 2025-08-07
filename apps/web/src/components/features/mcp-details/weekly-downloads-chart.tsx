@@ -1,5 +1,3 @@
-"use client"
-
 import { useQuery } from "@tanstack/react-query"
 import { Area, AreaChart, ResponsiveContainer } from "recharts"
 import { packageQueries } from "@/lib/queries"
@@ -22,10 +20,9 @@ interface WeeklyDownloadsChartProps {
 }
 
 export function WeeklyDownloadsChart({ packageId }: WeeklyDownloadsChartProps) {
-    // Calculate date range for last 8 weeks
     const endDate = new Date()
     const startDate = new Date()
-    startDate.setDate(endDate.getDate() - (8 * 7)) // 8 weeks ago
+    startDate.setDate(endDate.getDate() - (8 * 7))
 
     const { data: downloadsData, isLoading } = useQuery({
         ...packageQueries.weeklyDownloadsOptions(packageId, {
@@ -40,7 +37,6 @@ export function WeeklyDownloadsChart({ packageId }: WeeklyDownloadsChartProps) {
         )
     }
 
-    // Transform data to expected format
     const chartData = Array.isArray(downloadsData)
         ? downloadsData.map((item: any, index: number) => ({
             week: `W${index + 1}`,
@@ -53,14 +49,12 @@ export function WeeklyDownloadsChart({ packageId }: WeeklyDownloadsChartProps) {
             }))
             : []
 
-    // Calculate current week downloads and change
     const currentDownloads = chartData[chartData.length - 1]?.downloads || 0
     const previousDownloads = chartData[chartData.length - 2]?.downloads || 0
     const change = previousDownloads > 0
         ? Math.round(((currentDownloads - previousDownloads) / previousDownloads) * 100)
         : 0
 
-    // Get current date for display
     const currentDate = new Date().toLocaleDateString('en-US', {
         month: 'long',
         day: 'numeric'
@@ -68,7 +62,6 @@ export function WeeklyDownloadsChart({ packageId }: WeeklyDownloadsChartProps) {
 
     return (
         <div className="space-y-3">
-            {/* Header with downloads info */}
             <div className="flex items-baseline justify-between">
                 <span className="text-primary-400 text-sm">Weekly Downloads</span>
                 <div className="text-right">
@@ -84,8 +77,7 @@ export function WeeklyDownloadsChart({ packageId }: WeeklyDownloadsChartProps) {
                 </div>
             </div>
 
-            {/* Minimal chart */}
-            <div className="h-[60px] w-full">
+            <div className="h-fit w-full">
                 <ChartContainer config={chartConfig}>
                     <AreaChart
                         data={chartData}

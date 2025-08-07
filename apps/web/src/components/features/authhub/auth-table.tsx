@@ -1,9 +1,6 @@
-"use client";
-
 import { type ColumnDef, type Row } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "@/lib/utils";
 import { ICONS } from "@/components/icons";
@@ -16,29 +13,16 @@ import { useAuthTable } from "@/hooks/use-auth-table";
 import type { ServiceClient } from "@/types/auth";
 import { AuthGridView } from "./auths-grid";
 import {
-    ExternalLink,
-    Download,
-    Star,
     Clock,
     User,
-    Package,
     Cpu,
     Wrench,
     BookOpen,
-    MoreHorizontal,
-    Eye,
-    Share2,
 } from "lucide-react";
 import React, { useMemo, useState } from "react";
-import { toast } from "sonner";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { AuthMethodDialog } from "./auth-method-dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
-// Define auth types for filtering
 const AUTH_TYPES = [
     { label: "OAuth", value: "oauth", icon: Cpu },
     { label: "Secret Sharing", value: "secret_sharing", icon: Wrench },
@@ -54,21 +38,6 @@ export function AuthTable({
 } = {}) {
     const [viewMode, setViewMode] = useState<"table" | "grid">("table");
 
-    const handleConnect = (auth: ServiceClient) => {
-        toast.success(`Connecting to ${auth.name}...`);
-        // Logic to connect to auth method
-    };
-
-    const handleViewAuth = (auth: ServiceClient) => {
-        toast.info(`Viewing ${auth.name} details...`);
-        // Logic to navigate to auth details
-    };
-
-    const handleShare = (auth: ServiceClient) => {
-        navigator.clipboard.writeText(auth.clientId);
-        toast.success(`Copied client ID for ${auth.name}`);
-    };
-
     const columns = useMemo<ColumnDef<ServiceClient>[]>(
         () => [
             {
@@ -76,30 +45,45 @@ export function AuthTable({
                 accessorKey: "name",
                 enableColumnFilter: true,
                 header: ({ column }) => (
-                    <DataTableColumnHeader column={column} title="Auth Method" />
+                    <DataTableColumnHeader column={column} className="text-sm" title="Auth Method" />
                 ),
                 cell: ({ row }) => {
                     const auth = row.original;
                     return (
                         <div className="flex items-center gap-3">
-                            <Avatar className="h-10 w-10 shrink-0 border">
+                            <Avatar className="size-8 rounded-md shrink-0">
                                 <AvatarImage src={auth.iconUrl || undefined} alt={auth.name} />
-                                <AvatarFallback className="text-xs font-medium bg-primary-100 text-primary-700">
+                                <AvatarFallback className="rounded-md text-xs font-medium bg-primary-100 text-primary-700">
                                     {auth.name?.charAt(0).toUpperCase() || 'A'}
                                 </AvatarFallback>
                             </Avatar>
                             <div className="flex flex-col">
-                                <span className="text-sm font-medium text-primary-800">{auth.name}</span>
-                                <span className="text-xs text-primary-400 line-clamp-1">{auth.description}</span>
+                                <span className="text-sm font-medium text-primary-800">{auth.name.toString().toWellFormed()}</span>
                             </div>
                         </div>
                     );
                 },
+                enableSorting: false,
                 meta: {
                     variant: "text",
                     label: "Auth method name",
                     placeholder: "Search auth methods...",
                 },
+            },
+            {
+                id: "description",
+                accessorKey: "description",
+                enableColumnFilter: false,
+                header: ({ column }) => (
+                    <DataTableColumnHeader column={column} title="Description" />
+                ),
+                cell: ({ row }) => {
+                    const auth = row.original;
+                    return (
+                        <p className="text-xs text-primary-400 max-w-[120px] line-clamp-1 truncate">{auth.description}</p>
+                    );
+                },
+                enableSorting: false,
             },
             {
                 id: "type",
@@ -116,11 +100,12 @@ export function AuthTable({
                     const Icon = type.icon;
                     return (
                         <Badge variant="secondary" className="text-xs">
-                            {Icon && <Icon className="h-3 w-3" />}
+                            {/* {Icon && <Icon className="h-3 w-3" />} */}
                             {type.label}
                         </Badge>
                     );
                 },
+                enableSorting: false,
                 meta: {
                     variant: "multiSelect",
                     label: "Auth type",
@@ -131,34 +116,34 @@ export function AuthTable({
                     })),
                 },
             },
-            {
-                id: "services",
-                accessorKey: "supportedServices",
-                enableColumnFilter: false,
-                header: ({ column }) => (
-                    <DataTableColumnHeader column={column} title="Services" />
-                ),
-                cell: ({ row }) => {
-                    const services = row.original.supportedServices;
-                    if (!services || services.length === 0) {
-                        return <span className="text-xs text-primary-400">-</span>;
-                    }
-                    return (
-                        <div className="flex flex-wrap gap-1">
-                            {services.slice(0, 2).map((service, index) => (
-                                <Badge key={index} variant="outline" className="text-xs">
-                                    {service}
-                                </Badge>
-                            ))}
-                            {services.length > 2 && (
-                                <Badge variant="outline" className="text-xs">
-                                    +{services.length - 2}
-                                </Badge>
-                            )}
-                        </div>
-                    );
-                },
-            },
+            // {
+            //     id: "services",
+            //     accessorKey: "supportedServices",
+            //     enableColumnFilter: false,
+            //     header: ({ column }) => (
+            //         <DataTableColumnHeader column={column} title="Services" />
+            //     ),
+            //     cell: ({ row }) => {
+            //         const services = row.original.supportedServices;
+            //         if (!services || services.length === 0) {
+            //             return <span className="text-xs text-primary-400">-</span>;
+            //         }
+            //         return (
+            //             <div className="flex flex-wrap gap-1">
+            //                 {services.slice(0, 2).map((service, index) => (
+            //                     <Badge key={index} variant="outline" className="text-xs">
+            //                         {service}
+            //                     </Badge>
+            //                 ))}
+            //                 {services.length > 2 && (
+            //                     <Badge variant="outline" className="text-xs">
+            //                         +{services.length - 2}
+            //                     </Badge>
+            //                 )}
+            //             </div>
+            //         );
+            //     },
+            // },
             {
                 id: "scopes",
                 accessorKey: "supportedScopes",
@@ -178,6 +163,7 @@ export function AuthTable({
                         </div>
                     );
                 },
+                enableSorting: false,
             },
             {
                 id: "updatedAt",
@@ -186,6 +172,7 @@ export function AuthTable({
                 header: ({ column }) => (
                     <DataTableColumnHeader column={column} title="Updated" />
                 ),
+                enableSorting: false,
                 cell: ({ row }) => {
                     const updatedAt = row.getValue("updatedAt") as string;
                     const date = new Date(updatedAt);
@@ -211,51 +198,29 @@ export function AuthTable({
             },
             {
                 id: "actions",
-                header: "Actions",
+                header: () => <div className="text-sm text-right mr-2 md:mr-6">Actions</div>,
                 cell: ({ row }) => {
                     const auth = row.original;
                     return (
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button
-                                    variant="ghost"
-                                    className="h-8 w-8 p-0"
-                                >
-                                    <MoreHorizontal className="h-4 w-4" />
-                                    <span className="sr-only">Open menu</span>
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-40">
-                                <DropdownMenuItem onClick={() => handleViewAuth(auth)}>
-                                    <Eye className="h-3 w-3 mr-2" />
-                                    View Details
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleConnect(auth)}>
-                                    <Download className="h-3 w-3 mr-2" />
-                                    Connect
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleShare(auth)}>
-                                    <Share2 className="h-3 w-3 mr-2" />
-                                    Copy Client ID
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
+                        <div className="flex items-center justify-end mr-2 md:mr-6">
+
+                            <AuthMethodDialog method={auth} />
+
+                        </div>
                     );
                 },
                 enableSorting: false,
                 enableHiding: false,
             },
         ],
-        [handleConnect, handleViewAuth, handleShare]
+        []
     );
 
-    // Initialize table with optimized server-side data fetching
     const { table, data, filters, isLoading, isFetching } = useAuthTable({
         columns,
         initialPageSize: 10,
     });
 
-    // Notify parent when table is ready
     React.useEffect(() => {
         if (onTableReady && table) {
             onTableReady(table);
@@ -265,25 +230,21 @@ export function AuthTable({
     return (
         <>
             <div className="space-y-4">
-                {/* Header with filters and view toggle */}
-                <div className="flex w-full gap-4 md:items-center md:justify-between px-4 flex-col md:flex-row md:px-6">
+                <div className="flex w-full gap-4 md:items-center md:justify-between flex-col md:flex-row border-b border-b-primary-100 pb-4">
                     <div className="flex items-center gap-2">
-                        <span className="text-sm text-primary-400">
-                            {isLoading ? "Loading..." : `${data.pagination.total} auth methods`}
+                        <span className="text-xl text-primary-800 font-medium whitespace-nowrap">
+                            Auth Hub
                         </span>
                         {isFetching && !isLoading && (
                             <div className="flex items-center gap-1">
                                 <div className="h-3 w-3 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
-                                <span className="text-xs text-primary-400">Updating...</span>
                             </div>
                         )}
                     </div>
 
                     <div className="flex w-max items-center justify-end gap-4">
-                        {/* Filters */}
                         <DataTableToolbar table={table} />
 
-                        {/* View Toggle */}
                         <ToggleGroup
                             className="rounded-[6px] bg-[#F5F5F5] p-[2px]"
                             type="single"
@@ -312,16 +273,15 @@ export function AuthTable({
                     </div>
                 </div>
 
-                {/* Content - Always show real content with placeholderData */}
                 {viewMode === "table" ? (
-                    <div className="w-full">
-                        <DataTable table={table} />
-                    </div>
+                    <ScrollArea className="relative h-[calc(100vh-560px)] hidebar overflow-y-auto hidebar">
+                        <div className="w-full">
+                            <DataTable table={table} />
+                        </div>
+                    </ScrollArea>
                 ) : (
                     <AuthGridView methods={table.getPaginationRowModel().rows.map(row => row.original)} />
                 )}
-
-                {/* Pagination - Only show if requested */}
                 {showPagination && <DataTablePagination table={table} />}
             </div>
         </>

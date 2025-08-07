@@ -16,10 +16,8 @@ export function McpDetailsHeader() {
   const { data: packageData } = useSuspenseQuery(packageQueries.detailOptions(mcpId));
   const authenticated = isAuthenticated();
 
-  // For now, we'll use a default value since user deployment check requires authentication
   const isDeployed = false;
 
-  // Transform package data to match PackageWithUserStatus interface
   const packageWithUserStatus = {
     packageId: mcpId,
     name: packageData?.name || "Unknown Package",
@@ -29,7 +27,7 @@ export function McpDetailsHeader() {
     iconUrl: packageData?.iconUrl,
     coverImageUrl: packageData?.coverImageUrl,
     paymentConfig: packageData?.paymentConfig,
-    isInstalled: false, // Default values for non-user-specific data
+    isInstalled: false,
     isDeployed,
   };
 
@@ -51,37 +49,35 @@ export function McpDetailsHeader() {
       <div className="-mt-6 flex justify-between px-6">
         <div className="w-full gap-y-2">
           <h1 className="text-primary-800 text-xl">{packageData?.name || "Browser Base"}</h1>
-          <p className="text-primary-300 truncate max-w-xs" title={packageData?.publisherId || "@browserbasehq/mcp-stagehand"}>
-            {packageData?.publisherId || "@browserbasehq/mcp-stagehand"}
+          <p className="text-primary-300 whitespace-nowrap max-w-xs" title={packageData?.publisherId || ""}>
+            {packageData?.publisherId || ""}
           </p>
         </div>
         <div className="flex items-center gap-4">
-          <McpVersions
+          {/* <McpVersions
             versions={[
               {
                 version: packageData?.latestVersion || "1.0.0",
                 id: 1,
               },
             ]}
-          />
+          /> */}
           <div className="flex items-center gap-2">
-            {authenticated && isDeployed && (
+            {/* {authenticated && isDeployed && (
               <Badge variant="secondary" className="gap-1">
                 <CheckCircle className="size-3" />
                 Deployed
               </Badge>
-            )}
+            )} */}
             {authenticated ? (
               <McpDeployDialog
                 package={packageWithUserStatus}
                 trigger={
                   <Button
-                    variant={isDeployed ? "secondary" : "outline"}
-                    size="sm"
-                    className="gap-2"
+                    variant={"secondary"}
+                    className="gap-2 rounded-[6px]"
                   >
-                    <Rocket className="size-4" />
-                    {isDeployed ? "Redeploy" : "Deploy"}
+                    Deploy
                   </Button>
                 }
               />

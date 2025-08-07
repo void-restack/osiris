@@ -6,7 +6,7 @@ import { Autocomplete } from "@/components/ui/autocomplete";
 import { packageQueries, userQueries } from "@/lib/queries";
 import { isAuthenticated } from "@/lib/auth-optimized";
 import type { Package } from "@/types";
-import { PackagesTable } from "@/components/features/packages-table/packages-table-advanced";
+import { PackagesTable } from "@/components/features/packages-table/packages-table";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
 
 const searchSchema = z.object({
@@ -220,7 +220,7 @@ function RouteComponent() {
       </div>
 
       {/* Search Autocomplete */}
-      <div className="w-full px-4 mb-8 md:px-0">
+      <div className="w-full px-4 mb-18 md:px-0">
         <Autocomplete
           className="mt-6"
           onSearch={searchPackages}
@@ -278,7 +278,7 @@ function RouteComponent() {
         />
       </div>
 
-      <div className="absolute bottom-0 flex h-12 w-full items-center overflow-hidden rounded-b-xl bg-primary-100 p-6">
+      <div className="absolute bottom-0 border-t border-t-primary-100 flex h-12 w-full items-center overflow-hidden rounded-b-xl bg-primary-00 p-6">
         {packagesTable && <DataTablePagination table={packagesTable} />}
       </div>
     </div>
