@@ -25,7 +25,7 @@ export function PackagesGridView({
                         <div key={row.id} className="min-h-[200px] group hover:shadow-md transition-shadow duration-200 p-3 inset-shadow-card rounded-xl bg-primary-00 opacity-100 min-w-[348px] relative overflow-hidden">
                             <div className="p-0">
                                 <div className="flex items-start justify-between">
-                                    <div className="flex flex-col items-start gap-3 min-w-0 flex-1">
+                                    <div className="flex flex-col items-start gap-3 min-w-0 flex-1" >
                                         <Avatar className="size-12 rounded-md shrink-0">
                                             <AvatarImage src={iconUrl || undefined} alt={name} />
                                             <AvatarFallback className="size-12 rounded-md text-xs font-medium bg-primary-100 text-primary-700">

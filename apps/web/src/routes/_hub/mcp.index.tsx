@@ -68,7 +68,6 @@ export const Route = createFileRoute("/_hub/mcp/")({
     return { authenticated };
   },
   loader: async ({ context: { queryClient } }) => {
-    // Check auth state again in loader (since beforeLoad might not pass data as expected)
     const authenticated = isAuthenticated();
 
     // Always fetch popular packages for autocomplete (public data)
@@ -79,7 +78,7 @@ export const Route = createFileRoute("/_hub/mcp/")({
       // Fetch user's installed MCPs
       await queryClient.ensureQueryData(packageQueries.userInstalledOptions());
       // Fetch user's deployed MCPs  
-      // await queryClient.ensureQueryData(packageQueries.userDeploymentsOptions());
+      await queryClient.ensureQueryData(packageQueries.userDeploymentsOptions());
       // Fetch user info
       await queryClient.ensureQueryData(userQueries.meOptions());
     }
@@ -151,18 +150,15 @@ function RouteComponent() {
     }),
   });
 
-  // Conditionally fetch user data only if authenticated
   const { data: userInstalled } = useQuery({
     ...packageQueries.userInstalledOptions(isAuth),
     enabled: isAuth,
   });
 
-  // const { data: userDeployments } = useQuery({
-  //   ...packageQueries.userDeploymentsOptions(isAuth),
-  //   enabled: isAuth,
-  // });
-
-  const userDeployments: any = []
+  const { data: userDeployments } = useQuery({
+    ...packageQueries.userDeploymentsOptions(isAuth),
+    enabled: isAuth,
+  });
 
   const { data: popularPackages } = useSuspenseQuery(
     packageQueries.popularOptions()
@@ -174,7 +170,6 @@ function RouteComponent() {
     const allPackages = packageData.data;
     const normalizedPackages: Package[] = allPackages.map(normalizePackage);
 
-    // Only process user data if authenticated and data is available
     const installedMap = new Map(
       isAuth && userInstalled ? userInstalled.map((item: any) => [item.packageId, item]) : []
     );
