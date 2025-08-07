@@ -1,0 +1,267 @@
+---
+title: Install MCPs
+description: A step-by-step guide to installing MCPs using the Osiris CLI.
+---
+
+# MCP Usage Guide
+
+This guide explains how to use the various Model Control Protocols (MCPs) available in the Osiris ecosystem.
+
+## Getting Started
+
+### 1. Authentication Setup
+
+First, you need to authenticate with the Osiris platform:
+
+```bash
+# Login to existing account
+npx @osiris-ai/cli login
+
+# Or register a new account
+npx @osiris-ai/cli register
+```
+
+### 2. Connect Authentication to Hub
+
+Once authenticated, connect your authentication to the hub:
+
+```bash
+npx @osiris-ai/cli connect-auth
+```
+
+### 3. Connect Authentication to MCP
+
+To use a specific MCP, you need to connect your authentication to that MCP:
+
+```bash
+npx @osiris-ai/cli connect-mcp-auth
+```
+
+When running this command, you'll need to provide:
+- **Package ID**: The unique identifier for the MCP
+- **Redirect URI**: The callback URL for authentication
+- **Account Selection**: Choose which account to connect
+
+---
+
+## Available MCPs
+
+### Gmail MCP
+
+**Description**: MCP to interact with Gmail for email management
+
+**Usage**:
+```bash
+npx @osiris-ai/cli connect-mcp-auth
+```
+
+**Configuration Details**:
+- **Package ID**: `e45c6d33-afd6-4aa5-bd53-f86806340991`
+- **Redirect URI**: `https://api.osirislabs.xyz/mcps/gmail/osiris/callback`
+- **Deployed URL**: https://api.osirislabs.xyz/mcps/gmail
+- **Required Scopes**: 
+  - `google:https://mail.google.com/`
+
+---
+
+### GitHub MCP
+
+**Description**: MCP to interact with GitHub for repository and user management
+
+**Usage**:
+```bash
+npx @osiris-ai/cli connect-mcp-auth
+```
+
+**Configuration Details**:
+- **Package ID**: `a64db63f-cb07-4a00-a299-7185aa0851e1`
+- **Redirect URI**: `https://api.osirislabs.xyz/mcps/github/osiris/callback`
+- **Deployed URL**: https://api.osirislabs.xyz/mcps/github
+- **Required Scopes**: 
+  - `github:user`
+  - `github:user:email`
+  - `github:repo`
+  - `github:read:org`
+  - `github:user:follow`
+  - `github:gist`
+  - `github:workflow`
+  - `github:delete_repo`
+
+---
+
+### Google Sheets MCP
+
+**Description**: MCP to interact with Google Sheets for spreadsheet management
+
+**Usage**:
+```bash
+npx @osiris-ai/cli connect-mcp-auth
+```
+
+**Configuration Details**:
+- **Package ID**: `22a99806-eca3-4c33-ae06-7df55e9ff3eb`
+- **Redirect URI**: `https://api.osirislabs.xyz/mcps/sheets/osiris/callback`
+- **Deployed URL**: https://api.osirislabs.xyz/mcps/sheets
+- **Required Scopes**: 
+  - `google:https://www.googleapis.com/auth/spreadsheets`
+
+---
+
+### Google Calendar MCP
+
+**Description**: MCP to interact with Google Calendar for event management
+
+**Usage**:
+```bash
+npx @osiris-ai/cli connect-mcp-auth
+```
+
+**Configuration Details**:
+- **Package ID**: `5c71017c-1670-41bf-82fd-f6259b3dce94`
+- **Redirect URI**: `https://api.osirislabs.xyz/mcps/calendar/osiris/callback`
+- **Deployed URL**: https://api.osirislabs.xyz/mcps/calendar
+- **Required Scopes**: 
+  - `google:https://www.googleapis.com/auth/calendar`
+
+---
+
+### Google Drive MCP
+
+**Description**: MCP to interact with Google Drive for file management
+
+**Usage**:
+```bash
+npx @osiris-ai/cli connect-mcp-auth
+```
+
+**Configuration Details**:
+- **Package ID**: `627fab66-9def-4342-ab46-30511ce038a9`
+- **Redirect URI**: `https://api.osirislabs.xyz/mcps/drive/osiris/callback`
+- **Deployed URL**: https://api.osirislabs.xyz/mcps/drive
+- **Required Scopes**: 
+  - `google:https://www.googleapis.com/auth/drive`
+
+---
+
+### Linear MCP
+
+**Description**: MCP to interact with Linear for project management
+
+**Usage**:
+```bash
+npx @osiris-ai/cli connect-mcp-auth
+```
+
+**Configuration Details**:
+- **Package ID**: `84bd37c3-aa2f-44ff-855c-6add2aa69b0f`
+- **Redirect URI**: `https://api.osirislabs.xyz/mcps/linear/osiris/callback`
+- **Deployed URL**: https://api.osirislabs.xyz/mcps/linear
+- **Required Scopes**: 
+  - `linear:read`
+  - `linear:write`
+
+---
+
+### Notion MCP
+
+**Description**: MCP to interact with Notion for project management
+
+**Usage**:
+```bash
+npx @osiris-ai/cli connect-mcp-auth
+```
+
+**Configuration Details**:
+- **Package ID**: `c8b17e33-4440-4a6c-ae2a-3509cc2cea6b`
+- **Redirect URI**: `https://api.osirislabs.xyz/mcps/notion/osiris/callback`
+- **Deployed URL**: https://api.osirislabs.xyz/mcps/notion
+- **Required Scopes**: 
+  - `notion:all`
+
+---
+
+### Discord MCP
+
+**Description**: MCP to interact with Discord for team communication
+
+**Usage**:
+```bash
+npx @osiris-ai/cli connect-mcp-auth
+```
+
+**Configuration Details**:
+- **Package ID**: `0fff5a6b-e0a4-4ba1-8e8a-4342774dd30c`
+- **Redirect URI**: `https://api.osirislabs.xyz/mcps/discord/osiris/callback`
+- **Deployed URL**: https://api.osirislabs.xyz/mcps/discord
+- **Required Scopes**: 
+  - `discord:identify`
+  - `discord:email`
+  - `discord:guilds`
+  - `discord:guilds.join`
+  - `discord:connections`
+  - `discord:gdm.join`
+  - `discord:messages.read`
+  - `discord:bot`
+
+---
+
+### World of AI MCP
+
+**Description**: First agentic game giving user delightful alt history experience with comic generation and historical fact checker
+
+**Usage**:
+```bash
+npx @osiris-ai/cli connect-mcp-auth
+```
+
+**Configuration Details**:
+- **Package ID**: `d9b33aef-b3a4-45e8-9fa1-0f33353530f5`
+- **Redirect URI**: `https://api.osirislabs.xyz/mcps/world-of-ai/osiris/callback`
+- **Deployed URL**: https://api.osirislabs.xyz/mcps/world-of-ai
+- **Required Scopes**: 
+  - `google:https://www.googleapis.com/auth/userinfo.profile`
+  - `google:https://www.googleapis.com/auth/userinfo.email`
+
+---
+
+## Quick Reference
+
+### All Available MCPs Summary
+
+| MCP Name | Package ID | Purpose |
+|----------|------------|---------|
+| Gmail | `e45c6d33-afd6-4aa5-bd53-f86806340991` | Email management |
+| GitHub | `a64db63f-cb07-4a00-a299-7185aa0851e1` | Repository and user management |
+| Sheets | `22a99806-eca3-4c33-ae06-7df55e9ff3eb` | Spreadsheet management |
+| Calendar | `5c71017c-1670-41bf-82fd-f6259b3dce94` | Event management |
+| Drive | `627fab66-9def-4342-ab46-30511ce038a9` | File management |
+| Linear | `84bd37c3-aa2f-44ff-855c-6add2aa69b0f` | Project management |
+| Notion | `c8b17e33-4440-4a6c-ae2a-3509cc2cea6b` | Project management |
+| Discord | `0fff5a6b-e0a4-4ba1-8e8a-4342774dd30c` | Team communication |
+| World of AI | `d9b33aef-b3a4-45e8-9fa1-0f33353530f5` | Agentic gaming experience |
+
+### Hub Information
+
+- **Hub URL**: https://api.osirislabs.xyz/v1
+- **Publisher**: Osiris (osiris@fetcch.xyz)
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Authentication Failed**: Make sure you're logged in with `npx @osiris-ai/cli login`
+2. **Connection Issues**: Verify your internet connection and try `npx @osiris-ai/cli connect-auth` again
+3. **MCP Not Found**: Double-check the package ID matches exactly from the table above
+4. **Permission Denied**: Ensure you have the necessary permissions for the scopes required by the MCP
+
+### Getting Help
+
+If you encounter issues:
+1. Check your authentication status
+2. Verify the package ID and redirect URI
+3. Ensure all required scopes are granted
+4. Contact support at osiris@fetcch.xyz
+
+---
+
+*Last updated: January 2025*
