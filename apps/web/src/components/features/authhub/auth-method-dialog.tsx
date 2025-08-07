@@ -128,6 +128,46 @@ export function AuthMethodDialog({
 
   const navigate = useNavigate();
 
+  const getDefaultValuesForChain = (chainValue: string) => {
+    if (chainValue.startsWith('evm:')) {
+      return {
+        pathFormat: 'PATH_FORMAT_BIP32',
+        path: "m/44'/60'/0'/0/0",
+        curve: 'CURVE_SECP256K1',
+        addressFormat: 'ADDRESS_FORMAT_ETHEREUM'
+      };
+    } else if (chainValue.startsWith('solana:')) {
+      return {
+        pathFormat: 'PATH_FORMAT_BIP32',
+        path: "m/44'/501'/0'/0'",
+        curve: 'CURVE_ED25519',
+        addressFormat: 'ADDRESS_FORMAT_SOLANA'
+      };
+    }
+    return {
+      pathFormat: '',
+      path: '',
+      curve: '',
+      addressFormat: ''
+    };
+  };
+
+  // Function to validate chain selection (prevent mixing EVM and SVM)
+  const validateChainSelection = (newChain: string, existingChains: string[]) => {
+    const isEVM = newChain.startsWith('evm:');
+    const isSVM = newChain.startsWith('solana:');
+
+    for (const existingChain of existingChains) {
+      const existingIsEVM = existingChain.startsWith('evm:');
+      const existingIsSVM = existingChain.startsWith('solana:');
+
+      if ((isEVM && existingIsSVM) || (isSVM && existingIsEVM)) {
+        return false; // Cannot mix EVM and SVM chains
+      }
+    }
+    return true;
+  };
+
   const handleDialogOpenChange = (isOpen: boolean) => {
     onOpenChange?.(isOpen);
 
@@ -194,11 +234,27 @@ export function AuthMethodDialog({
             setConnectionState({ status: 'idle' });
             return;
           }
+
+          // Process accounts with default values based on chain types
+          const processedAccounts = walletData.accounts
+            .filter(account => account.chains.some(chain => chain.trim() !== ''))
+            .map(account => {
+              // Get the first chain to determine defaults
+              const firstChain = account.chains.find(chain => chain.trim() !== '');
+              const defaults = getDefaultValuesForChain(firstChain || '');
+
+              return {
+                ...account,
+                pathFormat: account.pathFormat || defaults.pathFormat,
+                path: account.path || defaults.path,
+                curve: account.curve || defaults.curve,
+                addressFormat: account.addressFormat || defaults.addressFormat
+              };
+            });
+
           const walletResult = await createWallet.mutateAsync({
             name: authHubName,
-            accounts: walletData.accounts.filter(account =>
-              account.chains.some(chain => chain.trim() !== '')
-            )
+            accounts: processedAccounts
           });
           setConnectionState({
             status: 'success',
@@ -353,11 +409,29 @@ export function AuthMethodDialog({
                   <Select
                     onValueChange={(value) => {
                       if (value && !account.chains.includes(value)) {
+                        // Validate chain selection
+                        const currentChains = account.chains.filter(chain => chain.trim() !== '');
+                        if (!validateChainSelection(value, currentChains)) {
+                          toast.error("Cannot mix EVM and SVM chains in the same account");
+                          return;
+                        }
+
+                        // Get default values for the new chain
+                        const defaults = getDefaultValuesForChain(value);
+
                         setWalletData(prev => ({
                           ...prev,
                           accounts: prev.accounts.map((acc, i) =>
                             i === index
-                              ? { ...acc, chains: acc.chains[0] === '' ? [value] : [...acc.chains, value] }
+                              ? {
+                                ...acc,
+                                chains: acc.chains[0] === '' ? [value] : [...acc.chains, value],
+                                // Set default values if they're empty
+                                pathFormat: acc.pathFormat || defaults.pathFormat,
+                                path: acc.path || defaults.path,
+                                curve: acc.curve || defaults.curve,
+                                addressFormat: acc.addressFormat || defaults.addressFormat
+                              }
                               : acc
                           )
                         }));
@@ -371,23 +445,49 @@ export function AuthMethodDialog({
                       {Object.entries(BLOCKCHAIN_OPTIONS).map(([groupKey, group]) => (
                         <SelectGroup key={groupKey}>
                           <SelectLabel>{group.label}</SelectLabel>
-                          {Object.entries(group.chains).map(([chainName, chainValue]) => (
-                            <SelectItem
-                              key={chainValue}
-                              value={chainValue}
-                              disabled={account.chains.includes(chainValue)}
-                            >
-                              {chainName}
-                            </SelectItem>
-                          ))}
+                          {Object.entries(group.chains).map(([chainName, chainValue]) => {
+                            const currentChains = account.chains.filter(chain => chain.trim() !== '');
+                            const isIncompatible = !validateChainSelection(chainValue, currentChains);
+
+                            return (
+                              <SelectItem
+                                key={chainValue}
+                                value={chainValue}
+                                disabled={account.chains.includes(chainValue) || isIncompatible}
+                              >
+                                {chainName}
+                                {isIncompatible && currentChains.length > 0 && (
+                                  <span className="text-xs text-red-500 ml-1">(incompatible)</span>
+                                )}
+                              </SelectItem>
+                            );
+                          })}
                         </SelectGroup>
                       ))}
                     </SelectContent>
                   </Select>
 
                   <p className="text-xs text-primary-400">
-                    Select one or more blockchain networks for this account
+                    Select one or more blockchain networks for this account. You cannot mix EVM and SVM chains.
                   </p>
+                  {/* {account.chains.some(chain => chain.trim() !== '') && (
+                    <div className="text-xs text-primary-300">
+                      {(() => {
+                        const chains = account.chains.filter(chain => chain.trim() !== '');
+                        const hasEVM = chains.some(chain => chain.startsWith('evm:'));
+                        const hasSVM = chains.some(chain => chain.startsWith('solana:'));
+
+                        if (hasEVM && hasSVM) {
+                          return <span className="text-red-500">⚠️ Cannot mix EVM and SVM chains</span>;
+                        } else if (hasEVM) {
+                          return <span className="text-green-500">✓ EVM chains selected</span>;
+                        } else if (hasSVM) {
+                          return <span className="text-green-500">✓ SVM chains selected</span>;
+                        }
+                        return null;
+                      })()}
+                    </div>
+                  )} */}
                 </div>
 
                 <Accordion type="single" collapsible>

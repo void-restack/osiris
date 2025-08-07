@@ -131,7 +131,7 @@ export function EditConnectionSidebar() {
             id: selectedConnection.id,
             name: dbFormData.name || 'Database Connection',
             secret: {
-              db_url: dbFormData.host, // The host field now contains the full db_url
+              db_url: dbFormData.host,
             },
           });
         } else if (isOAuthConnection(selectedConnection)) {
@@ -144,8 +144,6 @@ export function EditConnectionSidebar() {
             redirectUri: window.location.href
           });
         } else if (isWalletConnection(selectedConnection)) {
-          // For wallet connections, only supported chains can be updated
-          // Names and addresses are handled separately via different APIs
           toast.success("Wallet settings updated!");
         }
 

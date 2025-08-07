@@ -8,6 +8,7 @@ import { useState, useMemo } from "react";
 import { McpListPagination } from "../mcp-list/mcp-list-pagination";
 import type { KnowledgeBase } from "@/types";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 type KnowledgeBaseListContainerProps = {
 	cards: KnowledgeBase[];
@@ -144,9 +145,11 @@ export function KnowledgeBaseListContainer({
 				</div>
 			</div>
 			<Separator />
-			<div className="mt-5 px-6 flex-1 flex flex-col min-h-0 mb-8">
-				<BrowseKnowledgeBaseList cards={filteredAndSorted} />
-			</div>
+			<ScrollArea className="relative h-[calc(100vh-560px)] hidebar overflow-y-auto hidebar">
+				<div className="mt-5 px-6 flex-1 flex flex-col min-h-0 mb-8 pb-32 hidebar">
+					<BrowseKnowledgeBaseList cards={filteredAndSorted} />
+				</div>
+			</ScrollArea>
 			<div className="absolute bottom-0 flex h-12 w-full items-center overflow-hidden rounded-b-xl bg-primary-00 py-6">
 				<McpListPagination
 					totalPages={totalPages}

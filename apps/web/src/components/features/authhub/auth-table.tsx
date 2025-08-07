@@ -36,7 +36,7 @@ export function AuthTable({
     showPagination?: boolean;
     onTableReady?: (table: any) => void;
 } = {}) {
-    const [viewMode, setViewMode] = useState<"table" | "grid">("table");
+    const [viewMode, setViewMode] = useState<"table" | "grid">("grid");
 
     const columns = useMemo<ColumnDef<ServiceClient>[]>(
         () => [
@@ -107,7 +107,7 @@ export function AuthTable({
                 },
                 enableSorting: false,
                 meta: {
-                    variant: "multiSelect",
+                    variant: "select",
                     label: "Auth type",
                     options: AUTH_TYPES.map((type) => ({
                         label: type.label,
@@ -216,7 +216,7 @@ export function AuthTable({
         []
     );
 
-    const { table, data, filters, isLoading, isFetching } = useAuthTable({
+    const { table, isLoading, isFetching } = useAuthTable({
         columns,
         initialPageSize: 10,
     });
@@ -275,7 +275,7 @@ export function AuthTable({
 
                 {viewMode === "table" ? (
                     <ScrollArea className="relative h-[calc(100vh-560px)] hidebar overflow-y-auto hidebar">
-                        <div className="w-full">
+                        <div className="w-full pb-8">
                             <DataTable table={table} />
                         </div>
                     </ScrollArea>

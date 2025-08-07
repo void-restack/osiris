@@ -942,11 +942,19 @@ export const hubQueries = {
   oauthClients: () => [...hubQueries.all(), "oauth-clients"] as const,
   oauthClient: (id: string) => [...hubQueries.oauthClients(), id] as const,
 
-  authMethodsOptions: () =>
+  authMethodsOptions: (filters?: { name?: string; type?: string }) =>
     queryOptions({
-      queryKey: hubQueries.auth(),
+      queryKey: [...hubQueries.auth(), filters],
       queryFn: async () => {
-        const response = await api("/hub/auth", {
+        const searchParams = new URLSearchParams();
+        if (filters?.name) {
+          searchParams.append("name", filters.name);
+        }
+        if (filters?.type) {
+          searchParams.append("type", filters.type);
+        }
+
+        const response = await api(`/hub/auth${searchParams.toString() ? `?${searchParams.toString()}` : ""}`, {
           schema: responseSchema(
             z.array(
               z.object({

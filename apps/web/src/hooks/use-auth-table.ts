@@ -28,37 +28,32 @@ export function useAuthTable({
     const [limit] = useQueryState("limit", parseAsInteger.withDefault(initialPageSize));
     const [typeFilter] = useQueryState(
         "type",
-        parseAsArrayOf(parseAsString).withDefault([])
+        parseAsString.withDefault("")
     );
 
     // Build API filters from URL state
     const apiFilters = useMemo(() => {
         const filters: {
-            search?: string;
+            name?: string;
             type?: string;
-            page: number;
-            limit: number;
-        } = {
-            page,
-            limit,
-        };
+        } = {};
 
         // Use search filter for name search
         if (search) {
-            filters.search = search;
+            filters.name = search;
         }
 
-        // Type filter
-        if (typeFilter.length > 0) {
-            filters.type = typeFilter[0]; // API expects single type, UI is multi-select
+        // Type filter - API only supports single type
+        if (typeFilter) {
+            filters.type = typeFilter;
         }
 
         return filters;
-    }, [search, typeFilter, page, limit]);
+    }, [search, typeFilter]);
 
     // Fetch auth methods with server-side filtering
     const { data: authResponse, isLoading, error, isFetching } = useQuery({
-        ...hubQueries.authMethodsOptions(),
+        ...hubQueries.authMethodsOptions(apiFilters),
         placeholderData: keepPreviousData, // Keep previous data while loading new data
     });
 

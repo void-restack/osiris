@@ -1,5 +1,5 @@
 import { hubQueries, packageQueries, userQueries } from '@/lib/queries'
-import { useCreateServiceConnectionMutation, useDeployPackageMutation, useAuthorizeOsirisMutation } from '@/lib/mutations'
+import { useCreateServiceConnectionMutation, useCreateSecretSharingMutation, useCreateWalletMutation, useDeployPackageMutation, useAuthorizeOsirisMutation } from '@/lib/mutations'
 import { isAuthenticated } from '@/lib/auth-optimized'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
@@ -9,8 +9,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { PermissionSelector, type Permission } from '@/components/ui/permission-selector'
 import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
 // import z from 'zod'
 import { PolicyBuilder } from '@/components/rule-builder/index'
 
@@ -59,6 +61,7 @@ function RouteComponent() {
   const { data: packageDetails } = useSuspenseQuery(packageQueries.detailOptions(package_id as string))
   const { data: authScopes } = useSuspenseQuery(packageQueries.authScopesOptions(package_id as string))
   const { data: userInfo } = useSuspenseQuery(userQueries.meOptions(isAuthenticated()))
+  const { data: authMethods } = useSuspenseQuery(hubQueries.authMethodsOptions())
 
   let { data: userAuthConnections } = useSuspenseQuery(hubQueries.userAuthOptions(isAuthenticated()))
   const filteredUserAuthConnections = userAuthConnections?.filter((connection: any) => {
@@ -74,6 +77,8 @@ function RouteComponent() {
 
   // Mutations
   const createServiceConnectionMutation = useCreateServiceConnectionMutation()
+  const createSecretSharingMutation = useCreateSecretSharingMutation()
+  const createWalletMutation = useCreateWalletMutation()
   const deployPackageMutation = useDeployPackageMutation()
   const authorizeOsirisMutation = useAuthorizeOsirisMutation()
 
@@ -94,19 +99,44 @@ function RouteComponent() {
   }, [])
 
   const handleConnectNewAccount = useCallback((serviceName: string, requiredScopes: string[]) => {
+    // Find the auth method for this service
+    const serviceAuthMethod = authMethods?.find((method: any) => method.name === serviceName);
+
+    if (!serviceAuthMethod) {
+      toast.error(`Auth method not found for ${serviceName}`);
+      return;
+    }
+
     const permissionsToUse = selectedPermissions[serviceName]?.length > 0
       ? selectedPermissions[serviceName].map(p => p.id)
       : requiredScopes.map(scope =>
         scope.startsWith(`${serviceName}:`) ? scope.replace(`${serviceName}:`, '') : scope
-      )
+      );
 
-    createServiceConnectionMutation.mutate({
-      name: `${serviceName} connection for ${packageDetails?.name}`,
-      serviceClientName: serviceName,
-      scopes: permissionsToUse,
-      redirectUri: window.location.href
-    })
-  }, [selectedPermissions, packageDetails, createServiceConnectionMutation])
+    // Handle different auth types
+    switch (serviceAuthMethod.type) {
+      case 'oauth':
+        createServiceConnectionMutation.mutate({
+          name: `${serviceName} connection for ${packageDetails?.name}`,
+          serviceClientName: serviceName,
+          scopes: permissionsToUse,
+          redirectUri: window.location.href
+        });
+        break;
+      case 'secret_sharing':
+        // For secret sharing, we need to show a form dialog
+        // For now, we'll use a simple approach - you might want to show a proper dialog
+        toast.error('Secret sharing connections require additional configuration. Please use the Auth Hub to create this connection.');
+        break;
+      case 'embedded_wallet':
+        // For embedded wallet, we need to show a wallet configuration dialog
+        // For now, we'll use a simple approach - you might want to show a proper dialog
+        toast.error('Embedded wallet connections require additional configuration. Please use the Auth Hub to create this connection.');
+        break;
+      default:
+        toast.error(`Unsupported auth type: ${serviceAuthMethod.type}`);
+    }
+  }, [selectedPermissions, packageDetails, createServiceConnectionMutation, authMethods])
 
   const handleAllowConsent = async () => {
     // Validate deployment selection
@@ -146,7 +176,6 @@ function RouteComponent() {
           permissions.map(permission => `${serviceName}:${permission.id}`)
         )
 
-        // Parse policy for deployment
         let policyObject = {}
         try {
           policyObject = JSON.parse(policyJson)
@@ -331,47 +360,17 @@ function RouteComponent() {
               (connection: any) => connection.service_clients.name === serviceName
             ) || []
 
-            // Default scope definitions for consistent mapping
-            const DEFAULT_SCOPE_DEFINITIONS: Record<string, string> = {
-              "read": "Read",
-              "write": "Write",
-              "admin": "Admin",
-              "user": "User",
-              "profile": "Profile",
-              "email": "Email",
-              "openid": "OpenID",
-              "offline_access": "Offline Access",
-              "full_access": "Full Access",
-              "limited_access": "Limited Access"
-            };
-
             const permissions = useMemo(() => {
-              const mappedPermissions = (requiredScopes as string[]).map((scope: string) => {
-                // Use default mapping if available
-                let label = DEFAULT_SCOPE_DEFINITIONS[scope];
+              // Find the auth method for this service to get its scope definitions
+              const serviceAuthMethod = authMethods?.find((method: any) => method.name === serviceName);
+              const scopeDefinitions = serviceAuthMethod?.scopeDefinitions || {};
 
-                if (!label) {
-                  // Fallback to existing formatting logic
-                  label = scope
-                    .split(/[./]/)
-                    .pop()
-                    ?.replace(/([a-z])([A-Z])/g, '$1 $2')
-                    .replace(/[_-]/g, ' ')
-                    .toLowerCase()
-                    .replace(/\b\w/g, l => l.toUpperCase())
-                    || scope
-                }
-
-                return {
-                  id: scope,
-                  label: label
-                }
-              });
-
-
-
-              return mappedPermissions;
-            }, [serviceName, requiredScopes, selectedPermissions])
+              // Use the same pattern as other components in the codebase
+              return Object.entries(scopeDefinitions).map(([scope, label]) => ({
+                id: scope,
+                label: label as string
+              }));
+            }, [serviceName, authMethods])
 
             const handleServicePermissionSelect = useCallback((permissions: Permission[]) => {
               handlePermissionSelect(serviceName, permissions)
@@ -412,17 +411,15 @@ function RouteComponent() {
                   {serviceConnections.length > 0 && (
                     <div className="mb-6">
                       <p className="text-sm font-medium text-primary-800 mb-3">Your connected accounts:</p>
-                      <div className="space-y-3">
+                      <RadioGroup
+                        value={selectedAuthConnections[serviceName] || ''}
+                        onValueChange={(value) => handleAuthConnectionSelect(serviceName, value)}
+                        className="space-y-3"
+                      >
                         {serviceConnections.map((connection: any) => (
-                          <label key={connection.user_service_connections.id} className="flex items-start space-x-3 cursor-pointer group">
-                            <input
-                              type="radio"
-                              name={`auth-${serviceName}`}
+                          <div key={connection.user_service_connections.id} className="flex items-start space-x-3 cursor-pointer group">
+                            <RadioGroupItem
                               value={connection.user_service_connections.id}
-                              onChange={() => handleAuthConnectionSelect(
-                                serviceName,
-                                connection.user_service_connections.id
-                              )}
                               className="mt-1"
                             />
                             <div className="flex-1 p-3 border border-primary-100 rounded-[6px] group-hover:border-primary-200 transition-colors">
@@ -433,11 +430,61 @@ function RouteComponent() {
                                   </AvatarFallback>
                                 </Avatar>
                                 <p className="text-sm font-medium text-primary-800">
-                                  {connection.user_service_connections.metadata?.user?.name || 'Unknown User'}
+                                  {(() => {
+                                    const metadata = connection.user_service_connections.metadata;
+                                    const serviceType = connection.service_clients?.type;
+                                    const connectionId = connection.user_service_connections.id.slice(0, 8);
+
+                                    // Handle different metadata structures based on service type
+                                    switch (serviceType) {
+                                      case 'oauth':
+                                        const oauthName = metadata?.user?.name || metadata?.user?.email || 'Unknown User';
+                                        return `${oauthName} (${connectionId})`;
+                                      case 'secret_sharing':
+                                        const dbName = connection.user_service_connections.name || 'Database Connection';
+                                        return `${dbName} (${connectionId})`;
+                                      case 'embedded_wallet':
+                                        // Check for wallet address in accounts.addresses[0].address
+                                        const walletAddress = metadata?.accounts?.addresses?.[0]?.address;
+                                        const walletName = metadata?.name || connection.user_service_connections.name || 'Wallet Connection';
+                                        if (walletAddress) {
+                                          return `${walletName} (${connectionId})`;
+                                        }
+                                        // Fallback to metadata name or connection name
+                                        return `${walletName} (${connectionId})`;
+                                      default:
+                                        const defaultName = connection.user_service_connections.name || 'Unknown Connection';
+                                        return `${defaultName} (${connectionId})`;
+                                    }
+                                  })()}
                                 </p>
                               </div>
                               <p className="text-[13px] text-primary-400 mb-2">
-                                {connection.user_service_connections.metadata?.user?.email}
+                                {(() => {
+                                  const metadata = connection.user_service_connections.metadata;
+                                  const serviceType = connection.service_clients?.type;
+
+                                  switch (serviceType) {
+                                    case 'oauth':
+                                      return metadata?.user?.email || metadata?.user?.name || 'No email available';
+                                    case 'secret_sharing':
+                                      return 'Database connection';
+                                    case 'embedded_wallet':
+                                      // Show truncated address if available
+                                      const walletAddress = metadata?.accounts?.addresses?.[0]?.address;
+                                      if (walletAddress) {
+                                        return `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`;
+                                      }
+                                      // Show chains if no address
+                                      const chains = metadata?.accounts?.chains;
+                                      if (chains && chains.length > 0) {
+                                        return `${chains.length} chain${chains.length > 1 ? 's' : ''}`;
+                                      }
+                                      return 'Blockchain wallet';
+                                    default:
+                                      return 'Unknown type';
+                                  }
+                                })()}
                               </p>
                               <div className="flex flex-wrap gap-1">
                                 {connection.user_service_connections.scopes?.map((scope: string) => (
@@ -447,9 +494,9 @@ function RouteComponent() {
                                 ))}
                               </div>
                             </div>
-                          </label>
+                          </div>
                         ))}
-                      </div>
+                      </RadioGroup>
                     </div>
                   )}
 
@@ -584,6 +631,6 @@ function RouteComponent() {
           </Button>
         </div>
       </div>
-    </div>
+    </div >
   )
 }

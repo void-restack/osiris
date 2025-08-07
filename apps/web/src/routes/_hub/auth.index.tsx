@@ -33,7 +33,7 @@ export const Route = createFileRoute("/_hub/auth/")({
     const authenticated = isAuthenticated();
 
     // Always load available auth methods (public data)
-    await queryClient.ensureQueryData(hubQueries.authMethodsOptions());
+    await queryClient.ensureQueryData(hubQueries.authMethodsOptions(undefined));
 
     // Only load user data if authenticated
     if (authenticated) {
@@ -43,9 +43,6 @@ export const Route = createFileRoute("/_hub/auth/")({
     return { breadcrumb: "Authentication", authenticated };
   },
 });
-
-const activeClass = "!bg-white data-[state=on]:!bg-white";
-const inactiveClass = "!bg-transparent";
 
 function AuthPageSkeleton() {
   return (
@@ -93,7 +90,7 @@ function RouteComponent() {
   const [callbackMethod, setCallbackMethod] = useState<ServiceClient | null>(null);
 
   const { data: authMethods } = useQuery({
-    ...hubQueries.authMethodsOptions(),
+    ...hubQueries.authMethodsOptions(undefined),
   });
 
   useEffect(() => {

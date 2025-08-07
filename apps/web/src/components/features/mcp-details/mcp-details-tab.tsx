@@ -12,8 +12,6 @@ import { isAuthenticated } from "@/lib/auth-optimized";
 import { ToolCaseIcon } from "lucide-react";
 import { MarkdownRenderer } from "@/components/ui/markdown-renderer";
 
-const servers: McpServer[] = [];
-
 export function McpTabs() {
 	const { mcpId } = useParams({ from: "/_hub/mcp/$mcpId" });
 	const authenticated = isAuthenticated();
@@ -25,6 +23,29 @@ export function McpTabs() {
 		...packageQueries.actionsOptions(mcpId, authenticated),
 		enabled: authenticated,
 	});
+
+	// Fetch user deployments and filter for current package
+	const { data: userDeployments } = useQuery({
+		...packageQueries.userDeploymentsOptions(authenticated),
+		enabled: authenticated,
+	});
+
+	// Filter deployments for current package
+	const packageDeployments = userDeployments?.filter(
+		(deployment: any) => deployment.package.packageId === mcpId
+	) || [];
+
+	// Transform to McpServer format using the actual deployment data
+	const servers: McpServer[] = packageDeployments.map((deployment: any) => ({
+		deploymentId: deployment.deployment.deploymentId,
+		userMcpId: deployment.deployment.userMcpId,
+		url: deployment.deployment.url,
+		scopes: deployment.deployment.scopes,
+		status: deployment.deployment.status,
+		createdAt: deployment.deployment.createdAt,
+		updatedAt: deployment.deployment.updatedAt,
+		connections: deployment.deployment.connections || [],
+	}));
 
 	const serverUrl = packageData?.url || '';
 
@@ -83,7 +104,6 @@ export function McpTabs() {
 							<div className="bg-white rounded-lg border border-primary-100 p-6">
 								<MarkdownRenderer
 									content={packageData.description}
-									showTableOfContents={true}
 								/>
 							</div>
 						) : (
@@ -107,7 +127,23 @@ export function McpTabs() {
 			</TabsContent>
 			<TabsContent value="servers">
 				<TabLayout>
-					<ServerList data={servers} />
+					{!authenticated ? (
+						<div className="text-center py-8">
+							<p className="text-primary-600 mb-4">Sign in to view your deployed servers.</p>
+							<div className="text-sm text-primary-500">
+								Deployed servers show your active instances of this MCP package.
+							</div>
+						</div>
+					) : servers.length === 0 ? (
+						<div className="text-center py-8">
+							<p className="text-primary-600 mb-4">No deployed servers found</p>
+							<div className="text-sm text-primary-500">
+								You haven't deployed any instances of this MCP package yet.
+							</div>
+						</div>
+					) : (
+						<ServerList data={servers} />
+					)}
 				</TabLayout>
 			</TabsContent>
 			<TabsContent value="actions">

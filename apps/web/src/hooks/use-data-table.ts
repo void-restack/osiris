@@ -179,10 +179,15 @@ export function useDataTable<TData>(props: UseDataTableProps<TData>) {
 			Record<string, Parser<string> | Parser<string[]>>
 		>((acc, column) => {
 			if (column.meta?.options) {
-				acc[column.id ?? ""] = parseAsArrayOf(
-					parseAsString,
-					ARRAY_SEPARATOR,
-				).withOptions(queryStateOptions);
+				// Use single select for "select" variant, multi-select for "multiSelect" variant
+				if (column.meta?.variant === "select") {
+					acc[column.id ?? ""] = parseAsString.withOptions(queryStateOptions);
+				} else {
+					acc[column.id ?? ""] = parseAsArrayOf(
+						parseAsString,
+						ARRAY_SEPARATOR,
+					).withOptions(queryStateOptions);
+				}
 			} else {
 				acc[column.id ?? ""] = parseAsString.withOptions(queryStateOptions);
 			}
@@ -206,11 +211,21 @@ export function useDataTable<TData>(props: UseDataTableProps<TData>) {
 		return Object.entries(filterValues).reduce<ColumnFiltersState>(
 			(filters, [key, value]) => {
 				if (value !== null) {
-					const processedValue = Array.isArray(value)
-						? value
-						: typeof value === "string" && /[^a-zA-Z0-9]/.test(value)
-							? value.split(/[^a-zA-Z0-9]+/).filter(Boolean)
-							: [value];
+					const column = filterableColumns.find(col => col.id === key);
+					const isSingleSelect = column?.meta?.variant === "select";
+
+					let processedValue;
+					if (isSingleSelect) {
+						// For single select, keep as single value
+						processedValue = value;
+					} else {
+						// For multi-select, convert to array
+						processedValue = Array.isArray(value)
+							? value
+							: typeof value === "string" && /[^a-zA-Z0-9]/.test(value)
+								? value.split(/[^a-zA-Z0-9]+/).filter(Boolean)
+								: [value];
+					}
 
 					filters.push({
 						id: key,
@@ -221,7 +236,7 @@ export function useDataTable<TData>(props: UseDataTableProps<TData>) {
 			},
 			[],
 		);
-	}, [filterValues, enableAdvancedFilter]);
+	}, [filterValues, enableAdvancedFilter, filterableColumns]);
 
 	const [columnFilters, setColumnFilters] =
 		React.useState<ColumnFiltersState>(initialColumnFilters);

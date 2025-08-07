@@ -15,7 +15,7 @@ export function AuthGridView({ methods }: AuthGridViewProps) {
 
   return (
     <ScrollArea className="relative h-[calc(100vh-560px)] hidebar">
-      <div className="grid w-full grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid w-full grid-cols-1 gap-6 md:grid-cols-2 pb-8 lg:grid-cols-3">
         {methods.map((method: ServiceClient) => (
           <div
             key={method.clientId}

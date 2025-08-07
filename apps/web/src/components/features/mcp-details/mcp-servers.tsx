@@ -1,63 +1,46 @@
-import { Edit } from "lucide-react";
 import { ICONS } from "@/components/icons";
-import {
-	Accordion,
-	AccordionContent,
-	AccordionItem,
-	AccordionTrigger,
-} from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
 
-type App = {
-	icon: string;
-	name: string;
-	scopes: number;
-	isAuthenticated: boolean;
+type ServiceConnection = {
+	connectionId: string;
+	serviceClientName: string;
+	serviceClientType: "oauth" | "secret_sharing" | "embedded_wallet";
+	supportedServices: string[];
+	scopes: string[];
 };
 
 export type McpServer = {
-	name: string;
+	deploymentId: string;
+	userMcpId: string;
+	url: string;
+	scopes: string[];
+	status: "active" | "inactive" | "pending";
 	createdAt: string;
-	apps: App[];
+	updatedAt: string;
+	connections: ServiceConnection[];
 };
 
 export function Server(props: McpServer) {
 	return (
-		<Accordion type="multiple" className="rounded-2xl border px-3">
-			<AccordionItem value="item-1">
-				<AccordionTrigger className="items-center px-1">
-					<div className="flex w-full justify-between">
-						<div className="flex items-center gap-2">
-							<h1 className="text-primary-800">{props.name}</h1>
-							<span className="text-primary-300">/</span>
-							<p className="text-primary-300 text-sm">{props.createdAt}</p>
-						</div>
-						<div className="flex gap-3">
-							<EditServer />
-							<Separator orientation="vertical" />
-						</div>
-					</div>
-				</AccordionTrigger>
-				<AccordionContent className="rounded-md bg-primary-25">
-					{props.apps.map((app) => (
-						<ServerApp key={app.name} {...app} />
-					))}
-				</AccordionContent>
-			</AccordionItem>
-		</Accordion>
-	);
-}
-
-function EditServer() {
-	return (
-		<Button
-			variant={"secondary"}
-			className="shadow-[inset_0_1px_1px_0_rgba(0,0,0,0.05)] drop-shadow-[0_1px_1px_rgba(0,0,0,0.08)]"
-		>
-			Edit
-			<Edit />
-		</Button>
+		<div className="rounded-2xl border p-4">
+			<div className="flex items-center gap-2">
+				<h1 className="text-primary-800">Deployment {props.deploymentId.slice(0, 8)}...</h1>
+				<span className="text-primary-300">/</span>
+				<p className="text-primary-300 text-sm">{props.createdAt}</p>
+				<Badge
+					variant={props.status === 'active' ? 'default' : 'secondary'}
+					className="ml-2"
+				>
+					{props.status}
+				</Badge>
+			</div>
+			<div className="rounded-md bg-primary-25">
+				{props.connections.map((connection) => (
+					<ServerConnection key={connection.connectionId} {...connection} />
+				))}
+			</div>
+		</div>
 	);
 }
 
@@ -65,26 +48,26 @@ export function ServerList({ data }: { data: McpServer[] }) {
 	return (
 		<div className="flex w-full flex-col gap-y-3">
 			{data.map((server) => (
-				<Server key={server.name} {...server} />
+				<Server key={server.deploymentId} {...server} />
 			))}
 		</div>
 	);
 }
 
-function ServerApp(props: App) {
+function ServerConnection(props: ServiceConnection) {
 	return (
 		<div className="flex h-[72px] w-full items-center justify-between border-b border-b-primary-100 p-4">
 			<div className="flex items-center gap-3">
-				<img width={36} height={36} src={props.icon} alt={props.name} />
+				<img width={36} height={36} src={`/test/${props.serviceClientName.toLowerCase()}.svg`} alt={props.serviceClientName} />
 				<div className="flex flex-col text-sm">
-					<p className="font-medium text-primary-800">{props.name}</p>
+					<p className="font-medium text-primary-800">{props.serviceClientName}</p>
 					<p className="text-primary-300 text-xs">
-						{props?.scopes} scopes allowed
+						{props.scopes.length} scopes allowed
 					</p>
 				</div>
 			</div>
 
-			{props?.isAuthenticated ? (
+			{props.scopes.length > 0 ? (
 				<Button
 					className="cursor-pointer bg-primary-100 text-primary-400 hover:bg-primary-100"
 					size={"sm"}

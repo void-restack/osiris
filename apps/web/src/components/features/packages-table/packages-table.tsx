@@ -44,7 +44,7 @@ export function PackagesTable({
     showPagination?: boolean;
     onTableReady?: (table: any) => void;
 } = {}) {
-    const [viewMode, setViewMode] = useState<"table" | "grid">("table");
+    const [viewMode, setViewMode] = useState<"table" | "grid">("grid");
 
     const handleInstall = (pkg: PackageList) => {
         const name = pkg.name || (pkg as any).packageName;
@@ -341,8 +341,8 @@ export function PackagesTable({
                 </div>
 
                 {viewMode === "table" ? (
-                    <ScrollArea className="relative h-[calc(100vh-560px)] hidebar overflow-y-auto hidebar">
-                        <div className="w-full hidebar  ">
+                    <ScrollArea className="relative h-[calc(100vh-560px)] hidebar overflow-y-auto">
+                        <div className="w-full hidebar  pb-8">
                             <DataTable table={table} />
                         </div>
                     </ScrollArea>

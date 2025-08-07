@@ -68,26 +68,18 @@ export function usePackagesTable({
             filters.name = nameFilter;
         }
 
-        // Note: filters.search would be for similarity search (not used in UI currently)
-
-        // Type filter
         if (typeFilter.length > 0) {
-            filters.type = typeFilter[0]; // API expects single type, UI is multi-select
+            filters.type = typeFilter[0];
         }
 
-        // Pricing filter (map to isFree boolean)
-        // TESTING: Always set isFree to true for now
-        filters.isFree = true;
-
-        // Original pricing filter logic (commented out for testing):
-        // if (pricingFilter.length > 0) {
-        //     const pricing = pricingFilter[0];
-        //     if (pricing === "Free") {
-        //         filters.isFree = true;
-        //     } else if (pricing === "Paid") {
-        //         filters.isFree = false;
-        //     }
-        // }
+        if (pricingFilter.length > 0) {
+            const pricing = pricingFilter[0];
+            if (pricing === "Free") {
+                filters.isFree = true;
+            } else if (pricing === "Paid") {
+                filters.isFree = false;
+            }
+        }
 
         return filters;
     }, [search, nameFilter, typeFilter, pricingFilter, page, limit]);

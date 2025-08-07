@@ -190,7 +190,7 @@ export const Route = createFileRoute("/_hub/auth/$authId")({
   loader: async ({ context: { queryClient } }) => {
     const authenticated = isAuthenticated();
     const [authMethods, userAuth] = await Promise.all([
-      queryClient.ensureQueryData(hubQueries.authMethodsOptions()),
+      queryClient.ensureQueryData(hubQueries.authMethodsOptions(undefined)),
       authenticated ? queryClient.ensureQueryData(hubQueries.userAuthOptions()) : Promise.resolve([])
     ]);
     return { authMethods, userAuth };
@@ -201,7 +201,7 @@ function RouteComponent() {
   const { authId } = Route.useParams();
   // Use reactive auth state instead of stale loader data
   const authenticated = useReactiveAuth();
-  const { data: authMethods } = useSuspenseQuery(hubQueries.authMethodsOptions());
+  const { data: authMethods } = useSuspenseQuery(hubQueries.authMethodsOptions(undefined));
   const { data: userAuth } = useQuery({
     ...hubQueries.userAuthOptions(authenticated),
     enabled: authenticated,
