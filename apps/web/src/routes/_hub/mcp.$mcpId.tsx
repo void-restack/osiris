@@ -17,7 +17,8 @@ export const Route = createFileRoute("/_hub/mcp/$mcpId")({
 		await queryClient.ensureQueryData(packageQueries.authScopesOptions(mcpId));
 		// Fetch actions (user-specific data, only if authenticated)
 		if (authenticated) {
-			await queryClient.ensureQueryData(packageQueries.actionsOptions(mcpId, authenticated));
+			await queryClient.ensureQueryData(packageQueries.actionsOptions(mcpId, authenticated, { page: 1, limit: 5 }));
+			await queryClient.ensureQueryData(packageQueries.userDeploymentsForPackageOptions(mcpId, { page: 1, limit: 5 }));
 		}
 		// Fetch MCP tools if server URL is available (public data with fallbacks)
 		if (packageData?.url) {

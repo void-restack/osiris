@@ -78,8 +78,7 @@ async function api<T = any>(
   }
 
   const token =
-    localStorage.getItem("access_token") ??
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI3YWRlMzM4Ni04Y2VkLTQyNjEtYjUxNC03MzY1ZGZlNzczZmUiLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3NTQxMjMwOTEsImV4cCI6MTc1NDIwOTQ5MX0._Px9uDNp8vhROJzC0cx3v6JbeXvWn5tGEVq8Odgr-RQ";
+    localStorage.getItem("access_token") ?? "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIzODlmYzFkOS0yMTdjLTRmZmQtYTM3Ny0wNjQ2NjlmZjZhMDkiLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3NTQ2MDgxODgsImV4cCI6MTc1NDY5NDU4OH0.dg6zUmuLs2ImI59mEuBIenZoFsxNPXl-qJScygOFozo"
   const requestHeaders: Record<string, string> = {
     ...headers,
   };

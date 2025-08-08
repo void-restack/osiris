@@ -250,7 +250,7 @@ export const packageQueries = {
         if (response.status === "FAILED") {
           throw new Error(response.error);
         }
-        return response; // Return full response to match listOptions structure
+        return response;
       },
       staleTime: 10 * 60 * 1000,
     }),
@@ -289,6 +289,41 @@ export const packageQueries = {
           throw new Error(response.error);
         }
         return response.data;
+      },
+    }),
+
+  userDeploymentsForPackage: (packageId: string) =>
+    [...packageQueries.userDeployments(), "package", packageId] as const,
+
+  userDeploymentsForPackageOptions: (packageId: string, params?: { page?: number; limit?: number }) =>
+    queryOptions({
+      queryKey: [...packageQueries.userDeploymentsForPackage(packageId), params],
+      queryFn: async () => {
+        const queryParams: Record<string, string> = {};
+        if (params?.page) queryParams.page = params.page.toString();
+        if (params?.limit) queryParams.limit = params.limit.toString();
+
+        const response = await api(`/packages/packages/user/deployments/package/${packageId}`, {
+          params: queryParams,
+          schema: responseSchema(z.object({
+            data: z.array(z.object({
+              deploymentId: z.string().uuid(),
+              userMcpId: z.string().uuid(),
+              url: z.string(),
+              scopes: z.array(z.string()),
+              status: z.enum(["active", "inactive", "pending"]),
+              createdAt: z.string().datetime(),
+              updatedAt: z.string().datetime(),
+            })),
+            pagination: z.object({
+              total: z.number(),
+              totalPages: z.number(),
+              page: z.number(),
+              limit: z.number(),
+            }),
+          }))
+        });
+        return response;
       },
     }),
 
@@ -394,19 +429,63 @@ export const packageQueries = {
     }
   }),
 
-  actionsOptions: (packageId?: string, enabled: boolean = true) => queryOptions({
-    queryKey: packageQueries.actions(packageId),
+  actionsOptions: (packageId?: string, enabled: boolean = true, params?: { page?: number; limit?: number }) => queryOptions({
+    queryKey: [...packageQueries.actions(packageId), params],
     queryFn: async () => {
-      const params = packageId ? { packageId } : {};
+      const queryParams: Record<string, string> = {};
+      if (params?.page) queryParams.page = params.page.toString();
+      if (params?.limit) queryParams.limit = params.limit.toString();
+      if (packageId) {
+        queryParams.packageId = packageId;
+      }
       if (!isAuthenticated()) {
-        return [];
+        return { data: [], pagination: { total: 0, totalPages: 0, page: 1, limit: 10 } };
       }
       const response = await api("/packages/packages/user/actions", {
-        // @ts-ignore
-        params,
-        schema: responseSchema(z.any())
+        params: queryParams,
+        schema: responseSchema(z.object({
+          data: z.array(z.object({
+            mcp_actions: z.object({
+              actionId: z.string().uuid(),
+              deploymentId: z.string().uuid(),
+              userId: z.string().uuid(),
+              connectionId: z.string().uuid(),
+              actionType: z.string(),
+              request: z.any(),
+              response: z.any(),
+              status: z.enum(["success", "failed", "pending"]),
+              errorMessage: z.string().nullable(),
+              createdAt: z.string().datetime(),
+              updatedAt: z.string().datetime(),
+            }),
+            mcp_deployments: z.object({
+              deploymentId: z.string().uuid(),
+              userMcpId: z.string().uuid(),
+              url: z.string(),
+              scopes: z.array(z.string()),
+              status: z.enum(["active", "inactive", "pending"]),
+              createdAt: z.string().datetime(),
+              updatedAt: z.string().datetime(),
+            }),
+            user_installed_mcps: z.object({
+              userMcpId: z.string().uuid(),
+              userId: z.string().uuid(),
+              packageId: z.string().uuid(),
+              version: z.string(),
+              installedAt: z.string().datetime(),
+              updatedAt: z.string().datetime(),
+            }),
+          })),
+          pagination: z.object({
+            total: z.number(),
+            totalPages: z.number(),
+            page: z.number(),
+            limit: z.number(),
+          }),
+        }))
       });
-      return response.data;
+      console.log('actionsData query:', response);
+      return response;
     },
     enabled: enabled && isAuthenticated(),
   }),
@@ -1086,7 +1165,7 @@ export const hubQueries = {
         if (response.status === "FAILED") {
           throw new Error(response.error);
         }
-        return response.data;
+        return response;
       },
       enabled: enabled && isAuthenticated(),
     }),

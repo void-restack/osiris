@@ -1,14 +1,9 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { InstallAction } from "./install-action";
-import { McpVersions } from "./mcp-versions";
-import { PackageDialog } from "../mcp-list/package-dialog";
 import { McpDeployDialog } from "@/components/mcp-deploy-dialog";
 import { useParams } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { packageQueries } from "@/lib/queries";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Rocket, CheckCircle } from "lucide-react";
 import { isAuthenticated } from "@/lib/auth-optimized";
 
 export function McpDetailsHeader() {
@@ -54,14 +49,6 @@ export function McpDetailsHeader() {
           </p>
         </div>
         <div className="flex items-center gap-4">
-          {/* <McpVersions
-            versions={[
-              {
-                version: packageData?.latestVersion || "1.0.0",
-                id: 1,
-              },
-            ]}
-          /> */}
           <div className="flex items-center gap-2">
             {/* {authenticated && isDeployed && (
               <Badge variant="secondary" className="gap-1">
@@ -74,8 +61,7 @@ export function McpDetailsHeader() {
                 package={packageWithUserStatus}
                 trigger={
                   <Button
-                    variant={"secondary"}
-                    className="gap-2 rounded-[6px]"
+                    className="rounded-[6px]"
                   >
                     Deploy
                   </Button>
