@@ -36,9 +36,14 @@ export function KnowledgeBaseDetailsHeader({ kb }: { kb: KnowledgeBase }) {
 					</Button>
 					
 					{/* Buy Button */}
-					<BuyKnowledgeBaseButton
-						kb={kb}
-					/>
+					{
+						user?.id !== kb.userId && (
+							<BuyKnowledgeBaseButton
+								kb={kb}
+							/>
+						)
+					}
+					
 					{user?.id === kb.userId && (
 						<UploadContentDialog knowledgeBaseId={kb.knowledgeBaseId} />
 					)}
