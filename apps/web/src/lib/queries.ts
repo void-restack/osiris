@@ -2,6 +2,7 @@ import { queryOptions } from "@tanstack/react-query";
 import { z } from "zod";
 import {
   knowledgeBaseSchema,
+  installedKnowledgeBaseSchema,
   packageListSchema,
   packageSchema,
   popularPackageSchema,
@@ -825,6 +826,8 @@ export const knowledgeQueries = {
     [...knowledgeQueries.base(baseId), "sources"] as const,
   units: (baseId: string) =>
     [...knowledgeQueries.base(baseId), "units"] as const,
+  installed: (knowledgeBaseId: string) => [...knowledgeQueries.all(), "installed", knowledgeBaseId] as const,
+  allInstalled: () => [...knowledgeQueries.all(), "all-installed"] as const,
 
   basesOptions: (filters?: { search?: string; page?: number; limit?: number }) =>
     queryOptions({
@@ -977,6 +980,92 @@ export const knowledgeQueries = {
           throw new Error(response.error);
         }
         return response.data;
+      },
+      staleTime: 2 * 60 * 1000,
+    }),
+
+  installedOptions: (knowledgeBaseId: string) =>
+    queryOptions({
+      queryKey: knowledgeQueries.installed(knowledgeBaseId),
+      queryFn: async () => {
+        const response = await api<{
+          status: "SUCCESS" | "FAILED";
+          data: boolean;
+        }>(`/knowledge-base/is-installed`, {
+          params: {
+            knowledgeBaseId,
+          },
+          schema: z.object({
+            status: z.literal("SUCCESS"),
+            data: z.boolean(),
+          }),
+        });
+        if (response.status === "FAILED") {
+          throw new Error(response.error);
+        }
+        return response.data;
+      },
+      staleTime: 2 * 60 * 1000,
+    }),
+
+  allInstalledOptions: () =>
+    queryOptions({
+      queryKey: knowledgeQueries.allInstalled(),
+      queryFn: async () => {
+        const allInstalledBases: any[] = [];
+        let currentPage = 1;
+        let hasMorePages = true;
+        const limit = 20; // Use a reasonable limit per page
+
+        while (hasMorePages) {
+          try {
+            const response = await api(`/knowledge-base/installed?limit=${limit}&page=${currentPage}`, {
+              schema: z.object({
+                status: z.literal("SUCCESS"),
+                data: z.array(installedKnowledgeBaseSchema),
+                pagination: z.object({
+                  total: z.number(),
+                  page: z.number(),
+                  limit: z.number(),
+                  totalPages: z.number(),
+                }),
+              }),
+            }) as {
+              status: "SUCCESS";
+              data: any[];
+              pagination: {
+                total: number;
+                page: number;
+                limit: number;
+                totalPages: number;
+              };
+            };
+
+            // Add the data from this page
+            allInstalledBases.push(...response.data);
+
+            // Check if there are more pages
+            if (currentPage >= response.pagination.totalPages) {
+              hasMorePages = false;
+            } else {
+              currentPage++;
+            }
+          } catch (error) {
+            console.error(`Error fetching page ${currentPage}:`, error);
+            hasMorePages = false;
+          }
+        }
+
+        return {
+          status: "SUCCESS" as const,
+          data: allInstalledBases,
+          pagination: {
+            total: allInstalledBases.length,
+            page: 1,
+            limit: allInstalledBases.length,
+            totalPages: 1,
+          },
+        };
       },
       staleTime: 2 * 60 * 1000,
     }),

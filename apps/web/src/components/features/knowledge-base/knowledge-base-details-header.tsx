@@ -1,12 +1,14 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { UploadContentDialog } from "./upload-contnet";
-import { Route } from "@/routes/_hub/knowledge/$id";
 import type { KnowledgeBase } from "@/types";
 import { formatRelativeTime } from "@/lib/format";
+import { BuyKnowledgeBaseButton } from "./buy-knowledge-base-button";
+import { useQuery } from "@tanstack/react-query";
+import { userQueries } from "@/lib/queries";
 
 export function KnowledgeBaseDetailsHeader({ kb }: { kb: KnowledgeBase }) {
-	const { id: knowledgeBaseId } = Route.useParams();
+	const { data: user } = useQuery(userQueries.meOptions());
 
 	return (
 		<section className="flex w-full flex-col px-6">
@@ -32,7 +34,14 @@ export function KnowledgeBaseDetailsHeader({ kb }: { kb: KnowledgeBase }) {
 					<Button className="text-primary-300 w-full" variant={"secondary"}>
 						last updated: {formatRelativeTime(kb.updatedAt)}
 					</Button>
-					<UploadContentDialog knowledgeBaseId={knowledgeBaseId} />
+					
+					{/* Buy Button */}
+					<BuyKnowledgeBaseButton
+						kb={kb}
+					/>
+					{user?.id === kb.userId && (
+						<UploadContentDialog knowledgeBaseId={kb.knowledgeBaseId} />
+					)}
 				</div>
 			</div>
 		</section>

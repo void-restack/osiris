@@ -14,6 +14,7 @@ import {
   packageQueries,
   userQueries,
 } from "./queries";
+import { toast } from "sonner";
 
 // ===== USER MUTATIONS =====
 export const useCreateUserMutation = () => {
@@ -1167,3 +1168,32 @@ export const useRateKnowledgeBaseMutation = () => {
     },
   });
 };
+
+export const useBuyKnowledgeBaseMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (knowledgeBaseId: string) => {
+      const response = await api(`/knowledge-base/${knowledgeBaseId}/install`, {
+        method: "POST",
+        schema: responseSchema(z.object({
+          success: z.boolean(),
+          message: z.string(),
+          knowledgeBaseId: z.string().uuid(),
+        })),
+      });
+      if (response.status === "FAILED") {
+        throw new Error(response.error);
+      }
+      return response.data;
+    },
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: knowledgeQueries.installed(variables) });
+      toast.success("Installed knowledge base");
+    },
+    onError: (error) => {
+      console.error("Failed to purchase knowledge base:", error);
+    },
+  });
+};
+

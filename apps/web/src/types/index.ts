@@ -82,6 +82,31 @@ export const knowledgeBaseSchema = z.object({
   updatedAt: z.string().datetime(),
 });
 
+export const installedKnowledgeBaseSchema = z.object({
+  knowledgeBaseId: z.string().uuid(),
+  name: z.string(),
+  description: z.string(),
+  userId: z.string().uuid(),
+  isPublic: z.boolean(),
+  publicMetadata: z.object({
+    price: z.number(),
+    rating: z.number(),
+    downloads: z.number(),
+    ratingCount: z.number(),
+  }),
+  coverImageUrl: z.string().nullable(),
+  tags: z.array(z.string()),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+  iconUrl: z.string().nullable(),
+  user: z.object({
+    userId: z.string().uuid(),
+    name: z.string(),
+    email: z.string(),
+    imageUrl: z.string().nullable(),
+  }),
+});
+
 export interface Package {
   packageId: string;
   name: string;
@@ -159,6 +184,7 @@ export type User = z.infer<typeof userSchema>;
 export type PackageList = z.infer<typeof packageListSchema>;
 export type CreditAccount = z.infer<typeof creditAccountSchema>;
 export type KnowledgeBase = z.infer<typeof knowledgeBaseSchema>;
+export type InstalledKnowledgeBase = z.infer<typeof installedKnowledgeBaseSchema>;
 
 export type ViewMode = "grid" | "table";
 export type SortOption =

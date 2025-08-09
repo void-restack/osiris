@@ -526,7 +526,7 @@ export function SourcesTable() {
 
   return (
     <TooltipProvider>
-      <div className="rounded-md border border-[#F5F5F5]">
+      <div className="rounded-md border border-[#F5F5F5] w-full overflow-scroll">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
