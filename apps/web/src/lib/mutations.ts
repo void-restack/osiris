@@ -609,6 +609,9 @@ export const useAuthorizeOsirisMutation = () => {
             state: z.string(),
           })
         ),
+		headers: {
+			'Content-Type': 'application/x-www-form-urlencoded',
+		}
       });
       if (response.status === "FAILED") {
         throw new Error(response.error);
@@ -621,6 +624,42 @@ export const useAuthorizeOsirisMutation = () => {
     },
   });
 };
+
+// Frontend OAuth Authorization
+export const useAuthorizeFrontendMutation = () => {
+	return useMutation({
+	  mutationFn: async (data: {
+		clientId: string;
+		redirectUri: string;
+		responseType: 'code';
+		scopes: string[];
+		state: string;
+		deploymentId?: string;
+	  }) => {
+		const response = await api("/hub/authorize?type=consent_frontend", {
+		  method: "POST",
+		  body: data,
+		  schema: responseSchema(
+			z.object({
+			  code: z.string(),
+			  state: z.string(),
+			})
+		  ),
+		  headers: {
+			  'Content-Type': 'application/x-www-form-urlencoded',
+		  }
+		});
+		if (response.status === "FAILED") {
+		  throw new Error(response.error);
+		}
+		return response.data;
+	  },
+	  onSuccess: (data) => {
+		// Handle the authorization success
+		console.log('Authorization successful:', data);
+	  },
+	});
+  };
 
 // MCP Action Execution
 export const useExecuteMcpActionMutation = () => {
