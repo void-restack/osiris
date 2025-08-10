@@ -99,7 +99,7 @@ export function PermissionSelector({
   }
 
   return (
-    <div className="w-full max-w-lg space-y-4">
+    <div className="h-full max-w-lg space-y-4">
       <div className="relative">
         <Search className="-translate-y-1/2 absolute top-1/2 left-3 h-4 w-4 transform text-muted-foreground" />
         <Input
@@ -136,7 +136,7 @@ export function PermissionSelector({
       )}
 
       {/* Available Permissions */}
-      <ScrollArea className="h-42 max-h-72">
+      <ScrollArea className="h-full max-h-72">
         <div className="space-y-4 px-3">
           {filteredPermissions.length > 0 ? (
             filteredPermissions.map((permission) => (
