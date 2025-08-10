@@ -45,12 +45,8 @@ export const Route = createFileRoute('/oauth/consent')({
 })
 
 function RouteComponent() {
-	const clientId = '4fa12cff-5afe-424c-8a01-f98d38576ae6'
-	const redirect_uri = 'http://localhost:3001/auth/callback'
-	const state = ''
-	const scopes = ['osiris:auth']
-	const response_type = 'authorization_code'
-	const package_id = 'a1dc4fa2-308d-412f-81c0-a9f3d2883338'
+	const { clientId, redirect_uri, state, scope, response_type, package_id } = Route.useSearch()
+	const scopes = scope ? scope.split(' ') : []
 
 	const [selectedDeploymentAction, setSelectedDeploymentAction] = useState<'new' | 'existing'>('new')
 	const [selectedDeploymentId, setSelectedDeploymentId] = useState<string>('')
@@ -236,9 +232,9 @@ function RouteComponent() {
 			const authResultFrontend = await authorizeFrontendMutation.mutateAsync({
 				clientId: clientId,
 				redirectUri: redirect_uri,
-				responseType: 'code',
+				responseType: response_type,
 				scopes: scopes,
-				state: deploymentId || '',
+				state: state || '',
 				deploymentId: deploymentId
 			})
 			const url = new URL(authResultFrontend.url)
@@ -256,7 +252,9 @@ function RouteComponent() {
 	}
 
 	const handleDenyConsent = () => {
-
+		const url = new URL(redirect_uri)
+		url.searchParams.set('error', 'access_denied')
+		window.location.href = url.toString()
 	}
 
 	// Helper function to check if an account has all required scopes
