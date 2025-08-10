@@ -132,19 +132,19 @@ function ActionDetailsModal({ action, children }: ActionDetailsModalProps) {
 }
 
 export const columns: ColumnDef<McpActionData>[] = [
-	{
-		accessorKey: "actionId",
-		header: () => {
-			return (
-				<h1 className="w-[42px] pr-3 text-right font-medium text-sm">#</h1>
-			);
-		},
-		cell: ({ row }) => (
-			<div className="text-right font-medium text-[#737373] text-sm">
-				{row.index + 1}
-			</div>
-		),
-	},
+	// {
+	// 	accessorKey: "actionId",
+	// 	header: () => {
+	// 		return (
+	// 			<h1 className="w-[42px] pr-3 text-right font-medium text-sm">#</h1>
+	// 		);
+	// 	},
+	// 	cell: ({ row }) => (
+	// 		<div className="text-right font-medium text-[#737373] text-sm">
+	// 			{row.index + 1}
+	// 		</div>
+	// 	),
+	// },
 	{
 		accessorKey: "actionType",
 		header: "Action Type",
@@ -188,7 +188,7 @@ export const columns: ColumnDef<McpActionData>[] = [
 		},
 		cell: ({ row }) => {
 			return (
-				<div className="flex w-[56px] justify-end">
+				<div className="flex pr-2 w-full justify-end">
 					<ActionDetailsModal action={row.original}>
 						<Button
 							className="h-6 w-5 rounded-none bg-[#F5F5F5] hover:bg-[#F5F5F5]"

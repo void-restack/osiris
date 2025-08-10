@@ -1,15 +1,15 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-[data-state="open"] {
+/* [data-state="open"] {
 	animation: slideDown 300ms ease-out;
 }
 
 [data-state="closed"] {
 	animation: slideUp 300ms ease-out;
-}
+} */
 
-@keyframes slideDown {
+/* @keyframes slideDown {
 	from {
 		height: 0;
 		opacity: 0;
@@ -31,7 +31,7 @@
 		height: 0;
 		opacity: 0;
 	}
-}
+} */
 
 /* geist-mono-regular - latin */
 @font-face {
@@ -406,14 +406,4 @@ body {
 		opacity: 1;
 		transform: scale(1);
 	}
-}
-
-/* Smooth hover transitions for interactive elements */
-.hover-lift {
-	transition: all 300ms ease-out;
-}
-
-.hover-lift:hover {
-	transform: translateY(-2px);
-	box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
 }
