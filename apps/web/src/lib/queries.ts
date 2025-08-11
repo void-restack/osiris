@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   knowledgeBaseSchema,
   installedKnowledgeBaseSchema,
+  knowledgeBaseJoinedSchema,
   packageListSchema,
   packageSchema,
   popularPackageSchema,
@@ -832,12 +833,81 @@ export const knowledgeQueries = {
   bases: (filters?: { search?: string; page?: number; limit?: number }) => [...knowledgeQueries.all(), "bases", ...(filters ? Object.entries(filters) : [])] as const,
   base: (id: string) => [...knowledgeQueries.bases(), id] as const,
   my: (filters?: { search?: string; page?: number; limit?: number }) => [...knowledgeQueries.all(), "my", ...(filters ? Object.entries(filters) : [])] as const,
+  search: (filters?: { 
+    query?: string; 
+    userId?: string; 
+    tags?: string; 
+    sortBy?: 'rating' | 'credits' | 'installs' | 'price' | 'recent'; 
+    sortOrder?: 'asc' | 'desc'; 
+    isPublic?: boolean; 
+    startPrice?: number; 
+    endPrice?: number; 
+    page?: number; 
+    limit?: number; 
+    topK?: number; 
+  }) => [...knowledgeQueries.all(), "search", ...(filters ? Object.entries(filters) : [])] as const,
   sources: (baseId: string) =>
     [...knowledgeQueries.base(baseId), "sources"] as const,
   units: (baseId: string) =>
     [...knowledgeQueries.base(baseId), "units"] as const,
   installed: (knowledgeBaseId: string) => [...knowledgeQueries.all(), "installed", knowledgeBaseId] as const,
   allInstalled: () => [...knowledgeQueries.all(), "all-installed"] as const,
+
+  searchOptions: (filters?: { 
+    query?: string; 
+    userId?: string; 
+    tags?: string; 
+    sortBy?: 'rating' | 'credits' | 'installs' | 'price' | 'recent'; 
+    sortOrder?: 'asc' | 'desc'; 
+    isPublic?: boolean; 
+    startPrice?: number; 
+    endPrice?: number; 
+    page?: number; 
+    limit?: number; 
+    topK?: number; 
+  }) =>
+    queryOptions({
+      queryKey: knowledgeQueries.search(filters),
+      queryFn: async () => {
+        const searchParams = new URLSearchParams();
+        if (filters?.query) searchParams.set("query", filters.query);
+        if (filters?.userId) searchParams.set("userId", filters.userId);
+        if (filters?.tags) searchParams.set("tags", filters.tags);
+        if (filters?.sortBy) searchParams.set("sortBy", filters.sortBy);
+        if (filters?.sortOrder) searchParams.set("sortOrder", filters.sortOrder);
+        if (filters?.isPublic !== undefined) searchParams.set("isPublic", String(filters.isPublic));
+        if (filters?.startPrice !== undefined) searchParams.set("startPrice", String(filters.startPrice));
+        if (filters?.endPrice !== undefined) searchParams.set("endPrice", String(filters.endPrice));
+        if (filters?.page) searchParams.set("page", String(filters.page));
+        if (filters?.limit) searchParams.set("limit", String(filters.limit));
+        if (filters?.topK) searchParams.set("topK", String(filters.topK));
+
+        const endpoint = `/knowledge-base/search?${searchParams}`;
+        console.log('Knowledge base search endpoint:', endpoint);
+        console.log('Search filters:', filters);
+
+        const response = await api(endpoint, {
+          schema: z.object({
+            status: z.literal("SUCCESS"),
+            data: z.array(knowledgeBaseJoinedSchema),
+            pagination: z.object({
+              total: z.number(),
+              page: z.number(),
+              limit: z.number(),
+              totalPages: z.number(),
+            }),
+          }),
+        });
+        
+        console.log('Knowledge base search response:', response);
+        
+        if (response.status === "FAILED") {
+          throw new Error(response.error);
+        }
+        return response;
+      },
+      staleTime: 2 * 60 * 1000,
+    }),
 
   basesOptions: (filters?: { search?: string; page?: number; limit?: number }) =>
     queryOptions({
@@ -851,14 +921,7 @@ export const knowledgeQueries = {
         const response = await api(`/knowledge-base?${searchParams}`, {
           schema: z.object({
             status: z.literal("SUCCESS"),
-            data: z.array(knowledgeBaseSchema.extend({
-              user: z.object({
-                userId: z.string().uuid(),
-                name: z.string(),
-                email: z.string(),
-                imageUrl: z.string().nullable(),
-              }),
-            })),
+            data: z.array(knowledgeBaseJoinedSchema),
             pagination: z.object({
               total: z.number(),
               page: z.number(),
@@ -902,14 +965,7 @@ export const knowledgeQueries = {
         const response = await api(`/knowledge-base/my?${searchParams}`, {
           schema: z.object({
             status: z.literal("SUCCESS"),
-            data: z.array(knowledgeBaseSchema.extend({
-              user: z.object({
-                userId: z.string().uuid(),
-                name: z.string(),
-                email: z.string(),
-                imageUrl: z.string().nullable(),
-              }),
-            })),
+            data: z.array(knowledgeBaseJoinedSchema),
             pagination: z.object({
               total: z.number(),
               page: z.number(),

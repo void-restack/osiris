@@ -9,6 +9,12 @@ interface ApiOptions {
 interface ApiResponse<T = any> {
   status: "SUCCESS" | "FAILED";
   data?: T;
+  pagination?: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
   error?: string;
   message?: string;
 }
