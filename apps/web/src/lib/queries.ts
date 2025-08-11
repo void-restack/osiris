@@ -837,7 +837,7 @@ export const knowledgeQueries = {
     query?: string; 
     userId?: string; 
     tags?: string; 
-    sortBy?: 'rating' | 'credits' | 'installs' | 'price' | 'recent'; 
+    sortBy?: 'name' | 'rating' | 'credits' | 'installs' | 'price' | 'recent'; 
     sortOrder?: 'asc' | 'desc'; 
     isPublic?: boolean; 
     startPrice?: number; 
@@ -854,17 +854,17 @@ export const knowledgeQueries = {
   allInstalled: () => [...knowledgeQueries.all(), "all-installed"] as const,
 
   searchOptions: (filters?: { 
+    name?: string;
     query?: string; 
     userId?: string; 
     tags?: string; 
-    sortBy?: 'rating' | 'credits' | 'installs' | 'price' | 'recent'; 
+    sortBy?: 'name' | 'rating' | 'credits' | 'installs' | 'price' | 'recent'; 
     sortOrder?: 'asc' | 'desc'; 
     isPublic?: boolean; 
     startPrice?: number; 
     endPrice?: number; 
     page?: number; 
     limit?: number; 
-    topK?: number; 
   }) =>
     queryOptions({
       queryKey: knowledgeQueries.search(filters),
@@ -880,7 +880,7 @@ export const knowledgeQueries = {
         if (filters?.endPrice !== undefined) searchParams.set("endPrice", String(filters.endPrice));
         if (filters?.page) searchParams.set("page", String(filters.page));
         if (filters?.limit) searchParams.set("limit", String(filters.limit));
-        if (filters?.topK) searchParams.set("topK", String(filters.topK));
+        if (filters?.name) searchParams.set("name", filters.name);
 
         const endpoint = `/knowledge-base/search?${searchParams}`;
         console.log('Knowledge base search endpoint:', endpoint);

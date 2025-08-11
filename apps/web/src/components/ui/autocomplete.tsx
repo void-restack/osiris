@@ -20,7 +20,7 @@ interface AutocompleteItem {
 }
 
 interface AutocompleteProps<T extends AutocompleteItem> {
-	onSearch: (query: string) => Promise<T[]> | T[];
+	onSearch: (query: string) => T[] | Promise<T[]>;
 	onSelect?: (item: T) => void;
 	placeholder?: string;
 	className?: string;

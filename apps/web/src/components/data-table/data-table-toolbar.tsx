@@ -1,6 +1,7 @@
 import type { Column, Table } from "@tanstack/react-table";
 import { X } from "lucide-react";
 import * as React from "react";
+import { useQueryState } from "nuqs";
 
 import { DataTableDateFilter } from "@/components/data-table/data-table-date-filter";
 import { DataTableFacetedFilter } from "@/components/data-table/data-table-faceted-filter";
@@ -21,6 +22,11 @@ export function DataTableToolbar<TData>({
 	...props
 }: DataTableToolbarProps<TData>) {
 	const isFiltered = table.getState().columnFilters.length > 0;
+	const hasSorting = table.getState().sorting.length > 0;
+
+	// Get URL state for sorting
+	const [, setSortBy] = useQueryState("sortBy");
+	const [, setSortOrder] = useQueryState("sortOrder");
 
 	const columns = React.useMemo(
 		() => table.getAllColumns().filter((column) => column.getCanFilter()),
@@ -29,7 +35,11 @@ export function DataTableToolbar<TData>({
 
 	const onReset = React.useCallback(() => {
 		table.resetColumnFilters();
-	}, [table]);
+		table.setSorting([]); // Clear table sorting
+		// Clear URL sorting parameters
+		void setSortBy(null);
+		void setSortOrder("asc");
+	}, [table, setSortBy, setSortOrder]);
 
 	return (
 		<div
@@ -42,9 +52,9 @@ export function DataTableToolbar<TData>({
 			{...props}
 		>
 			<div className="flex flex-wrap items-center gap-2">
-				{isFiltered && (
+				{(isFiltered || hasSorting) && (
 					<Button
-						aria-label="Reset filters"
+						aria-label="Reset filters and sorting"
 						variant="outline"
 						size="sm"
 						className="border-dashed"
