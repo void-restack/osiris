@@ -6,13 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { useAppStore, type McpServerData } from "@/lib/store";
 import { PermissionSelector, type Permission } from "./ui/permission-selector";
-import { formatScopeForDisplay } from "@/lib/scope-utils";
 import { Badge } from "./ui/badge";
 import { Separator } from "./ui/separator";
 import { useUpdateDeploymentPolicyMutation } from "@/lib/mutations";
 import { useQuery } from "@tanstack/react-query";
 import { packageQueries } from "@/lib/queries";
 import PolicyBuilder from "./policy-builder";
+import { getPackageRequiredScopes, getCurrentScopesAsPermissions } from "@/lib/scope-utils";
+import { getScopeDisplayName } from "@/lib/scope-definitions";
 
 export function McpServerEditSidebar() {
     const { mcpId } = useParams({ from: "/_hub/mcp/$mcpId" });
@@ -35,10 +36,8 @@ export function McpServerEditSidebar() {
         (deployment: any) => deployment.deploymentId === selectedMcpServer?.deploymentId
     );
 
-    const { data: deploymentAuthData } = useQuery({
-        ...packageQueries.deploymentAuthOptions(selectedMcpServer?.deploymentId || ""),
-        enabled: !!selectedMcpServer?.deploymentId,
-    });
+    // Get service client type from the current deployment's connection data
+    const primaryServiceClientType = currentDeployment?.userServiceConnectionMcpDeployments?.[0]?.connectionId ? 'oauth' : 'embedded_wallet';
 
     // Add query to fetch available scopes for the package
     const { data: availableScopes } = useQuery({
@@ -46,26 +45,20 @@ export function McpServerEditSidebar() {
         enabled: !!mcpId,
     });
 
-    const primaryServiceClientType = deploymentAuthData?.[0]?.serviceClient?.serviceClientType;
+    const packageRequiredScopes = getPackageRequiredScopes(availableScopes);
+    console.log('🔍 Package Required Scopes:', packageRequiredScopes);
 
-    // Transform available scopes into Permission format
-    // The API returns package details with serviceClients containing allowedScopes
-    const availablePermissions = availableScopes?.serviceClients?.[0]?.metadata?.allowedScopes?.map((scope: string) => ({
-        id: scope,
-        label: formatScopeForDisplay(scope)
-    })) || [];
+    const currentScopesAsPermissions = currentDeployment ? getCurrentScopesAsPermissions(currentDeployment) : [];
+
+    const availablePermissions = packageRequiredScopes;
 
     useEffect(() => {
-        if (selectedMcpServer) {
-            // Convert scopes to Permission format
-            const scopesAsPermissions = selectedMcpServer.scopes.map(scope => ({
-                id: scope,
-                label: formatScopeForDisplay(scope)
-            }));
-            setSelectedScopes(scopesAsPermissions);
-            setInitialScopes(scopesAsPermissions);
+        if (selectedMcpServer && currentDeployment) {
+            // Get currently selected scopes from the deployment
+            const deploymentScopes = getCurrentScopesAsPermissions(currentDeployment);
+            setSelectedScopes(deploymentScopes);
+            setInitialScopes(deploymentScopes);
 
-            // Initialize policy with existing policy from deployment or empty policy
             let policyToUse = { allow: [], deny: [] };
             if (currentDeployment?.policy) {
                 policyToUse = currentDeployment.policy;
@@ -76,7 +69,7 @@ export function McpServerEditSidebar() {
 
             setHasChanges(false);
         }
-    }, [selectedMcpServer, deploymentData]);
+    }, [selectedMcpServer, currentDeployment]);
 
     const checkForChanges = () => {
         if (!selectedMcpServer) return false;
@@ -109,14 +102,6 @@ export function McpServerEditSidebar() {
 
         setIsLoading(true);
         try {
-            // Log the deployment information for debugging
-            console.log('=== MCP Server Edit Sidebar - Save Operation ===');
-            console.log('Deployment ID:', selectedMcpServer.deploymentId);
-            console.log('Service Client Type:', primaryServiceClientType);
-            console.log('Current Deployment Data:', currentDeployment);
-            console.log('Current Auth Data:', deploymentAuthData);
-
-            // Log the complete save payload that would be sent to APIs
             const completeSavePayload = {
                 deploymentId: selectedMcpServer.deploymentId,
                 serviceClientType: primaryServiceClientType,
@@ -129,9 +114,7 @@ export function McpServerEditSidebar() {
                 },
                 timestamp: new Date().toISOString()
             };
-            console.log('Complete Save Payload:', completeSavePayload);
 
-            // Handle different deployment types based on service client type
             if (primaryServiceClientType === 'embedded_wallet') {
                 await handleEmbeddedWalletUpdate();
             } else if (primaryServiceClientType === 'oauth') {
@@ -320,15 +303,19 @@ export function McpServerEditSidebar() {
                                 <div className="space-y-3">
                                     <Label className="text-xs text-primary-500">Current Scopes</Label>
                                     <div className="flex flex-wrap gap-2">
-                                        {selectedScopes.map((scope) => (
-                                            <Badge key={scope.id} variant="secondary" className="text-xs">
-                                                {scope.label}
-                                            </Badge>
-                                        ))}
+                                        {currentScopesAsPermissions.length > 0 ? (
+                                            currentScopesAsPermissions.map((scope: Permission) => (
+                                                <Badge key={scope.id} variant="secondary" className="text-xs">
+                                                    <pre>{getScopeDisplayName(scope.id)}</pre>
+                                                </Badge>
+                                            ))
+                                        ) : (
+                                            <span className="text-xs text-primary-400">No scopes selected</span>
+                                        )}
                                     </div>
                                     <PermissionSelector
                                         permissions={availablePermissions}
-                                        initialSelected={selectedScopes}
+                                        initialSelected={currentScopesAsPermissions}
                                         onSelectionChange={handleScopeChange}
                                         placeholder="Select scopes..."
                                     />

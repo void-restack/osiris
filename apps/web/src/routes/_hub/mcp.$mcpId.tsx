@@ -6,7 +6,6 @@ import { packageQueries } from "@/lib/queries";
 import { McpDetailHeaderSkeleton } from "@/components/skeletons/mcp-skeleton";
 import { isAuthenticated } from "@/lib/auth-optimized";
 
-
 export const Route = createFileRoute("/_hub/mcp/$mcpId")({
 	component: SlugComponent,
 	loader: async ({ context: { queryClient }, params: { mcpId } }) => {

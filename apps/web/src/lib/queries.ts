@@ -85,8 +85,6 @@ export const packageQueries = {
   userDeployments: () => [...packageQueries.all(), "user-deployments"] as const,
   deployment: (id: string) =>
     [...packageQueries.userDeployments(), id] as const,
-  deploymentAuth: (id: string) =>
-    [...packageQueries.deployment(id), "auth"] as const,
   githubRepos: () => [...packageQueries.all(), "github-repos"] as const,
   popular: () => [...packageQueries.all(), "popular"] as const,
   authScopes: (packageId: string) => [...packageQueries.all(), "auth-scopes", packageId] as const,
@@ -311,17 +309,20 @@ export const packageQueries = {
             data: z.array(z.object({
               deploymentId: z.string().uuid(),
               userMcpId: z.string().uuid(),
-              url: z.string().optional(),
-              scopes: z.array(z.string()),
+              authData: z.record(z.any()).optional(),
               status: z.enum(["active", "inactive", "pending"]),
+              name: z.string().nullable().optional(),
               createdAt: z.string().datetime(),
               updatedAt: z.string().datetime(),
-              authData: z.record(z.any()).optional(),
-              name: z.string().nullable().optional(),
-              policy: z.object({
-                allow: z.array(z.any()),
-                deny: z.array(z.any()),
-              }).optional(),
+              userServiceConnectionMcpDeployments: z.array(z.object({
+                id: z.string().uuid(),
+                connectionId: z.string().uuid(),
+                deploymentId: z.string().uuid(),
+                scopes: z.array(z.string()),
+                policy: z.record(z.any()),
+                createdAt: z.string().datetime(),
+                updatedAt: z.string().datetime(),
+              })),
             })),
             pagination: z.object({
               total: z.number(),
@@ -332,43 +333,6 @@ export const packageQueries = {
           }))
         });
         return response;
-      },
-    }),
-
-  deploymentAuthOptions: (id: string) =>
-    queryOptions({
-      queryKey: packageQueries.deploymentAuth(id),
-      queryFn: async () => {
-        const response = await api(
-          `/packages/packages/user/deployments/${id}/auth`,
-          {
-            schema: responseSchema(
-              z.array(
-                z.object({
-                  connection: z.object({
-                    connectionId: z.string().uuid(),
-                    scopes: z.array(z.string()),
-                  }),
-                  serviceClient: z.object({
-                    serviceClientId: z.string().uuid(),
-                    serviceClientName: z.string(),
-                    serviceClientType: z.enum([
-                      "oauth",
-                      "secret_sharing",
-                      "embedded_wallet",
-                    ]),
-                    supportedScopes: z.array(z.string()),
-                    supportedServices: z.array(z.string()),
-                  }),
-                }),
-              ),
-            ),
-          },
-        );
-        if (response.status === "FAILED") {
-          throw new Error(response.error);
-        }
-        return response.data;
       },
     }),
 

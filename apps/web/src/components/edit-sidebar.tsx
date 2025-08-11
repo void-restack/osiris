@@ -29,7 +29,7 @@ import { useCreateSecretSharingMutation, useCreateServiceConnectionMutation, use
 import { useQuery } from "@tanstack/react-query";
 import { hubQueries } from "@/lib/queries";
 import { PermissionSelector, type Permission } from "./ui/permission-selector";
-import { formatScopeForDisplay } from "@/lib/scope-utils";
+import { getScopeDisplayName } from "@/lib/scope-definitions";
 
 const BLOCKCHAIN_OPTIONS = {
   EVM: {
@@ -169,7 +169,7 @@ export function EditConnectionSidebar() {
       if (isOAuthConnection(selectedConnection) && selectedServiceClient?.scopeDefinitions) {
         const connectionScopes = selectedConnection.scopes.map(scope => ({
           id: scope,
-          label: formatScopeForDisplay(scope, selectedServiceClient.name)
+          label: getScopeDisplayName(scope)
         }));
         setSelectedScopes(connectionScopes);
         setInitialScopes(connectionScopes);
@@ -619,12 +619,23 @@ function OAuthFields({
 }) {
   const { selectedServiceClient } = useAppStore();
 
+  // Debug logging for OAuth fields
+  console.log('🔍 OAuth Fields - Data Sources:', {
+    selectedServiceClient,
+    'scopeDefinitions': selectedServiceClient?.scopeDefinitions,
+    'scopeDefinitionsCount': Object.keys(selectedServiceClient?.scopeDefinitions || {}).length,
+    connection,
+    selectedScopes
+  });
+
   const scopeDefinitions = selectedServiceClient?.scopeDefinitions || []
 
   const availablePermissions = Object.entries(scopeDefinitions).map(([scope, label]) => ({
     id: scope,
-    label: formatScopeForDisplay(scope, selectedServiceClient?.name) || (label as string) || scope
+    label: getScopeDisplayName(scope) || (label as string) || scope
   }));
+
+  console.log('🔍 OAuth Fields - Available Permissions:', availablePermissions);
 
   return (
     <>

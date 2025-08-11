@@ -133,15 +133,22 @@ export const SCOPE_DEFINITIONS: ScopeDefinitions = {
  * @returns Human-readable scope name or the original scope if not found
  */
 export function getScopeDisplayName(scope: string): string {
-  const [serviceName, scopeUrl] = scope.split(':');
-  
+  // Split only on the first colon to handle URLs with multiple colons
+  const firstColonIndex = scope.indexOf(':');
+  if (firstColonIndex === -1) {
+    return scope;
+  }
+
+  const serviceName = scope.substring(0, firstColonIndex);
+  const scopeUrl = scope.substring(firstColonIndex + 1);
+
   if (!serviceName || !scopeUrl) {
-    return scope; // Return original if not in expected format
+    return scope;
   }
 
   const serviceDefinitions = SCOPE_DEFINITIONS[serviceName];
   if (!serviceDefinitions) {
-    return scope; // Return original if service not found
+    return scope;
   }
 
   return serviceDefinitions[scopeUrl] || scopeUrl;

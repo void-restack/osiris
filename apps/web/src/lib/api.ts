@@ -68,7 +68,6 @@ async function api<T = any>(
     }
   });
 
-  // Ensure refresh token is available in cookies for endpoints that need it
   const needsRefreshToken = ['/hub/wallet/create', '/hub/wallet/add', '/logout', '/hub/wallet/'].some(path =>
     cleanEndpoint.includes(path)
   );

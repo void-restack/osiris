@@ -20,8 +20,7 @@ import {
   getConnectionDisplayInfo,
 } from "@/types/auth";
 import { transformBackendServiceClient, transformBackendUserAuth } from "@/lib/transformer";
-import { formatScopeForDisplay } from "@/lib/scope-utils";
-
+import { getScopeDisplayName } from "@/lib/scope-definitions";
 
 const StatusBadge = ({ status }: { status: string }) => {
   const configs: Record<string, any> = {
@@ -137,7 +136,7 @@ const createColumns = (
           return (
             <div className="flex flex-wrap gap-1">
               {row.original.scopes.slice(0, 2).map((scope: string) => {
-                const scopeLabel = formatScopeForDisplay(scope);
+                const scopeLabel = getScopeDisplayName(scope);
                 return (
                   <Badge key={scope} variant="secondary" className="text-xs">
                     {scopeLabel}

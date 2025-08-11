@@ -18,7 +18,7 @@ import { toast } from 'sonner'
 import { CheckIcon, AlertCircleIcon, ChevronDownIcon, InfoIcon } from 'lucide-react'
 // import z from 'zod'
 import PolicyBuilder from '@/components/policy-builder'
-import { formatScopeForDisplay } from '@/lib/scope-utils'
+import { getScopeDisplayName } from "@/lib/scope-definitions";
 
 // TODO: search params validation and integration
 //
@@ -420,7 +420,7 @@ function RouteComponent() {
               // Use the same pattern as other components in the codebase
               return filteredScopeDefinitions.map(([scope, label]) => ({
                 id: scope,
-                label: formatScopeForDisplay(scope, serviceName) || (label as string) || scope
+                label: getScopeDisplayName(scope) || (label as string) || scope
               }));
             }, [serviceName, authMethods, requiredScopes])
 
@@ -600,7 +600,7 @@ function RouteComponent() {
                                               </DialogHeader>
                                               <div className="space-y-3 mt-4">
                                                 {connection.user_service_connections.scopes?.map((scope: string) => {
-                                                  const displayName = formatScopeForDisplay(scope)
+                                                  const displayName = getScopeDisplayName(scope)
                                                   const permission = permissions.find(p => p.id === scope)
                                                   return (
                                                     <div

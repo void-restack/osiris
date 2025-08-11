@@ -610,9 +610,9 @@ export const useAuthorizeOsirisMutation = () => {
             state: z.string(),
           })
         ),
-		headers: {
-			'Content-Type': 'application/x-www-form-urlencoded',
-		}
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        }
       });
       if (response.status === "FAILED") {
         throw new Error(response.error);
@@ -628,39 +628,39 @@ export const useAuthorizeOsirisMutation = () => {
 
 // Frontend OAuth Authorization
 export const useAuthorizeFrontendMutation = () => {
-	return useMutation({
-	  mutationFn: async (data: {
-		clientId: string;
-		redirectUri: string;
-		responseType: 'code';
-		scopes: string[];
-		state: string;
-		deploymentId?: string;
-	  }) => {
-		const response = await api("/hub/authorize?type=consent_frontend", {
-		  method: "POST",
-		  body: data,
-		  schema: responseSchema(
-			z.object({
-			  code: z.string(),
-			  state: z.string(),
-			})
-		  ),
-		  headers: {
-			  'Content-Type': 'application/x-www-form-urlencoded',
-		  }
-		});
-		if (response.status === "FAILED") {
-		  throw new Error(response.error);
-		}
-		return response.data;
-	  },
-	  onSuccess: (data) => {
-		// Handle the authorization success
-		console.log('Authorization successful:', data);
-	  },
-	});
-  };
+  return useMutation({
+    mutationFn: async (data: {
+      clientId: string;
+      redirectUri: string;
+      responseType: 'code';
+      scopes: string[];
+      state: string;
+      deploymentId?: string;
+    }) => {
+      const response = await api("/hub/authorize?type=consent_frontend", {
+        method: "POST",
+        body: data,
+        schema: responseSchema(
+          z.object({
+            code: z.string(),
+            state: z.string(),
+          })
+        ),
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        }
+      });
+      if (response.status === "FAILED") {
+        throw new Error(response.error);
+      }
+      return response.data;
+    },
+    onSuccess: (data) => {
+      // Handle the authorization success
+      console.log('Authorization successful:', data);
+    },
+  });
+};
 
 // MCP Action Execution
 export const useExecuteMcpActionMutation = () => {
@@ -859,6 +859,30 @@ export const useDeployPackageMutation = () => {
         queryKey: packageQueries.userDeployments(),
       });
       queryClient.invalidateQueries({ queryKey: creditQueries.balance() });
+    },
+  });
+};
+
+export const useUpdateDeploymentMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: {
+      deploymentId: string;
+      name?: string;
+      connections?: Record<string, { scopes: string[] }>;
+    }) => {
+      const { deploymentId, ...updateData } = data;
+      const response = await api(`/packages/deployments/${deploymentId}`, {
+        method: "PATCH",
+        body: updateData,
+      });
+      return response.data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: packageQueries.deployment(variables.deploymentId),
+      });
     },
   });
 };

@@ -10,7 +10,7 @@ import {
   isDatabaseConnection,
   isWalletConnection,
 } from "@/types/auth";
-import { formatScopeForDisplay } from "@/lib/scope-utils";
+import { getScopeDisplayName } from "@/lib/scope-definitions";
 
 interface AuthConnectionDetailsProps {
   connection: UserServiceConnection;
@@ -97,7 +97,7 @@ export function AuthConnectionDetails({ connection, serviceClient }: AuthConnect
               <div className="flex flex-wrap gap-2">
                 {connection.scopes.map((scope) => (
                   <Badge key={scope} variant="secondary" className="text-xs">
-                    {formatScopeForDisplay(scope)}
+                    {getScopeDisplayName(scope)}
                   </Badge>
                 ))}
               </div>

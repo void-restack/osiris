@@ -117,7 +117,15 @@ export function McpTabs() {
 		updatedAt: action.mcp_actions.updatedAt,
 	})) || [];
 
-	const transformedServers = serversData?.data || [];
+	const transformedServers = serversData?.data?.map((deployment: any) => ({
+		deploymentId: deployment.deploymentId,
+		userMcpId: deployment.userMcpId,
+		url: deployment.userServiceConnectionMcpDeployments?.[0]?.connectionId || 'No URL',
+		scopes: deployment.userServiceConnectionMcpDeployments?.[0]?.scopes || [],
+		status: deployment.status,
+		createdAt: deployment.createdAt,
+		updatedAt: deployment.updatedAt,
+	})) || [];
 
 	return (
 		<Tabs defaultValue="readme" className="flex w-full flex-col gap-y-8">

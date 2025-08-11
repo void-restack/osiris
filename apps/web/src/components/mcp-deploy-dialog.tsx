@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from "react";
-import { RefreshCcw, Loader2, Rocket, CheckCircle, AlertCircle, X } from "lucide-react";
+import { Loader2, Rocket, CheckCircle, AlertCircle, X } from "lucide-react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -32,7 +32,8 @@ import { useDeployPackageMutation, useCreateServiceConnectionMutation, useCreate
 import { AuthMethodDialog } from "@/components/features/authhub/auth-method-dialog";
 import { isAuthenticated } from "@/lib/auth-optimized";
 import { getInitials } from "@/lib/utils";
-import { getReadableScopes, formatScopeForDisplay } from "@/lib/scope-utils";
+import { getReadableScopes } from "@/lib/scope-utils";
+import { getScopeDisplayName } from "@/lib/scope-definitions";
 import type { PackageWithUserStatus } from "@/types";
 
 interface McpDeployDialogProps {
@@ -59,6 +60,7 @@ export function McpDeployDialog({
   const createWallet = useCreateWalletMutation();
   const { data: user } = useSuspenseQuery(userQueries.meOptions(isAuthenticated()));
   const { data: authScopes } = useSuspenseQuery(packageQueries.authScopesOptions(pkg.packageId));
+
   const { data: allUserAuth } = useSuspenseQuery(hubQueries.userAuthOptions(isAuthenticated()));
   const { data: authMethods } = useSuspenseQuery(hubQueries.authMethodsOptions());
 
@@ -160,6 +162,15 @@ export function McpDeployDialog({
     const permissions = useMemo(() => {
       return getReadableScopes(serviceName, authScopes);
     }, [serviceName, authScopes]);
+
+    // Debug logging for service section
+    console.log('🔍 MCP Deploy Dialog - Service Section:', {
+      serviceName,
+      requiredScopes,
+      permissions,
+      'permissionsCount': permissions?.length,
+      'serviceConnectionsCount': serviceConnections?.length
+    });
 
     const handleServicePermissionSelect = useCallback((permissions: Permission[]) => {
       handlePermissionSelect(serviceName, permissions)
@@ -280,7 +291,7 @@ export function McpDeployDialog({
                         <div className="flex flex-wrap gap-1">
                           {connection.user_service_connections.scopes?.map((scope: string) => {
                             // Use the new local scope formatting function
-                            const displayName = formatScopeForDisplay(scope);
+                            const displayName = getScopeDisplayName(scope);
 
                             return (
                               <Badge key={scope} className="rounded-[6px] bg-primary-100 px-2 py-0.5 text-xs text-primary-800">
