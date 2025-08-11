@@ -27,8 +27,6 @@ export function PermissionSelector({
   const [searchQuery, setSearchQuery] = useState("");
   const selectedsContainerRef = useRef<HTMLDivElement>(null);
 
-
-
   useEffect(() => {
     setSelectedPermissions(initialSelected);
   }, [JSON.stringify(initialSelected)]);

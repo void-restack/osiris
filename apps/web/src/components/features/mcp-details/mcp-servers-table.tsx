@@ -10,7 +10,7 @@ import {
     useReactTable,
     type VisibilityState,
 } from "@tanstack/react-table";
-import { MoveUpRight, Eye, Edit } from "lucide-react";
+import { MoveUpRight, Eye, Edit, ChevronLeft, ChevronRight } from "lucide-react";
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -220,10 +220,10 @@ export function McpServersTable({ data, pagination, onPageChange }: McpServersTa
             </Table>
             {pagination ? (
                 <div className="flex flex-col gap-2.5">
-                    <div className="flex items-center justify-between px-2">
-                        <div className="text-sm text-muted-foreground">
+                    <div className="flex items-center justify-end px-2 py-4">
+                        {/* <div className="text-sm text-muted-foreground">
                             Showing {((pagination.page - 1) * pagination.limit) + 1} to {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} results
-                        </div>
+                        </div> */}
                         <div className="flex items-center space-x-2">
                             <Button
                                 variant="outline"
@@ -231,7 +231,7 @@ export function McpServersTable({ data, pagination, onPageChange }: McpServersTa
                                 onClick={() => onPageChange?.(pagination.page - 1)}
                                 disabled={pagination.page <= 1}
                             >
-                                Previous
+                                <ChevronLeft />
                             </Button>
                             <span className="text-sm">
                                 Page {pagination.page} of {pagination.totalPages}
@@ -242,7 +242,7 @@ export function McpServersTable({ data, pagination, onPageChange }: McpServersTa
                                 onClick={() => onPageChange?.(pagination.page + 1)}
                                 disabled={pagination.page >= pagination.totalPages}
                             >
-                                Next
+                                <ChevronRight />
                             </Button>
                         </div>
                     </div>

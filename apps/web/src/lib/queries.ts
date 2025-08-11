@@ -406,7 +406,47 @@ export const packageQueries = {
       queryKey: packageQueries.authScopes(packageId),
       queryFn: async () => {
         const response = await api(`/packages/${packageId}/auth-scopes`, {
-          schema: responseSchema(z.array(z.string())),
+          schema: responseSchema(z.object({
+            packageId: z.string(),
+            name: z.string(),
+            type: z.string(),
+            url: z.string().optional(),
+            description: z.string().optional(),
+            shortDescription: z.string().nullable(),
+            latestVersion: z.string(),
+            publisherId: z.string(),
+            clientId: z.string(),
+            iconUrl: z.string().optional(),
+            coverImageUrl: z.string().nullable(),
+            metadata: z.record(z.any()).optional(),
+            tags: z.array(z.string()),
+            createdAt: z.string(),
+            updatedAt: z.string(),
+            publisher: z.object({
+              id: z.string(),
+              name: z.string(),
+              email: z.string(),
+              imageUrl: z.string().nullable(),
+              createdAt: z.string(),
+              updatedAt: z.string(),
+            }),
+            serviceClientMap: z.record(z.array(z.string())).optional(),
+            serviceClients: z.array(z.object({
+              serviceClientId: z.string(),
+              name: z.string(),
+              description: z.string(),
+              scopeDefinitions: z.record(z.string()).optional(),
+              iconUrl: z.string().optional(),
+              metadata: z.object({
+                authUrl: z.string().optional(),
+                tokenUrl: z.string().optional(),
+                baseApiUrl: z.string().optional(),
+                allowedScopes: z.array(z.string()).optional(),
+              }).optional(),
+              createdAt: z.string(),
+              updatedAt: z.string(),
+            })),
+          })),
         });
         if (response.status === "FAILED") {
           throw new Error(response.error);

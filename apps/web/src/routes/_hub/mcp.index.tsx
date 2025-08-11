@@ -94,6 +94,7 @@ function normalizePackage(pkg: any): Package {
       packageId: pkg.packageId,
       name: pkg.name,
       description: pkg.description,
+      shortDescription: pkg.shortDescription,
       publisherId: pkg.publisherId,
       latestVersion: pkg.latestVersion,
       iconUrl: pkg.iconUrl,
@@ -111,6 +112,7 @@ function normalizePackage(pkg: any): Package {
       packageId: pkg.packageId,
       name: pkg.packageName,
       description: pkg.packageDescription,
+      shortDescription: pkg.shortDescription,
       publisherId: pkg.publisherId || '',
       latestVersion: pkg.packageLatestVersion,
       iconUrl: pkg.packageIconUrl,
@@ -125,6 +127,7 @@ function normalizePackage(pkg: any): Package {
     packageId: pkg.packageId,
     name: pkg.name,
     description: pkg.description,
+    shortDescription: pkg.shortDescription,
     publisherId: pkg.publisherId,
     latestVersion: pkg.latestVersion,
     metadata: pkg.metadata,
@@ -255,7 +258,7 @@ function RouteComponent() {
               )}
               <span className="flex-shrink-0">{item.name}</span>
               <span className="flex-shrink-0"> - </span>
-              <span className="text-primary-400 truncate flex-1 min-w-0">{item.description}</span>
+              <span className="text-primary-400 truncate flex-1 min-w-0">{item.shortDescription || item.description}</span>
             </Link>
           )}
           onSelect={(item) => {

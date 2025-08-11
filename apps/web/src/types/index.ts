@@ -16,6 +16,7 @@ export const packageListSchema = z.object({
   type: z.string(),
   url: z.string(),
   description: z.string(),
+  shortDescription: z.string().nullable(),
   latestVersion: z.string(),
   publisherId: z.string().uuid(),
   iconUrl: z.string().nullable(),
@@ -111,6 +112,7 @@ export interface Package {
   packageId: string;
   name: string;
   description: string;
+  shortDescription?: string | null;
   publisherId: string;
   latestVersion: string;
   metadata?: Record<string, any>;

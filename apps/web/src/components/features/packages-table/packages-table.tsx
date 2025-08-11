@@ -107,7 +107,7 @@ export function PackagesTable({
                 cell: ({ row }) => {
                     const pkg = row.original;
                     return (
-                        <p className="text-xs text-primary-400 max-w-[200px] w-full truncate">{pkg.description || (pkg as any).packageDescription}</p>
+                        <p className="text-xs text-primary-400 max-w-[200px] w-full truncate">{pkg.shortDescription || pkg.description || (pkg as any).packageDescription}</p>
                     );
                 },
             },

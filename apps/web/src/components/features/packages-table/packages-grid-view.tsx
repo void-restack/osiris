@@ -18,7 +18,7 @@ export function PackagesGridView({
                 {rows.map((row) => {
                     const pkg = row.original;
                     const name = pkg.name || (pkg as any).packageName;
-                    const description = pkg.description || (pkg as any).packageDescription;
+                    const description = pkg.shortDescription || pkg.description || (pkg as any).packageDescription;
                     const version = pkg.latestVersion || (pkg as any).packageLatestVersion;
                     const iconUrl = pkg.iconUrl || (pkg as any).packageIconUrl;
 

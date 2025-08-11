@@ -40,7 +40,20 @@ export function McpServerEditSidebar() {
         enabled: !!selectedMcpServer?.deploymentId,
     });
 
+    // Add query to fetch available scopes for the package
+    const { data: availableScopes } = useQuery({
+        ...packageQueries.authScopesOptions(mcpId || ""),
+        enabled: !!mcpId,
+    });
+
     const primaryServiceClientType = deploymentAuthData?.[0]?.serviceClient?.serviceClientType;
+
+    // Transform available scopes into Permission format
+    // The API returns package details with serviceClients containing allowedScopes
+    const availablePermissions = availableScopes?.serviceClients?.[0]?.metadata?.allowedScopes?.map((scope: string) => ({
+        id: scope,
+        label: formatScopeForDisplay(scope)
+    })) || [];
 
     useEffect(() => {
         if (selectedMcpServer) {
@@ -314,7 +327,7 @@ export function McpServerEditSidebar() {
                                         ))}
                                     </div>
                                     <PermissionSelector
-                                        permissions={[]}
+                                        permissions={availablePermissions}
                                         initialSelected={selectedScopes}
                                         onSelectionChange={handleScopeChange}
                                         placeholder="Select scopes..."

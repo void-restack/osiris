@@ -25,7 +25,7 @@ export const Route = createFileRoute("/_hub/mcp/$mcpId")({
 		if (packageData?.url) {
 			await queryClient.ensureQueryData(packageQueries.mcpToolsOptions(packageData.url));
 		}
-		return { breadcrumb: "Package Details", authenticated };
+		return { breadcrumb: packageData?.name ?? "Package Details", authenticated };
 	},
 });
 
@@ -39,7 +39,6 @@ function SlugComponent() {
 			<Suspense fallback={<div className="space-y-4"><div className="h-10 bg-gray-100 rounded animate-pulse" /><div className="h-64 bg-gray-100 rounded animate-pulse" /></div>}>
 				<McpTabs />
 			</Suspense>
-
 		</main>
 	);
 }
