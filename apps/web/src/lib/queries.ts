@@ -11,9 +11,6 @@ import {
 } from "@/types";
 import { api } from "./api";
 import { isAuthenticated } from "./auth-optimized";
-import { ListToolsResultSchema } from "@modelcontextprotocol/sdk/types.js";
-
-
 
 export const userQueries = {
   all: () => ["users"] as const,
@@ -283,6 +280,10 @@ export const packageQueries = {
                   scopes: z.array(z.string()),
                 }),
               ),
+              policy: z.object({
+                allow: z.array(z.any()),
+                deny: z.array(z.any()),
+              }).optional(),
             }),
           ),
         });
@@ -310,11 +311,17 @@ export const packageQueries = {
             data: z.array(z.object({
               deploymentId: z.string().uuid(),
               userMcpId: z.string().uuid(),
-              url: z.string(),
+              url: z.string().optional(),
               scopes: z.array(z.string()),
               status: z.enum(["active", "inactive", "pending"]),
               createdAt: z.string().datetime(),
               updatedAt: z.string().datetime(),
+              authData: z.record(z.any()).optional(),
+              name: z.string().nullable().optional(),
+              policy: z.object({
+                allow: z.array(z.any()),
+                deny: z.array(z.any()),
+              }).optional(),
             })),
             pagination: z.object({
               total: z.number(),
@@ -485,7 +492,6 @@ export const packageQueries = {
           }),
         }))
       });
-      console.log('actionsData query:', response);
       return response;
     },
     enabled: enabled && isAuthenticated(),

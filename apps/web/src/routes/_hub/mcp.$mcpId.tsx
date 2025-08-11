@@ -6,6 +6,7 @@ import { packageQueries } from "@/lib/queries";
 import { McpDetailHeaderSkeleton } from "@/components/skeletons/mcp-skeleton";
 import { isAuthenticated } from "@/lib/auth-optimized";
 
+
 export const Route = createFileRoute("/_hub/mcp/$mcpId")({
 	component: SlugComponent,
 	loader: async ({ context: { queryClient }, params: { mcpId } }) => {
@@ -29,6 +30,7 @@ export const Route = createFileRoute("/_hub/mcp/$mcpId")({
 });
 
 function SlugComponent() {
+
 	return (
 		<main className="flex h-full flex-col gap-4">
 			<Suspense fallback={<McpDetailHeaderSkeleton />}>
@@ -37,6 +39,7 @@ function SlugComponent() {
 			<Suspense fallback={<div className="space-y-4"><div className="h-10 bg-gray-100 rounded animate-pulse" /><div className="h-64 bg-gray-100 rounded animate-pulse" /></div>}>
 				<McpTabs />
 			</Suspense>
+
 		</main>
 	);
 }

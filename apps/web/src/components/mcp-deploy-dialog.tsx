@@ -32,6 +32,7 @@ import { useDeployPackageMutation, useCreateServiceConnectionMutation, useCreate
 import { AuthMethodDialog } from "@/components/features/authhub/auth-method-dialog";
 import { isAuthenticated } from "@/lib/auth-optimized";
 import { getInitials } from "@/lib/utils";
+import { getReadableScopes, formatScopeForDisplay } from "@/lib/scope-utils";
 import type { PackageWithUserStatus } from "@/types";
 
 interface McpDeployDialogProps {
@@ -77,9 +78,8 @@ export function McpDeployDialog({
 
     // Validate permissions are selected for each service that has scopes
     const servicesWithScopes = requiredServices.filter(service => {
-      const serviceAuthMethod = authMethods?.find((method: any) => method.name === service);
-      const scopeDefinitions = serviceAuthMethod?.scopeDefinitions || {};
-      return Object.keys(scopeDefinitions).length > 0;
+      const mcpRequiredScopes = authScopes?.serviceClientMap?.[service] || [];
+      return mcpRequiredScopes.length > 0;
     });
 
     const servicesWithoutPermissions = servicesWithScopes.filter(
@@ -158,15 +158,8 @@ export function McpDeployDialog({
     );
 
     const permissions = useMemo(() => {
-      const serviceAuthMethod = authMethods?.find((method: any) => method.name === serviceName);
-      const scopeDefinitions = serviceAuthMethod?.scopeDefinitions || {};
-
-      // Use the same pattern as other components in the codebase
-      return Object.entries(scopeDefinitions).map(([scope, label]) => ({
-        id: scope,
-        label: label as string
-      }));
-    }, [serviceName, authMethods]);
+      return getReadableScopes(serviceName, authScopes);
+    }, [serviceName, authScopes]);
 
     const handleServicePermissionSelect = useCallback((permissions: Permission[]) => {
       handlePermissionSelect(serviceName, permissions)
@@ -285,11 +278,16 @@ export function McpDeployDialog({
                           })()}
                         </p>
                         <div className="flex flex-wrap gap-1">
-                          {connection.user_service_connections.scopes?.map((scope: string) => (
-                            <Badge key={scope} className="rounded-[6px] bg-primary-100 px-2 py-0.5 text-xs text-primary-800">
-                              {scope.replace(`${serviceName}:`, '')}
-                            </Badge>
-                          ))}
+                          {connection.user_service_connections.scopes?.map((scope: string) => {
+                            // Use the new local scope formatting function
+                            const displayName = formatScopeForDisplay(scope);
+
+                            return (
+                              <Badge key={scope} className="rounded-[6px] bg-primary-100 px-2 py-0.5 text-xs text-primary-800">
+                                {displayName}
+                              </Badge>
+                            );
+                          })}
                         </div>
                       </div>
                     </div>
@@ -403,9 +401,8 @@ export function McpDeployDialog({
 
   // Only validate permissions for services that have scopes
   const servicesWithScopes = requiredServices.filter(service => {
-    const serviceAuthMethod = authMethods?.find((method: any) => method.name === service);
-    const scopeDefinitions = serviceAuthMethod?.scopeDefinitions || {};
-    return Object.keys(scopeDefinitions).length > 0;
+    const mcpRequiredScopes = authScopes?.serviceClientMap?.[service] || [];
+    return mcpRequiredScopes.length > 0;
   });
 
   const isFormValid = requiredServices.every(service => selectedConnections[service]) &&

@@ -136,7 +136,7 @@ export function PermissionSelector({
       )}
 
       {/* Available Permissions */}
-      <ScrollArea className="h-full max-h-72">
+      <ScrollArea className="h-full max-h-72 overflow-y-scroll">
         <div className="space-y-4 px-3">
           {filteredPermissions.length > 0 ? (
             filteredPermissions.map((permission) => (

@@ -10,7 +10,7 @@ import {
     useReactTable,
     type VisibilityState,
 } from "@tanstack/react-table";
-import { MoveUpRight, Eye } from "lucide-react";
+import { MoveUpRight, Eye, Edit } from "lucide-react";
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,15 +23,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { useAppStore } from "@/lib/store";
 
 type ServerStatus = "active" | "inactive" | "pending";
 
@@ -44,43 +36,6 @@ type McpServerData = {
     createdAt: string;
     updatedAt: string;
 };
-
-interface DeploymentDetailsModalProps {
-    deployment: McpServerData;
-    children: React.ReactNode;
-}
-
-function DeploymentDetailsModal({ deployment, children }: DeploymentDetailsModalProps) {
-    const [open, setOpen] = React.useState(false);
-
-    return (
-        <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-                {children}
-            </DialogTrigger>
-            <DialogContent className="max-w-4xl max-h-[80vh]">
-                <DialogHeader>
-                    <DialogTitle>Deployment Details</DialogTitle>
-                    <DialogDescription>
-                        Deployment ID: {deployment.deploymentId}
-                    </DialogDescription>
-                </DialogHeader>
-                <ScrollArea className="max-h-[60vh]">
-                    <div className="space-y-4">
-                        <div>
-                            <h3 className="font-semibold mb-2">Deployment Information</h3>
-                            <ScrollArea className="h-64 overflow-hidden max-w-md">
-                                <pre className="text-xs bg-gray-100 p-2 rounded overflow-auto">
-                                    {JSON.stringify(deployment, null, 2)}
-                                </pre>
-                            </ScrollArea>
-                        </div>
-                    </div>
-                </ScrollArea>
-            </DialogContent>
-        </Dialog>
-    );
-}
 
 export const columns: ColumnDef<McpServerData>[] = [
     {
@@ -147,16 +102,17 @@ export const columns: ColumnDef<McpServerData>[] = [
             <p className="" />;
         },
         cell: ({ row }) => {
+            const { openMcpServerEditSidebar } = useAppStore();
+
             return (
                 <div className="flex w-[56px] justify-end">
-                    <DeploymentDetailsModal deployment={row.original}>
-                        <Button
-                            className="h-6 w-5 rounded-none bg-[#F5F5F5] hover:bg-[#F5F5F5]"
-                            variant={"ghost"}
-                        >
-                            <Eye width={14} height={14} />
-                        </Button>
-                    </DeploymentDetailsModal>
+                    <Button
+                        className="h-6 w-5 rounded-none bg-[#F5F5F5] hover:bg-[#F5F5F5]"
+                        variant={"ghost"}
+                        onClick={() => openMcpServerEditSidebar(row.original)}
+                    >
+                        <Edit width={14} height={14} />
+                    </Button>
                 </div>
             );
         },
@@ -237,6 +193,11 @@ export function McpServersTable({ data, pagination, onPageChange }: McpServersTa
                             <TableRow
                                 key={row.id}
                                 data-state={row.getIsSelected() && "selected"}
+                                className="cursor-pointer hover:bg-primary-50"
+                                onClick={() => {
+                                    const { openMcpServerEditSidebar } = useAppStore.getState();
+                                    openMcpServerEditSidebar(row.original);
+                                }}
                             >
                                 {row.getVisibleCells().map((cell, index) => (
                                     <TableCell

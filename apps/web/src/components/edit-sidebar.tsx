@@ -29,6 +29,7 @@ import { useCreateSecretSharingMutation, useCreateServiceConnectionMutation, use
 import { useQuery } from "@tanstack/react-query";
 import { hubQueries } from "@/lib/queries";
 import { PermissionSelector, type Permission } from "./ui/permission-selector";
+import { formatScopeForDisplay } from "@/lib/scope-utils";
 
 const BLOCKCHAIN_OPTIONS = {
   EVM: {
@@ -48,6 +49,95 @@ const BLOCKCHAIN_OPTIONS = {
     }
   }
 };
+
+// Reusable sidebar wrapper component
+export function EditSidebarWrapper({
+  isOpen,
+  onClose,
+  title,
+  subtitle,
+  children,
+  onSave,
+  onCancel,
+  hasChanges,
+  isLoading,
+  saveButtonText = "Save",
+  cancelButtonText = "Cancel"
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  subtitle?: string;
+  children: React.ReactNode;
+  onSave: () => void;
+  onCancel: () => void;
+  hasChanges: boolean;
+  isLoading: boolean;
+  saveButtonText?: string;
+  cancelButtonText?: string;
+}) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-y-0 right-0 w-96 bg-white border-l border-primary-100 shadow-xl z-50 flex flex-col">
+      {/* Header */}
+      <div className="flex items-center justify-between p-6 border-b border-primary-100">
+        <div className="flex flex-col">
+          <h2 className="text-lg font-semibold text-primary-800">{title}</h2>
+          {subtitle && (
+            <p className="text-sm text-primary-500">{subtitle}</p>
+          )}
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onClose}
+          className="h-8 w-8 p-0"
+        >
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto p-6">
+        {children}
+      </div>
+
+      {/* Footer */}
+      <div className="p-6 border-t border-primary-100 space-y-3">
+        <div className="flex gap-3">
+          <Button
+            variant="outline"
+            onClick={onCancel}
+            className="flex-1"
+            disabled={isLoading}
+          >
+            {cancelButtonText}
+          </Button>
+          <Button
+            onClick={onSave}
+            className="flex-1"
+            disabled={!hasChanges || isLoading}
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              saveButtonText
+            )}
+          </Button>
+        </div>
+        {hasChanges && (
+          <p className="text-xs text-primary-500 text-center">
+            You have unsaved changes
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export function EditConnectionSidebar() {
   const { selectedConnection, selectedServiceClient, closeEditSidebar, isEditSidebarOpen } = useAppStore();
@@ -79,7 +169,7 @@ export function EditConnectionSidebar() {
       if (isOAuthConnection(selectedConnection) && selectedServiceClient?.scopeDefinitions) {
         const connectionScopes = selectedConnection.scopes.map(scope => ({
           id: scope,
-          label: selectedServiceClient.scopeDefinitions[scope] || scope
+          label: formatScopeForDisplay(scope, selectedServiceClient.name)
         }));
         setSelectedScopes(connectionScopes);
         setInitialScopes(connectionScopes);
@@ -246,96 +336,118 @@ export function EditConnectionSidebar() {
   }
 
   return (
-    <div className="flex h-full flex-col transition-opacity duration-300 ease-in-out">
-      <div className="flex items-center justify-between rounded-t-xl border-b border-b-dashed border-b-primary-100 bg-primary-25 p-6.5">
-        <div>
-          <span className="text-primary-300">{getBreadcrumb()}</span>
-          <span>{formData.name}</span>
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="flex items-center justify-between p-6 border-b border-primary-100">
+        <div className="flex flex-col">
+          <h2 className="text-lg font-semibold text-primary-800">{`${getBreadcrumb()}${formData.name}`}</h2>
         </div>
-        <Button variant="ghost" size="sm" onClick={handleCancel} className="h-8 w-8 p-0">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={closeEditSidebar}
+          className="h-8 w-8 p-0"
+        >
           <X className="h-4 w-4" />
         </Button>
       </div>
 
-      <div className="flex-1 space-y-6 overflow-y-scroll hidebar p-6">
-        {/* Common Fields */}
-        <div className="space-y-[6px]">
-          <Label htmlFor="connection-id" className="text-[13px] text-primary-400">
-            Connection ID
-          </Label>
-          <div className="rounded-md bg-primary-50 px-3 py-2 font-mono text-primary-400 text-sm truncate" title={formData.id}>
-            #{formData.id}
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto p-6">
+        <div className="space-y-6">
+          {/* Common Fields */}
+          <div className="space-y-[6px]">
+            <Label htmlFor="connection-id" className="text-[13px] text-primary-400">
+              Connection ID
+            </Label>
+            <div className="rounded-md bg-primary-50 px-3 py-2 font-mono text-primary-400 text-sm truncate" title={formData.id}>
+              #{formData.id}
+            </div>
           </div>
-        </div>
 
-        <div className="space-y-[6px]">
-          <Label htmlFor="connection-name" className="text-[13px] text-primary-400">
-            Connection Name
-          </Label>
-          <Input
-            id="connection-name"
-            value={formData.name}
-            onChange={(e) => handleInputChange("name", e.target.value)}
-            placeholder="Enter connection name"
-            className="w-full"
-            disabled={isWalletConnection(selectedConnection)}
-            title={isWalletConnection(selectedConnection) ? "Wallet names cannot be changed" : ""}
-          />
+          <div className="space-y-[6px]">
+            <Label htmlFor="connection-name" className="text-[13px] text-primary-400">
+              Connection Name
+            </Label>
+            <Input
+              id="connection-name"
+              value={formData.name}
+              onChange={(e) => handleInputChange("name", e.target.value)}
+              placeholder="Enter connection name"
+              className="w-full"
+              disabled={isWalletConnection(selectedConnection)}
+              title={isWalletConnection(selectedConnection) ? "Wallet names cannot be changed" : ""}
+            />
+            {isWalletConnection(selectedConnection) && (
+              <p className="text-xs text-primary-400">
+                Wallet names cannot be changed after creation
+              </p>
+            )}
+          </div>
+
+          {/* Type-specific Fields */}
+          {isDatabaseConnection(selectedConnection) && (
+            <DatabaseFields
+              formData={formData as DatabaseFormData}
+              onChange={handleInputChange}
+              showSecrets={showSecrets}
+              setShowSecrets={setShowSecrets}
+              connectionId={selectedConnection.id}
+              serviceClientId={selectedServiceClient?.clientId || ''}
+              credentials={selectedConnection.credentials}
+            />
+          )}
+
+          {isOAuthConnection(selectedConnection) && (
+            <OAuthFields
+              formData={formData as OAuthFormData}
+              connection={selectedConnection}
+              selectedScopes={selectedScopes}
+              onScopesChange={handleScopeChange}
+              onChange={handleInputChange}
+            />
+          )}
+
           {isWalletConnection(selectedConnection) && (
-            <p className="text-xs text-primary-400">
-              Wallet names cannot be changed after creation
-            </p>
+            <WalletFields
+              formData={formData as WalletFormData}
+              onChange={handleInputChange}
+              connection={selectedConnection}
+              showAddAddress={showAddAddress}
+              setShowAddAddress={setShowAddAddress}
+              newAddress={newAddress}
+              setNewAddress={setNewAddress}
+              handleAddAddress={handleAddAddress}
+              handleCancelAddAddress={handleCancelAddAddress}
+              addWalletMutation={addWalletMutation}
+            />
           )}
         </div>
-
-        {/* Type-specific Fields */}
-        {isDatabaseConnection(selectedConnection) && (
-          <DatabaseFields
-            formData={formData as DatabaseFormData}
-            onChange={handleInputChange}
-            showSecrets={showSecrets}
-            setShowSecrets={setShowSecrets}
-            connectionId={selectedConnection.id}
-            serviceClientId={selectedServiceClient?.clientId || ''}
-            credentials={selectedConnection.credentials}
-          />
-        )}
-
-        {isOAuthConnection(selectedConnection) && (
-          <OAuthFields
-            formData={formData as OAuthFormData}
-            connection={selectedConnection}
-            selectedScopes={selectedScopes}
-            onScopesChange={handleScopeChange}
-            onChange={handleInputChange}
-          />
-        )}
-
-        {isWalletConnection(selectedConnection) && (
-          <WalletFields
-            formData={formData as WalletFormData}
-            onChange={handleInputChange}
-            connection={selectedConnection}
-            showAddAddress={showAddAddress}
-            setShowAddAddress={setShowAddAddress}
-            newAddress={newAddress}
-            setNewAddress={setNewAddress}
-            handleAddAddress={handleAddAddress}
-            handleCancelAddAddress={handleCancelAddAddress}
-            addWalletMutation={addWalletMutation}
-          />
-        )}
       </div>
 
-      <div className="rounded-b-xl border-primary-100 border-t bg-primary-25 p-6">
-        <div className="flex w-full items-center justify-between gap-3">
-          <Button variant="outline" onClick={handleCancel} size="sm">
+      {/* Footer */}
+      <div className="p-6 border-t border-primary-100 space-y-3">
+        <div className="flex gap-3">
+          <Button
+            variant="outline"
+            onClick={handleCancel}
+            className="flex-1"
+          >
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={!hasChanges} size="sm">
+          <Button
+            onClick={handleSave}
+            className="flex-1"
+            disabled={!hasChanges}
+          >
             {getSaveButtonText()}
           </Button>
         </div>
+        {hasChanges && (
+          <p className="text-xs text-primary-500 text-center">
+            You have unsaved changes
+          </p>
+        )}
       </div>
     </div>
   );
@@ -511,7 +623,7 @@ function OAuthFields({
 
   const availablePermissions = Object.entries(scopeDefinitions).map(([scope, label]) => ({
     id: scope,
-    label: label as string
+    label: formatScopeForDisplay(scope, selectedServiceClient?.name) || (label as string) || scope
   }));
 
   return (
@@ -866,8 +978,7 @@ function WalletFields({
         {/* Chain selector */}
         <Select onValueChange={handleAddChain}>
           <SelectTrigger className="w-full">
-            <button></button>
-            {/* <SelectValue placeholder="Add blockchain chain" /> */}
+            <SelectValue placeholder="Add blockchain chain" />
           </SelectTrigger>
           <SelectContent>
             {Object.entries(BLOCKCHAIN_OPTIONS).map(([groupKey, group]) => (

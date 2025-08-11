@@ -23,6 +23,7 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { formatScopeForDisplay } from "@/lib/scope-utils";
 
 interface Authenticator {
 	id: string;
@@ -94,7 +95,7 @@ export const columns: ColumnDef<Authenticator>[] = [
 						className="h-6 rounded-[4px] bg-primary-50 px-2 py-0.5 text-primary-400 text-xs"
 						key={scope}
 					>
-						{scope}
+						{formatScopeForDisplay(scope)}
 					</div>
 				))}
 			</div>

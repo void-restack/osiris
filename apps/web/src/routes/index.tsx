@@ -3,7 +3,6 @@ import HubLayout from "@/components/layouts/hub-layout";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { AuthHeader } from "@/components/auth-header";
-import { PolicyBuilder } from "@/components/rule-builder/index";
 // import { ArrowRight, FileText, PlusIcon } from "lucide-react";
 // import { Button } from "@/components/ui/button";
 // import { KnowledgeBaseCard } from "@/components/features/knowledge-base/knowledge-base-card";
@@ -27,9 +26,6 @@ function HomeComponent() {
         </div>
         <AuthHeader />
       </header>
-      {/* <div className="flex w-full items-center justify-center pt-20">
-        <PolicyBuilder />
-      </div> */}
 
       {/* <div className="hidebar h-full w-full overflow-y-scroll pb-8"> */}
       {/*   {isLoggedIn ? */}

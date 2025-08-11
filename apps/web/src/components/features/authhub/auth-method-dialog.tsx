@@ -28,6 +28,7 @@ import { getInitials } from "@/lib/utils";
 import { isAuthenticated } from "@/lib/auth-optimized";
 import type { ServiceClient } from "@/types/auth";
 import type { Permission } from "@/types";
+import { formatScopeForDisplay } from "@/lib/scope-utils";
 import { Icon } from "@/components/ui/icon";
 import {
   Accordion,
@@ -284,7 +285,7 @@ export function AuthMethodDialog({
         <PermissionSelector
           permissions={Object.entries(method.scopeDefinitions).map(([scope, label]) => ({
             id: scope,
-            label: label
+            label: formatScopeForDisplay(scope, method.name) || (label as string) || scope
           }))}
           placeholder="Search permissions..."
           onSelectionChange={setSelectedScopes}

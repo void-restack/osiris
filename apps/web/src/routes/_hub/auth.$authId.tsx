@@ -1,6 +1,6 @@
 import { useSuspenseQuery, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { PenLine, Trash2, Database, Wallet, Key, Plus } from "lucide-react";
 import { DataTable } from "@/components/data-table/data-table";
@@ -20,6 +20,7 @@ import {
   getConnectionDisplayInfo,
 } from "@/types/auth";
 import { transformBackendServiceClient, transformBackendUserAuth } from "@/lib/transformer";
+import { formatScopeForDisplay } from "@/lib/scope-utils";
 
 
 const StatusBadge = ({ status }: { status: string }) => {
@@ -136,8 +137,7 @@ const createColumns = (
           return (
             <div className="flex flex-wrap gap-1">
               {row.original.scopes.slice(0, 2).map((scope: string) => {
-                const scopeLabel =
-                  row?.original?.serviceClient?.scopeDefinitions?.[scope] || scope.replace(`${serviceClient.name}:`, '');
+                const scopeLabel = formatScopeForDisplay(scope);
                 return (
                   <Badge key={scope} variant="secondary" className="text-xs">
                     {scopeLabel}
@@ -206,10 +206,17 @@ function RouteComponent() {
     ...hubQueries.userAuthOptions(authenticated),
     enabled: authenticated,
   });
-  const { openEditSidebar } = useAppStore();
+  const { openEditSidebar, closeEditSidebar } = useAppStore();
   const { mutate: disconnectService } = useDisconnectServiceMutation();
 
   const [dialogOpen, setDialogOpen] = useState(false);
+
+  // Close the edit sidebar when navigating away from this page
+  useEffect(() => {
+    return () => {
+      closeEditSidebar();
+    };
+  }, [closeEditSidebar]);
 
 
   const serviceClient = authMethods.find((method: any) => method.clientId === authId);
