@@ -43,6 +43,183 @@ interface McpDeployDialogProps {
   onOpenChange?: (open: boolean) => void;
 }
 
+function ServiceSection({
+  serviceName,
+  requiredScopes,
+  userAuth,
+  authScopes,
+  selectedPermissions,
+  onPermissionSelect,
+  selectedConnections,
+  onConnectionSelect,
+  authMethods,
+  createServiceConnection,
+  createSecretSharing,
+  createWallet,
+  onConnectNewAccount,
+}: {
+  serviceName: string;
+  requiredScopes: string[];
+  userAuth: any[];
+  authScopes: any;
+  selectedPermissions: Record<string, Permission[]>;
+  onPermissionSelect: (serviceName: string, permissions: Permission[]) => void;
+  selectedConnections: Record<string, string>;
+  onConnectionSelect: (serviceName: string, id: string) => void;
+  authMethods: any[];
+  createServiceConnection: any;
+  createSecretSharing: any;
+  createWallet: any;
+  onConnectNewAccount: (serviceName: string, requiredScopes: string[]) => void;
+}) {
+  const serviceConnections = useMemo(
+    () => userAuth.filter((c: any) => c.service_clients.name === serviceName),
+    [userAuth, serviceName]
+  );
+
+  const permissions = useMemo(
+    () => getReadableScopes(serviceName, authScopes),
+    [serviceName, authScopes]
+  );
+
+  const handleServicePermissionSelect = useCallback(
+    (perms: Permission[]) => onPermissionSelect(serviceName, perms),
+    [serviceName, onPermissionSelect]
+  );
+
+  const initialSelected = useMemo(
+    () => selectedPermissions[serviceName] || [],
+    [selectedPermissions, serviceName]
+  );
+
+  const pendingConnect =
+    createServiceConnection.isPending ||
+    createSecretSharing.isPending ||
+    createWallet.isPending;
+
+  return (
+    <Accordion type="single" collapsible className="border border-primary-100 rounded-[6px]">
+      <AccordionItem value={serviceName} className="border-none">
+        <AccordionTrigger className="px-4 py-3 hover:no-underline">
+          <div className="flex items-center gap-3 w-full">
+            <div className="size-10 rounded-[6px] bg-purple-300 flex items-center justify-center text-white font-bold text-lg capitalize shadow-xl">
+              {serviceName.charAt(0)}
+            </div>
+            <div className="flex flex-col items-start flex-1">
+              <h3 className="text-primary-800 capitalize font-medium">{serviceName} Account</h3>
+              <p className="text-[13px] text-primary-300">Select an existing {serviceName} account or connect a new one</p>
+            </div>
+          </div>
+        </AccordionTrigger>
+        <AccordionContent className="px-4 pb-4">
+          {permissions.length > 0 && (
+            <div className="mb-6">
+              <p className="text-sm font-medium text-primary-800 mb-3">Select permissions to grant:</p>
+              <PermissionSelector
+                permissions={permissions}
+                placeholder={`Search ${serviceName} permissions...`}
+                onSelectionChange={handleServicePermissionSelect}
+                initialSelected={initialSelected}
+              />
+            </div>
+          )}
+
+          {serviceConnections.length > 0 && (
+            <div className="mb-6">
+              <p className="text-sm font-medium text-primary-800 mb-3">Your connected accounts:</p>
+              <RadioGroup
+                value={selectedConnections[serviceName] || ''}
+                onValueChange={(value) => onConnectionSelect(serviceName, value)}
+                className="space-y-3"
+              >
+                {serviceConnections.map((connection: any) => (
+                  <div key={connection.user_service_connections.id} className="flex items-start space-x-3 cursor-pointer group">
+                    <RadioGroupItem value={connection.user_service_connections.id} className="mt-1" />
+                    <div className="flex-1 p-3 border border-primary-100 rounded-[6px] group-hover:border-primary-200 transition-colors">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <Avatar className="h-6 w-6">
+                          <AvatarFallback className="text-xs bg-purple-300 text-white">
+                            {serviceName.charAt(0).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <p className="text-sm font-medium text-primary-800">
+                          {(() => {
+                            const md = connection.user_service_connections.metadata;
+                            const t = connection.service_clients?.type;
+                            const shortId = connection.user_service_connections.id.slice(0, 8);
+                            switch (t) {
+                              case 'oauth':
+                                return `${md?.user?.name || md?.user?.email || 'Unknown User'} (${shortId})`;
+                              case 'secret_sharing':
+                                return `${connection.user_service_connections.name || 'Database Connection'} (${shortId})`;
+                              case 'embedded_wallet': {
+                                const walletName = md?.name || connection.user_service_connections.name || 'Wallet Connection';
+                                return `${walletName} (${shortId})`;
+                              }
+                              default:
+                                return `${connection.user_service_connections.name || 'Unknown Connection'} (${shortId})`;
+                            }
+                          })()}
+                        </p>
+                      </div>
+
+                      <p className="text-[13px] text-primary-400 mb-2">
+                        {(() => {
+                          const md = connection.user_service_connections.metadata;
+                          const t = connection.service_clients?.type;
+                          switch (t) {
+                            case 'oauth':
+                              return md?.user?.email || md?.user?.name || 'No email available';
+                            case 'secret_sharing':
+                              return 'Database connection';
+                            case 'embedded_wallet': {
+                              const addr = md?.accounts?.addresses?.[0]?.address;
+                              if (addr) return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+                              const chains = md?.accounts?.chains;
+                              if (chains?.length) return `${chains.length} chain${chains.length > 1 ? 's' : ''}`;
+                              return 'Blockchain wallet';
+                            }
+                            default:
+                              return 'Unknown type';
+                          }
+                        })()}
+                      </p>
+
+                      <div className="flex flex-wrap gap-1">
+                        {connection.user_service_connections.scopes?.map((scope: string) => (
+                          <Badge key={scope} className="rounded-[6px] bg-primary-100 px-2 py-0.5 text-xs text-primary-800">
+                            {getScopeDisplayName(scope)}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </RadioGroup>
+            </div>
+          )}
+
+          <Button
+            onClick={() => onConnectNewAccount(serviceName, requiredScopes)}
+            variant="outline"
+            className="w-full rounded-[6px]"
+            disabled={pendingConnect}
+          >
+            {pendingConnect ? 'Connecting...' : `Connect a new ${serviceName} account`}
+          </Button>
+
+          {serviceConnections.length === 0 && (
+            <p className="text-[13px] text-primary-300 italic mt-3">
+              No {serviceName} accounts connected yet.
+            </p>
+          )}
+        </AccordionContent>
+      </AccordionItem>
+    </Accordion>
+  );
+}
+
+
 export function McpDeployDialog({
   package: pkg,
   trigger,
@@ -79,7 +256,6 @@ export function McpDeployDialog({
       return;
     }
 
-    // Validate permissions are selected for each service that has scopes
     const servicesWithScopes = requiredServices.filter(service => {
       const mcpRequiredScopes = authScopes?.serviceClientMap?.[service] || [];
       return mcpRequiredScopes.length > 0;
@@ -102,7 +278,7 @@ export function McpDeployDialog({
       await deployMutation.mutateAsync({
         packageId: pkg.packageId,
         version: pkg.latestVersion,
-        url: `https://api.osirislabs.xyz/mcps/${pkg.name}/mcp`,
+        url: `${pkg?.url?.replace(/\/$/, '')}/mcp`,
         scopes: allScopes,
         authData: {},
         connectionIds: Object.values(selectedConnections),
@@ -155,193 +331,30 @@ export function McpDeployDialog({
   const isSuccess = deployMutation.isSuccess;
   const isError = deployMutation.isError;
 
-  const renderServiceSection = (serviceName: string, requiredScopes: string[]) => {
-    const serviceConnections = userAuth.filter(
-      (connection: any) => connection.service_clients.name === serviceName
-    );
-
-    const permissions = useMemo(() => {
-      return getReadableScopes(serviceName, authScopes);
-    }, [serviceName, authScopes]);
-
-    // Debug logging for service section
-    console.log('🔍 MCP Deploy Dialog - Service Section:', {
-      serviceName,
-      requiredScopes,
-      permissions,
-      'permissionsCount': permissions?.length,
-      'serviceConnectionsCount': serviceConnections?.length
-    });
-
-    const handleServicePermissionSelect = useCallback((permissions: Permission[]) => {
-      handlePermissionSelect(serviceName, permissions)
-    }, [serviceName, handlePermissionSelect]);
-
-    const initialSelected = useMemo(() => {
-      return selectedPermissions[serviceName] || []
-    }, [selectedPermissions, serviceName]);
-
-    return (
-      <Accordion type="single" collapsible className="border border-primary-100 rounded-[6px]">
-        <AccordionItem value={serviceName} className="border-none">
-          <AccordionTrigger className="px-4 py-3 hover:no-underline">
-            <div className="flex items-center gap-3 w-full">
-              <div className="size-10 rounded-[6px] bg-purple-300 flex items-center justify-center text-white font-bold text-lg capitalize shadow-xl">
-                {serviceName.charAt(0)}
-              </div>
-              <div className="flex flex-col items-start flex-1">
-                <h3 className="text-primary-800 capitalize font-medium">{serviceName} Account</h3>
-                <p className="text-[13px] text-primary-300">
-                  Select an existing {serviceName} account or connect a new one
-                </p>
-              </div>
-            </div>
-          </AccordionTrigger>
-          <AccordionContent className="px-4 pb-4">
-            {permissions.length > 0 && (
-              <div className="mb-6">
-                <p className="text-sm font-medium text-primary-800 mb-3">Select permissions to grant:</p>
-                <PermissionSelector
-                  permissions={permissions}
-                  placeholder={`Search ${serviceName} permissions...`}
-                  onSelectionChange={handleServicePermissionSelect}
-                  initialSelected={initialSelected}
-                />
-              </div>
-            )}
-
-            {/* Existing Connections */}
-            {serviceConnections.length > 0 && (
-              <div className="mb-6">
-                <p className="text-sm font-medium text-primary-800 mb-3">Your connected accounts:</p>
-                <RadioGroup
-                  value={selectedConnections[serviceName] || ''}
-                  onValueChange={(value) => handleConnectionSelect(serviceName, value)}
-                  className="space-y-3"
-                >
-                  {serviceConnections.map((connection: any) => (
-                    <div key={connection.user_service_connections.id} className="flex items-start space-x-3 cursor-pointer group">
-                      <RadioGroupItem
-                        value={connection.user_service_connections.id}
-                        className="mt-1"
-                      />
-                      <div className="flex-1 p-3 border border-primary-100 rounded-[6px] group-hover:border-primary-200 transition-colors">
-                        <div className="flex items-center space-x-2 mb-2">
-                          <Avatar className="h-6 w-6">
-                            <AvatarFallback className="text-xs bg-purple-300 text-white">
-                              {serviceName.charAt(0).toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
-                          <p className="text-sm font-medium text-primary-800">
-                            {(() => {
-                              const metadata = connection.user_service_connections.metadata;
-                              const serviceType = connection.service_clients?.type;
-                              const connectionId = connection.user_service_connections.id.slice(0, 8);
-
-                              // Handle different metadata structures based on service type
-                              switch (serviceType) {
-                                case 'oauth':
-                                  const oauthName = metadata?.user?.name || metadata?.user?.email || 'Unknown User';
-                                  return `${oauthName} (${connectionId})`;
-                                case 'secret_sharing':
-                                  const dbName = connection.user_service_connections.name || 'Database Connection';
-                                  return `${dbName} (${connectionId})`;
-                                case 'embedded_wallet':
-                                  // Check for wallet address in accounts.addresses[0].address
-                                  const walletAddress = metadata?.accounts?.addresses?.[0]?.address;
-                                  const walletName = metadata?.name || connection.user_service_connections.name || 'Wallet Connection';
-                                  if (walletAddress) {
-                                    return `${walletName} (${connectionId})`;
-                                  }
-                                  // Fallback to metadata name or connection name
-                                  return `${walletName} (${connectionId})`;
-                                default:
-                                  const defaultName = connection.user_service_connections.name || 'Unknown Connection';
-                                  return `${defaultName} (${connectionId})`;
-                              }
-                            })()}
-                          </p>
-                        </div>
-                        <p className="text-[13px] text-primary-400 mb-2">
-                          {(() => {
-                            const metadata = connection.user_service_connections.metadata;
-                            const serviceType = connection.service_clients?.type;
-
-                            switch (serviceType) {
-                              case 'oauth':
-                                return metadata?.user?.email || metadata?.user?.name || 'No email available';
-                              case 'secret_sharing':
-                                return 'Database connection';
-                              case 'embedded_wallet':
-                                // Show truncated address if available
-                                const walletAddress = metadata?.accounts?.addresses?.[0]?.address;
-                                if (walletAddress) {
-                                  return `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`;
-                                }
-                                // Show chains if no address
-                                const chains = metadata?.accounts?.chains;
-                                if (chains && chains.length > 0) {
-                                  return `${chains.length} chain${chains.length > 1 ? 's' : ''}`;
-                                }
-                                return 'Blockchain wallet';
-                              default:
-                                return 'Unknown type';
-                            }
-                          })()}
-                        </p>
-                        <div className="flex flex-wrap gap-1">
-                          {connection.user_service_connections.scopes?.map((scope: string) => {
-                            // Use the new local scope formatting function
-                            const displayName = getScopeDisplayName(scope);
-
-                            return (
-                              <Badge key={scope} className="rounded-[6px] bg-primary-100 px-2 py-0.5 text-xs text-primary-800">
-                                {displayName}
-                              </Badge>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </RadioGroup>
-              </div>
-            )}
-
-            {/* Connect New Account Button */}
-            <Button
-              onClick={() => handleConnectNewAccount(serviceName, requiredScopes)}
-              variant="outline"
-              className="w-full rounded-[6px]"
-              disabled={createServiceConnection.isPending || createSecretSharing.isPending || createWallet.isPending}
-            >
-              {createServiceConnection.isPending || createSecretSharing.isPending || createWallet.isPending
-                ? 'Connecting...'
-                : `Connect a new ${serviceName} account`
-              }
-            </Button>
-
-            {serviceConnections.length === 0 && (
-              <p className="text-[13px] text-primary-300 italic mt-3">
-                No {serviceName} accounts connected yet.
-              </p>
-            )}
-          </AccordionContent>
-        </AccordionItem>
-      </Accordion>
-    );
-  };
-
   const renderDeployForm = () => (
     <div className="flex flex-col px-4">
       {/* Services and Permissions */}
       <div className="space-y-3 overflow-y-scroll">
         <ScrollArea className="max-h-64">
-          {Object.entries(authScopes?.serviceClientMap || {}).map(([serviceName, requiredScopes]) =>
+          {Object.entries(authScopes?.serviceClientMap || {}).map(([serviceName, requiredScopes]) => (
             <div key={serviceName}>
-              {renderServiceSection(serviceName, requiredScopes as string[])}
+              <ServiceSection
+                serviceName={serviceName}
+                requiredScopes={requiredScopes as string[]}
+                userAuth={userAuth}
+                authScopes={authScopes}
+                selectedPermissions={selectedPermissions}
+                onPermissionSelect={handlePermissionSelect}
+                selectedConnections={selectedConnections}
+                onConnectionSelect={handleConnectionSelect}
+                authMethods={authMethods}
+                createServiceConnection={createServiceConnection}
+                createSecretSharing={createSecretSharing}
+                createWallet={createWallet}
+                onConnectNewAccount={handleConnectNewAccount}
+              />
             </div>
-          )}
+          ))}
         </ScrollArea>
       </div>
     </div>
