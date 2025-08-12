@@ -23,11 +23,12 @@ export const userQueries = {
         const response = await api("/users", {
           schema: responseSchema(userSchema),
         });
-        if (response.status === "FAILED") {
-          throw new Error(response.error);
-        }
+        // if (response.status === "FAILED") {
+        //   throw new Error(response.error);
+        // }
         return response.data;
       },
+      retry: false,
       staleTime: 5 * 60 * 1000,
       enabled: enabled,
     }),
@@ -829,18 +830,18 @@ export const knowledgeQueries = {
   bases: (filters?: { search?: string; page?: number; limit?: number }) => [...knowledgeQueries.all(), "bases", ...(filters ? Object.entries(filters) : [])] as const,
   base: (id: string) => [...knowledgeQueries.bases(), id] as const,
   my: (filters?: { search?: string; page?: number; limit?: number }) => [...knowledgeQueries.all(), "my", ...(filters ? Object.entries(filters) : [])] as const,
-  search: (filters?: { 
-    query?: string; 
-    userId?: string; 
-    tags?: string; 
-    sortBy?: 'name' | 'rating' | 'credits' | 'installs' | 'price' | 'recent'; 
-    sortOrder?: 'asc' | 'desc'; 
-    isPublic?: boolean; 
-    startPrice?: number; 
-    endPrice?: number; 
-    page?: number; 
-    limit?: number; 
-    topK?: number; 
+  search: (filters?: {
+    query?: string;
+    userId?: string;
+    tags?: string;
+    sortBy?: 'name' | 'rating' | 'credits' | 'installs' | 'price' | 'recent';
+    sortOrder?: 'asc' | 'desc';
+    isPublic?: boolean;
+    startPrice?: number;
+    endPrice?: number;
+    page?: number;
+    limit?: number;
+    topK?: number;
   }) => [...knowledgeQueries.all(), "search", ...(filters ? Object.entries(filters) : [])] as const,
   sources: (baseId: string) =>
     [...knowledgeQueries.base(baseId), "sources"] as const,
@@ -849,18 +850,18 @@ export const knowledgeQueries = {
   installed: (knowledgeBaseId: string) => [...knowledgeQueries.all(), "installed", knowledgeBaseId] as const,
   allInstalled: () => [...knowledgeQueries.all(), "all-installed"] as const,
 
-  searchOptions: (filters?: { 
+  searchOptions: (filters?: {
     name?: string;
-    query?: string; 
-    userId?: string; 
-    tags?: string; 
-    sortBy?: 'name' | 'rating' | 'credits' | 'installs' | 'price' | 'recent'; 
-    sortOrder?: 'asc' | 'desc'; 
-    isPublic?: boolean; 
-    startPrice?: number; 
-    endPrice?: number; 
-    page?: number; 
-    limit?: number; 
+    query?: string;
+    userId?: string;
+    tags?: string;
+    sortBy?: 'name' | 'rating' | 'credits' | 'installs' | 'price' | 'recent';
+    sortOrder?: 'asc' | 'desc';
+    isPublic?: boolean;
+    startPrice?: number;
+    endPrice?: number;
+    page?: number;
+    limit?: number;
   }) =>
     queryOptions({
       queryKey: knowledgeQueries.search(filters),
@@ -894,9 +895,9 @@ export const knowledgeQueries = {
             }),
           }),
         });
-        
+
         console.log('Knowledge base search response:', response);
-        
+
         if (response.status === "FAILED") {
           throw new Error(response.error);
         }

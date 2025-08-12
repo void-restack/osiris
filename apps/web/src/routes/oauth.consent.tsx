@@ -1,4 +1,4 @@
-import { hubQueries, packageQueries } from '@/lib/queries'
+import { hubQueries, packageQueries, userQueries } from '@/lib/queries'
 import {
   useCreateServiceConnectionMutation,
   useCreateSecretSharingMutation,
@@ -14,7 +14,6 @@ import { useState, useCallback, useMemo, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { PermissionSelector, type Permission } from '@/components/ui/permission-selector'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
@@ -26,6 +25,7 @@ import { CheckIcon, AlertCircleIcon, ChevronDownIcon, InfoIcon, SearchIcon, Gith
 import PolicyBuilder from '@/components/policy-builder'
 import { AuthMethodDialog } from '@/components/features/authhub/auth-method-dialog'
 import { getAuthState } from '@/lib/auth-utils'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 
 export const Route = createFileRoute('/oauth/consent')({
   loader: async ({ context: { queryClient } }) => {
@@ -35,7 +35,7 @@ export const Route = createFileRoute('/oauth/consent')({
   component: RouteComponent,
 })
 
-function hasAllRequiredScopes(connection: any, requiredScopes: string[], serviceName: string) {
+function hasAllRequiredScopes(connection: any, requiredScopes: string[], serviceName: string, authMethods: any[]) {
   const connectionScopes = connection.user_service_connections.scopes || []
   const requiredScopesArray = Array.isArray(requiredScopes) ? requiredScopes : []
   return requiredScopesArray.every((requiredScope) => {
@@ -43,6 +43,8 @@ function hasAllRequiredScopes(connection: any, requiredScopes: string[], service
       ? requiredScope.replace(`${serviceName}:`, '')
       : requiredScope
     const scopeWithPrefix = `${serviceName}:${requiredScope}`
+    const hasOAuth = (authMethods?.find((m: any) => m.name === serviceName)?.type === 'oauth')
+
     return (
       connectionScopes.includes(requiredScope) ||
       connectionScopes.includes(scopeWithoutPrefix) ||
@@ -63,6 +65,145 @@ function getPermissionsForService(serviceName: string, requiredScopes: string[],
   return entries.map(([id, label]) => ({ id, label: String(label) }))
 }
 
+function ConnectionItem({
+  connection,
+  serviceName,
+  permissions,
+  ok
+}: {
+  connection: any
+  serviceName: string
+  permissions: any[]
+  ok: boolean
+}) {
+  // Extract the appropriate display name based on connection type
+  const getDisplayName = () => {
+    const connectionData = connection.user_service_connections
+    const serviceType = connection.service_clients?.type
+
+    // For OAuth connections, try to get user info from metadata
+    if (serviceType === 'oauth' && connectionData.metadata?.user) {
+      return connectionData.metadata.user.email ||
+        connectionData.metadata.user.name ||
+        connectionData.name ||
+        'OAuth Account'
+    }
+
+    // For embedded wallet connections, show wallet address
+    if (serviceType === 'embedded_wallet' && connectionData.metadata?.accounts?.addresses?.[0]?.address) {
+      const address = connectionData.metadata.accounts.addresses[0].address
+      return `${address.slice(0, 6)}...${address.slice(-4)}`
+    }
+
+    // For secret sharing connections, show the connection name
+    if (serviceType === 'secret_sharing') {
+      return connectionData.name || 'Secret Connection'
+    }
+
+    // Fallback to connection name or service type
+    return connectionData.name ||
+      connectionData.metadata?.name ||
+      `${serviceName} Account`
+  }
+
+  // Extract the connection type description
+  const getConnectionType = () => {
+    const serviceType = connection.service_clients?.type
+    if (serviceType === 'oauth') {
+      return 'OAuth Account'
+    } else if (serviceType === 'embedded_wallet') {
+      return 'Wallet'
+    } else if (serviceType === 'secret_sharing') {
+      return 'Secret Sharing'
+    }
+    return 'Connection'
+  }
+
+  const displayName = getDisplayName()
+  const connectionType = getConnectionType()
+
+  return (
+    <label className="cursor-pointer group block">
+      <div
+        className={cn(
+          'relative p-4 border rounded-lg transition-all duration-200 flex items-center space-x-3',
+          ok
+            ? 'border-success-200 bg-success-25 group-hover:border-success-300 group-hover:shadow-sm'
+            : 'border-primary-100 bg-primary-25 opacity-75 group-hover:border-primary-200'
+        )}
+      >
+        <RadioGroupItem value={connection.user_service_connections.id} className="flex-shrink-0" />
+        <div className="flex items-center space-x-3 flex-1">
+          {/* <Avatar className="h-8 w-8">
+            <AvatarImage src={connection.service_clients?.iconUrl} />
+            <AvatarFallback className="text-xs bg-purple-300 text-white">
+              {serviceName.charAt(0).toUpperCase()}
+            </AvatarFallback>
+          </Avatar> */}
+          <div className="flex-1">
+            <p className={cn('text-sm font-medium', ok ? 'text-success-800' : 'text-primary-600')}>
+              {displayName}
+            </p>
+            <p className={cn('text-xs capitalize', ok ? 'text-success-600' : 'text-primary-400')}>
+              {connectionType}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center space-x-2">
+          {ok ? (
+            <div className="flex items-center space-x-1">
+              <CheckIcon className="h-4 w-4 text-success-600" />
+              <span className="text-xs font-medium text-success-700">Ready</span>
+            </div>
+          ) : (
+            <div className="flex items-center space-x-1">
+              <AlertCircleIcon className="h-4 w-4 text-amber-500" />
+              <span className="text-xs font-medium text-amber-700">Missing scopes</span>
+            </div>
+          )}
+
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 w-6 p-0 hover:bg-primary-100"
+                type="button"
+              >
+                <InfoIcon className="h-3 w-3 text-primary-400" />
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle className="text-primary-800">Account Permissions</DialogTitle>
+                <DialogDescription className="text-primary-600">
+                  Permissions available for this {serviceName} account
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-3 mt-4">
+                {connection.user_service_connections.scopes?.map((scope: string) => {
+                  const clean = scope.replace(`${serviceName}:`, '')
+                  const match = permissions.find((p) => p.id === clean || p.id === scope)
+                  return (
+                    <div key={scope} className="flex items-center justify-between p-3 bg-primary-25 rounded-lg">
+                      <div>
+                        <p className="text-sm font-medium text-primary-800">{match?.label || clean}</p>
+                        <p className="text-xs text-primary-500">{clean}</p>
+                      </div>
+                      <CheckIcon className="h-4 w-4 text-success-600" />
+                    </div>
+                  )
+                })}
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </div>
+    </label>
+  )
+}
+
 function ServiceConsentSection({
   serviceName,
   requiredScopes,
@@ -75,6 +216,8 @@ function ServiceConsentSection({
   isDisabledByDeployment,
   selectedDeploymentDetails,
   onConnectNewAccount,
+  isOpen,
+  onToggle
 }: {
   serviceName: string
   requiredScopes: string[]
@@ -87,6 +230,8 @@ function ServiceConsentSection({
   isDisabledByDeployment: boolean
   selectedDeploymentDetails: any | null
   onConnectNewAccount: (serviceName: string, requiredScopes: string[]) => void
+  isOpen: boolean
+  onToggle: (open: boolean) => void
 }) {
   const serviceConnections = useMemo(
     () => userAuthConnections.filter((c: any) => c.service_clients.name === serviceName),
@@ -103,11 +248,39 @@ function ServiceConsentSection({
     [selectedPermissions, serviceName]
   )
 
-  const hasOAuth = (authMethods?.find((m: any) => m.name === serviceName)?.type === 'oauth')
+  const connectionsWithStatus = useMemo(
+    () => serviceConnections.map(connection => ({
+      ...connection,
+      hasRequiredScopes: hasAllRequiredScopes(connection, requiredScopes as string[], serviceName, authMethods)
+    })),
+    [serviceConnections, requiredScopes, serviceName, authMethods]
+  )
+
+  const sortedServiceConnections = useMemo(
+    () => connectionsWithStatus.sort((a, b) => Number(b.hasRequiredScopes) - Number(a.hasRequiredScopes)),
+    [connectionsWithStatus]
+  )
+
+  const handleAuthConnectionChange = useCallback(
+    (value: string) => onAuthConnectionSelect(serviceName, value),
+    [onAuthConnectionSelect, serviceName]
+  )
+
+  const handleConnectClick = useCallback(
+    () => onConnectNewAccount(serviceName, requiredScopes),
+    [onConnectNewAccount, serviceName, requiredScopes]
+  )
+
+  const handleServicePermissionSelect = useCallback((selectedPermissions: Permission[]) => {
+    onPermissionSelect(serviceName, selectedPermissions)
+  }, [onPermissionSelect, serviceName])
+
+  const serviceAuthMethod = authMethods?.find((method: any) => method.name === serviceName)
 
   return (
     <Collapsible
-      open={!isDisabledByDeployment}
+      open={isOpen}
+      onOpenChange={onToggle}
     >
       <Card
         className={cn(
@@ -120,9 +293,12 @@ function ServiceConsentSection({
             <CardHeader className="transition-colors">
               <div className="flex items-center justify-between w-full">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-purple-300 flex items-center justify-center text-white font-bold text-sm capitalize">
-                    {serviceName.charAt(0)}
-                  </div>
+                  <Avatar className="w-10 h-10">
+                    <AvatarImage src={authMethods.find((m: any) => m.name === serviceName)?.iconUrl} />
+                    <AvatarFallback className="bg-purple-300 text-white font-bold text-sm capitalize">
+                      {serviceName.charAt(0)}
+                    </AvatarFallback>
+                  </Avatar>
                   <div className="p-0 flex items-start flex-col">
                     <h3 className={cn('text-base font-medium', isDisabledByDeployment ? 'text-gray-500' : 'text-gray-900')}>
                       {serviceName[0].toUpperCase() + serviceName.slice(1)} Account
@@ -137,7 +313,7 @@ function ServiceConsentSection({
                     </p>
                   </div>
                 </div>
-                <ChevronDownIcon className={cn('h-5 w-5 text-gray-400 transition-transform duration-200', !isDisabledByDeployment && 'rotate-180')} />
+                <ChevronDownIcon className={cn('h-5 w-5 text-gray-400 transition-transform duration-200', isOpen && 'rotate-180')} />
               </div>
             </CardHeader>
           </div>
@@ -157,13 +333,14 @@ function ServiceConsentSection({
                 </div>
               )}
 
-              {!isDisabledByDeployment && hasOAuth && permissions.length > 0 && (
+              {/* Permission Selector - Only for OAuth and when not using deployment */}
+              {!isDisabledByDeployment && serviceAuthMethod?.type === 'oauth' && permissions.length > 0 && (
                 <div>
                   <p className="text-sm font-medium text-primary-800 mb-3">Select permissions to grant:</p>
                   <PermissionSelector
                     permissions={permissions}
                     placeholder={`Search ${serviceName} permissions...`}
-                    onSelectionChange={(perms) => onPermissionSelect(serviceName, perms)}
+                    onSelectionChange={handleServicePermissionSelect}
                     initialSelected={initialSelected}
                   />
                 </div>
@@ -174,103 +351,18 @@ function ServiceConsentSection({
                   <p className="text-sm font-medium text-primary-800 mb-4">Your connected accounts:</p>
                   <RadioGroup
                     value={selectedAuthConnections[serviceName] || ''}
-                    onValueChange={(value) => onAuthConnectionSelect(serviceName, value)}
+                    onValueChange={handleAuthConnectionChange}
                     className="space-y-2"
                   >
-                    {serviceConnections
-                      .sort((a: any, b: any) => {
-                        const aOk = hasAllRequiredScopes(a, requiredScopes as string[], serviceName)
-                        const bOk = hasAllRequiredScopes(b, requiredScopes as string[], serviceName)
-                        return Number(bOk) - Number(aOk)
-                      })
-                      .map((connection: any) => {
-                        const ok = hasAllRequiredScopes(connection, requiredScopes as string[], serviceName)
-                        return (
-                          <label
-                            key={connection.user_service_connections.id}
-                            className="cursor-pointer group block"
-                          >
-                            <div
-                              className={cn(
-                                'relative p-4 border rounded-lg transition-all duration-200 flex items-center space-x-3',
-                                ok
-                                  ? 'border-success-200 bg-success-25 group-hover:border-success-300 group-hover:shadow-sm'
-                                  : 'border-primary-100 bg-primary-25 opacity-75 group-hover:border-primary-200'
-                              )}
-                            >
-                              <RadioGroupItem value={connection.user_service_connections.id} className="flex-shrink-0" />
-                              <div className="flex items-center space-x-3 flex-1">
-                                <Avatar className="h-8 w-8">
-                                  <AvatarFallback className="text-xs bg-purple-300 text-white">
-                                    {serviceName.charAt(0).toUpperCase()}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <div className="flex-1">
-                                  <p className={cn('text-sm font-medium', ok ? 'text-success-800' : 'text-primary-600')}>
-                                    {connection.user_service_connections?.connection_name ||
-                                      connection.user_service_connections?.email ||
-                                      connection.user_service_connections?.username ||
-                                      'Connection'}
-                                  </p>
-                                  <p className={cn('text-xs capitalize', ok ? 'text-success-600' : 'text-primary-400')}>
-                                    {connection.service_clients?.type?.replace('_', ' ') || 'Connection'}
-                                  </p>
-                                </div>
-                              </div>
-
-                              <div className="flex items-center space-x-2">
-                                {ok ? (
-                                  <div className="flex items-center space-x-1">
-                                    <CheckIcon className="h-4 w-4 text-success-600" />
-                                    <span className="text-xs font-medium text-success-700">Ready</span>
-                                  </div>
-                                ) : (
-                                  <div className="flex items-center space-x-1">
-                                    <AlertCircleIcon className="h-4 w-4 text-amber-500" />
-                                    <span className="text-xs font-medium text-amber-700">Missing scopes</span>
-                                  </div>
-                                )}
-
-                                <Dialog>
-                                  <DialogTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-6 w-6 p-0 hover:bg-primary-100"
-                                      type="button"
-                                    >
-                                      <InfoIcon className="h-3 w-3 text-primary-400" />
-                                    </Button>
-                                  </DialogTrigger>
-                                  <DialogContent className="max-w-md">
-                                    <DialogHeader>
-                                      <DialogTitle className="text-primary-800">Account Permissions</DialogTitle>
-                                      <DialogDescription className="text-primary-600">
-                                        Permissions available for this {serviceName} account
-                                      </DialogDescription>
-                                    </DialogHeader>
-                                    <div className="space-y-3 mt-4">
-                                      {connection.user_service_connections.scopes?.map((scope: string) => {
-                                        const clean = scope.replace(`${serviceName}:`, '')
-                                        const match = permissions.find((p) => p.id === clean || p.id === scope)
-                                        return (
-                                          <div key={scope} className="flex items-center justify-between p-3 bg-primary-25 rounded-lg">
-                                            <div>
-                                              <p className="text-sm font-medium text-primary-800">{match?.label || clean}</p>
-                                              <p className="text-xs text-primary-500">{clean}</p>
-                                            </div>
-                                            <CheckIcon className="h-4 w-4 text-success-600" />
-                                          </div>
-                                        )
-                                      })}
-                                    </div>
-                                  </DialogContent>
-                                </Dialog>
-                              </div>
-                            </div>
-                          </label>
-                        )
-                      })}
+                    {sortedServiceConnections.map((connection: any) => (
+                      <ConnectionItem
+                        key={connection.user_service_connections.id}
+                        connection={connection}
+                        serviceName={serviceName}
+                        permissions={permissions}
+                        ok={connection.hasRequiredScopes}
+                      />
+                    ))}
                   </RadioGroup>
                 </div>
               )}
@@ -278,7 +370,7 @@ function ServiceConsentSection({
               {!isDisabledByDeployment && (
                 <div className="space-y-3">
                   <Button
-                    onClick={() => onConnectNewAccount(serviceName, requiredScopes as string[])}
+                    onClick={handleConnectClick}
                     variant="outline"
                     className="w-full rounded-lg border-dashed border-2 border-primary-200 bg-primary-25 hover:bg-primary-50 hover:border-primary-300 text-primary-700 h-12"
                     type="button"
@@ -296,6 +388,8 @@ function ServiceConsentSection({
                   )}
                 </div>
               )}
+
+
             </CardContent>
           </div>
         </CollapsibleContent>
@@ -321,32 +415,101 @@ function RouteComponent() {
   const [deploymentPage, setDeploymentPage] = useState(1)
   const deploymentLimit = 5
 
+  // State for open sections
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({})
+
+  // Login mutation
   const loginMutation = useLoginMutation()
 
-  const { data: packageDetails } = useQuery(packageQueries.detailOptions(package_id as string))
-  const { data: authScopes } = useQuery(packageQueries.authScopesOptions(package_id as string))
-  const { data: authMethods } = useQuery(hubQueries.authMethodsOptions())
+  // Package queries that don't require authentication
+  const { data: packageDetails, error: packageError } = useQuery(packageQueries.detailOptions(package_id as string))
+  const { data: authScopes, error: authScopesError } = useQuery(packageQueries.authScopesOptions(package_id as string))
+  const { data: authMethods, error: authMethodsError } = useQuery(hubQueries.authMethodsOptions())
 
-  const { data: rawUserAuthConnections } = useQuery({
-    ...hubQueries.userAuthOptions(true),
-    enabled: isAuthenticated,
-    retry: false,
-  })
-
-  const { data: existingPackageDeploymentsResponse } = useQuery({
-    ...packageQueries.userDeploymentsForPackageOptions(package_id as string, {
+  // User-specific queries - always attempt to load, handle 401s to determine auth status
+  const { data: userInfo, error: userError } = useQuery(userQueries.meOptions(true))
+  const { data: rawUserAuthConnections, error: authError } = useQuery(hubQueries.userAuthOptions(true))
+  const { data: existingPackageDeploymentsResponse, error: deploymentError } = useQuery(
+    packageQueries.userDeploymentsForPackageOptions(package_id as string, {
       page: deploymentPage,
-      limit: deploymentLimit,
-    }),
-    enabled: isAuthenticated,
-    retry: false,
-  })
+      limit: deploymentLimit
+    })
+  )
 
-  const userAuthConnections =
-    rawUserAuthConnections?.filter((connection: any) => {
-      const allowed = Object.keys(authScopes?.serviceClientMap || {})
-      return allowed.includes(connection.service_clients?.name)
-    }) || []
+  // Initialize open sections when auth scopes are loaded
+  useEffect(() => {
+    if (isAuthenticated && authScopes?.serviceClientMap && Object.keys(openSections).length === 0) {
+      const keys = Object.keys(authScopes.serviceClientMap)
+      const initialSections = keys.reduce((acc, key) => {
+        acc[key] = true
+        return acc
+      }, {} as Record<string, boolean>)
+      setOpenSections(initialSections)
+    }
+  }, [isAuthenticated, authScopes?.serviceClientMap, openSections])
+
+  // Filter user auth connections
+  const userAuthConnections = rawUserAuthConnections?.filter((connection: any) => {
+    const allowed = Object.keys(authScopes?.serviceClientMap || {})
+    return allowed.includes(connection.service_clients?.name)
+  }) || []
+
+  // Ensure existingPackageDeployments is always an array
+  const existingPackageDeployments = Array.isArray(existingPackageDeploymentsResponse) ? existingPackageDeploymentsResponse : []
+  const deploymentPagination = null // Pagination is no longer available
+
+  // Mutations
+  const createServiceConnectionMutation = useCreateServiceConnectionMutation()
+  const createSecretSharingMutation = useCreateSecretSharingMutation()
+  const createWalletMutation = useCreateWalletMutation()
+  const deployPackageMutation = useDeployPackageMutation()
+  const authorizeOsirisMutation = useAuthorizeOsirisMutation()
+  const authorizeFrontendMutation = useAuthorizeFrontendMutation()
+
+  // Show error toasts for mutation errors
+  useEffect(() => {
+    if (createServiceConnectionMutation.error) {
+      toast.error(createServiceConnectionMutation.error.message || 'Failed to create service connection');
+    }
+  }, [createServiceConnectionMutation.error]);
+
+  useEffect(() => {
+    if (createSecretSharingMutation.error) {
+      toast.error(createSecretSharingMutation.error.message || 'Failed to create secret sharing connection');
+    }
+  }, [createSecretSharingMutation.error]);
+
+  useEffect(() => {
+    if (createWalletMutation.error) {
+      toast.error(createWalletMutation.error.message || 'Failed to create wallet');
+    }
+  }, [createWalletMutation.error]);
+
+  useEffect(() => {
+    if (deployPackageMutation.error) {
+      toast.error(deployPackageMutation.error.message || 'Failed to deploy package');
+    }
+  }, [deployPackageMutation.error]);
+
+  useEffect(() => {
+    if (authorizeOsirisMutation.error) {
+      toast.error(authorizeOsirisMutation.error.message || 'Authorization failed');
+    }
+  }, [authorizeOsirisMutation.error]);
+
+  useEffect(() => {
+    if (authorizeFrontendMutation.error) {
+      toast.error(authorizeFrontendMutation.error.message || 'Frontend authorization failed');
+    }
+  }, [authorizeFrontendMutation.error]);
+
+  // Show error toast for local errors
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+      setError(null); // Clear error after showing toast
+    }
+  }, [error]);
 
   const handleGithubLogin = useCallback(() => {
     loginMutation.mutate({
@@ -362,52 +525,33 @@ function RouteComponent() {
     })
   }, [loginMutation])
 
-  const existingPackageDeployments = existingPackageDeploymentsResponse || []
+  const handleDeselectDeployment = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation()
+    setSelectedDeploymentId('')
+  }, [])
 
-  const [openSections, setOpenSections] = useState<Record<string, boolean>>({})
-
-  useEffect(() => {
-    if (isAuthenticated && authScopes?.serviceClientMap) {
-      const keys = Object.keys(authScopes.serviceClientMap)
-      setOpenSections((prev) => (Object.keys(prev).length ? prev : keys.reduce((a, k) => ((a[k] = true), a), {} as Record<string, boolean>)))
-    }
-  }, [isAuthenticated, authScopes?.serviceClientMap])
-
-  const createServiceConnectionMutation = useCreateServiceConnectionMutation()
-  const createSecretSharingMutation = useCreateSecretSharingMutation()
-  const createWalletMutation = useCreateWalletMutation()
-  const deployPackageMutation = useDeployPackageMutation()
-  const authorizeOsirisMutation = useAuthorizeOsirisMutation()
-  const authorizeFrontendMutation = useAuthorizeFrontendMutation()
-
-  useEffect(() => {
-    if (deployPackageMutation.error) toast.error(deployPackageMutation.error.message || 'Failed to deploy package')
-  }, [deployPackageMutation.error])
-  useEffect(() => {
-    if (authorizeOsirisMutation.error) toast.error(authorizeOsirisMutation.error.message || 'Authorization failed')
-  }, [authorizeOsirisMutation.error])
-  useEffect(() => {
-    if (authorizeFrontendMutation.error) toast.error(authorizeFrontendMutation.error.message || 'Frontend authorization failed')
-  }, [authorizeFrontendMutation.error])
-  useEffect(() => {
-    if (error) {
-      toast.error(error)
-      setError(null)
-    }
-  }, [error])
-
+  // Filter deployments based on search query
   const filteredDeployments = useMemo(() => {
-    if (!deploymentSearchQuery.trim()) return existingPackageDeployments
-    return existingPackageDeployments.filter((deployment: any) => {
-      const deploymentName = deployment.name || `Deployment ${deployment.deploymentId.slice(0, 8)}`
-      return deploymentName.toLowerCase().includes(deploymentSearchQuery.toLowerCase())
-    })
-  }, [existingPackageDeployments, deploymentSearchQuery])
+    if (!deploymentSearchQuery.trim()) return existingPackageDeployments;
 
+    // Ensure existingPackageDeployments is an array
+    const deployments = Array.isArray(existingPackageDeployments) ? existingPackageDeployments : [];
+
+    return deployments.filter((deployment: any) => {
+      const deploymentName = deployment.name || `Deployment ${deployment.deploymentId.slice(0, 8)}`;
+      return deploymentName.toLowerCase().includes(deploymentSearchQuery.toLowerCase());
+    });
+  }, [existingPackageDeployments, deploymentSearchQuery]);
+
+  // Get selected deployment details
   const selectedDeploymentDetails = useMemo(() => {
-    if (!selectedDeploymentId) return null
-    return existingPackageDeployments.find((dep: any) => dep.deploymentId === selectedDeploymentId) || null
-  }, [selectedDeploymentId, existingPackageDeployments])
+    if (!selectedDeploymentId) return null;
+
+    // Ensure existingPackageDeployments is an array
+    const deployments = Array.isArray(existingPackageDeployments) ? existingPackageDeployments : [];
+
+    return deployments.find((dep: any) => dep.deploymentId === selectedDeploymentId) || null;
+  }, [selectedDeploymentId, existingPackageDeployments]);
 
   const toggleSection = (serviceName: string, open: boolean) => {
     setOpenSections((prev) => ({
@@ -423,6 +567,14 @@ function RouteComponent() {
   const handlePermissionSelect = useCallback((serviceName: string, permissions: Permission[]) => {
     setSelectedPermissions((prev) => ({ ...prev, [serviceName]: permissions }))
   }, [])
+
+  const handleDeploymentChange = useCallback((value: string) => {
+    if (value === selectedDeploymentId) {
+      setSelectedDeploymentId('')
+    } else {
+      setSelectedDeploymentId(value)
+    }
+  }, [selectedDeploymentId])
 
   const handleConnectNewAccount = useCallback(
     (serviceName: string, requiredScopes: string[]) => {
@@ -635,9 +787,9 @@ function RouteComponent() {
           <CardHeader>
             <div className="flex items-start gap-3">
               {packageDetails?.iconUrl ? (
-                <img src={packageDetails.iconUrl} alt={`${packageDetails.name} icon`} className="size-12 rounded-[6px] shadow-xl object-cover" />
+                <img src={packageDetails.iconUrl} alt={`${packageDetails.name} icon`} className="size-12 shrink-0 rounded-[6px] shadow-xl object-cover" />
               ) : (
-                <div className="size-12 rounded-[6px] bg-purple-300 flex items-center justify-center text-white font-bold text-lg capitalize shadow-xl">
+                <div className="size-12 rounded-[6px] bg-purple-300 flex shrink-0 items-center justify-center text-white font-bold text-lg capitalize shadow-xl">
                   {packageDetails?.name?.charAt(0) || 'P'}
                 </div>
               )}
@@ -674,10 +826,7 @@ function RouteComponent() {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    setSelectedDeploymentId('')
-                                  }}
+                                  onClick={handleDeselectDeployment}
                                   className="text-primary-600 hover:text-primary-800 h-auto p-0.5 text-xs"
                                 >
                                   (deselect)
@@ -720,10 +869,7 @@ function RouteComponent() {
                         </div>
                         <RadioGroup
                           value={selectedDeploymentId}
-                          onValueChange={(value) => {
-                            if (value === selectedDeploymentId) setSelectedDeploymentId('')
-                            else setSelectedDeploymentId(value)
-                          }}
+                          onValueChange={handleDeploymentChange}
                           className="space-y-3"
                         >
                           {filteredDeployments.map((deployment: any) => {
@@ -797,6 +943,8 @@ function RouteComponent() {
                 isDisabledByDeployment={!!selectedDeploymentId}
                 selectedDeploymentDetails={selectedDeploymentDetails}
                 onConnectNewAccount={handleConnectNewAccount}
+                isOpen={openSections[serviceName] || false}
+                onToggle={(open) => toggleSection(serviceName, open)}
               />
             </div>
           ))}

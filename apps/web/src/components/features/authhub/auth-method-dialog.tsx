@@ -181,9 +181,9 @@ export function AuthMethodDialog({
       setConnectionState({ status: 'idle' });
 
       const currentUrl = new URL(window.location.href);
-      const pathname = currentUrl.pathname;
-
-      navigate({ to: pathname, replace: true });
+      currentUrl.searchParams.delete('success');
+      currentUrl.searchParams.delete('state');
+      navigate({ to: currentUrl.pathname + currentUrl.search, replace: true });
     }
   };
 

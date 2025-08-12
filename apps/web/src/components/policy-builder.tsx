@@ -1704,14 +1704,18 @@ export default function PolicyBuilder({ value, onChange }: PolicyBuilderProps): 
                 setInternalJson(newJson);
                 // Mark as having unsaved changes when rules are modified
                 setHasUnsavedChanges(true);
-                // Don't call debouncedOnChange here - only update internal state
-                // This prevents automatic formatting from triggering parent onChange
-                requestAnimationFrame(() => {
+
+                // Trigger onChange for interactive form changes so parent component can detect changes
+                // Use a small delay to ensure the internal state is updated first
+                setTimeout(() => {
+                    if (onChange) {
+                        debouncedOnChange(newJson);
+                    }
                     isInternalUpdate.current = false;
-                });
+                }, 100);
             }
         }
-    }, [rules, activeTab, rulesToPolicy]);
+    }, [rules, activeTab, rulesToPolicy, onChange, debouncedOnChange]);
 
     // Handle JSON editor changes
     const handleJsonValueChange = useCallback((newValue: string): void => {

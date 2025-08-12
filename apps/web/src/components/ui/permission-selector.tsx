@@ -21,14 +21,6 @@ export function PermissionSelector({
   initialSelected = [],
   onSelectionChange,
 }: PermissionSelectorProps) {
-  // Debug logging for received props
-  console.log('🔍 PermissionSelector - Received Props:', {
-    permissions,
-    initialSelected,
-    placeholder,
-    'permissionsCount': permissions?.length,
-    'initialSelectedCount': initialSelected?.length
-  });
 
   const [selectedPermissions, setSelectedPermissions] = useState<Permission[]>(
     initialSelected,

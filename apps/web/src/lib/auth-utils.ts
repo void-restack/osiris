@@ -7,6 +7,9 @@ export async function getAuthState(queryClient: QueryClient) {
             ...userQueries.meOptions(),
             retry: false,
         })
+        if (!user) {
+            return { user: null, isAuthenticated: false }
+        }
         return { user, isAuthenticated: true }
     } catch (error: any) {
         if (error?.status === 401) {

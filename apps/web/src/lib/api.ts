@@ -9,12 +9,6 @@ interface ApiOptions {
 interface ApiResponse<T = any> {
   status: "SUCCESS" | "FAILED";
   data?: T;
-  pagination?: {
-    total: number;
-    page: number;
-    limit: number;
-    totalPages: number;
-  };
   error?: string;
   message?: string;
 }
@@ -30,32 +24,6 @@ class ApiError extends Error {
   }
 }
 
-// Utility function to set cookie
-function setCookie(name: string, value: string, days?: number) {
-  let expires = "";
-  if (days) {
-    const date = new Date();
-    date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
-    expires = "; expires=" + date.toUTCString();
-  }
-  document.cookie = name + "=" + (value || "") + expires + "; path=/";
-}
-
-// Utility function to ensure refresh token is in cookies
-function ensureRefreshTokenCookie() {
-  const refreshToken = localStorage.getItem("refresh_token") ??
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2N2JiMWEyYS1hOTg2LTQyMzMtYTQyYy01NjVhOGZlMjE5NGMiLCJyb2xlIjoiYWRtaW4iLCJqdGkiOiIxNzU0NDY2NzU0ODM4LTQ3MzgzYmI3NjFkNWQ3NDJhNmVkMzVjZGRhOTVmYzkxIiwiaWF0IjoxNzU0NDY2NzU0LCJleHAiOjE3NTcwNTg3NTR9.tYQI8-04yXcHRc2VHgqKJUj9MOUu2klo-lfMSQxjv9s";
-
-  if (refreshToken) {
-    setCookie("refresh_token", refreshToken, 30); // Set for 30 days
-  }
-}
-
-// Utility function to manually set refresh token cookie with a specific token
-function setRefreshTokenCookie(token: string) {
-  setCookie("refresh_token", token, 30); // Set for 30 days
-}
-
 async function api<T = any>(
   endpoint: string,
   options: ApiOptions = {},
@@ -63,7 +31,7 @@ async function api<T = any>(
   const { method = "GET", body, headers = {}, params = {}, schema } = options;
   const baseUrl =
     (
-      import.meta.env.VITE_API_BASE_URL || "https://api.osirislabs.xyz/v1"
+      import.meta.env.VITE_API_BASE_URL || "http://localhost:3000/v1"
     ).replace(/\/$/, "") + "/";
   const cleanEndpoint = endpoint.replace(/^\//, "");
   const url = new URL(cleanEndpoint, baseUrl);
@@ -74,23 +42,9 @@ async function api<T = any>(
     }
   });
 
-  const needsRefreshToken = ['/hub/wallet/create', '/hub/wallet/add', '/logout', '/hub/wallet/'].some(path =>
-    cleanEndpoint.includes(path)
-  );
-
-  if (needsRefreshToken) {
-    ensureRefreshTokenCookie();
-  }
-
-  const token =
-    localStorage.getItem("access_token") ?? "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIzODlmYzFkOS0yMTdjLTRmZmQtYTM3Ny0wNjQ2NjlmZjZhMDkiLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3NTUwMDc4MDAsImV4cCI6MTc1NTA5NDIwMH0.jP6PqGIE2GHQ3cK8q7ZS2CQF_isGQFmIlpi67lVLYTU"
   const requestHeaders: Record<string, string> = {
     ...headers,
   };
-
-  if (token) {
-    requestHeaders.Authorization = `Bearer ${token}`;
-  }
 
   if (!(body instanceof FormData)) {
     requestHeaders["Content-Type"] = "application/json";
@@ -123,9 +77,6 @@ async function api<T = any>(
     }
 
     if (response.status === 401) {
-      localStorage.removeItem("access_token");
-      localStorage.removeItem("refresh_token");
-      window.location.href = "/";
       throw new ApiError(401, data, "Unauthorized");
     }
 
@@ -162,5 +113,5 @@ async function api<T = any>(
   }
 }
 
-export { api, ApiError, setCookie, ensureRefreshTokenCookie, setRefreshTokenCookie };
+export { api, ApiError };
 export type { ApiResponse, ApiOptions };

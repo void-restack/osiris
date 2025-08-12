@@ -96,6 +96,15 @@ export function McpServerEditSidebar() {
     const handleSave = async () => {
         if (!selectedMcpServer || !hasChanges) return;
 
+        console.log('=== SAVE DEPLOYMENT - START ===');
+        console.log('Selected MCP Server:', selectedMcpServer);
+        console.log('Current Deployment:', currentDeployment);
+        console.log('Has Changes:', hasChanges);
+        console.log('Selected Scopes:', selectedScopes);
+        console.log('Initial Scopes:', initialScopes);
+        console.log('Policy Value:', policyValue);
+        console.log('Initial Policy Value:', initialPolicyValue);
+
         setIsLoading(true);
         try {
             const completeSavePayload = {
@@ -110,19 +119,32 @@ export function McpServerEditSidebar() {
                 timestamp: new Date().toISOString()
             };
 
+            console.log('=== COMPLETE SAVE PAYLOAD ===');
+            console.log('Complete Payload:', completeSavePayload);
+            console.log('Scopes Changed:', completeSavePayload.changes.scopesChanged);
+            console.log('Policy Changed:', completeSavePayload.changes.policyChanged);
+
             // Handle both OAuth and embedded wallet updates
             if (JSON.stringify(selectedScopes.map(s => s.id).sort()) !== JSON.stringify(initialScopes.map(s => s.id).sort())) {
+                console.log('Calling handleScopesUpdate...');
                 await handleScopesUpdate();
+            } else {
+                console.log('Scopes unchanged, skipping scopes update');
             }
 
             if (policyValue !== initialPolicyValue) {
+                console.log('Calling handlePolicyUpdate...');
                 await handlePolicyUpdate();
+            } else {
+                console.log('Policy unchanged, skipping policy update');
             }
 
             setHasChanges(false);
+            console.log('=== SAVE DEPLOYMENT - COMPLETED ===');
         } catch (error) {
+            console.error('=== SAVE DEPLOYMENT - ERROR ===');
+            console.error('Error updating MCP server:', error);
             toast.error("Failed to update MCP server");
-            console.error("Error updating MCP server:", error);
         } finally {
             setIsLoading(false);
         }
@@ -131,10 +153,22 @@ export function McpServerEditSidebar() {
     const handleScopesUpdate = async () => {
         if (!selectedMcpServer) return;
 
+        console.log('=== SCOPES UPDATE - START ===');
+        console.log('Selected MCP Server:', selectedMcpServer);
+        console.log('Current Deployment:', currentDeployment);
+
         const scopesUpdatePayload = {
             deploymentId: selectedMcpServer.deploymentId,
             scopes: selectedScopes.map(s => s.id)
         };
+
+        console.log('=== SCOPES UPDATE PAYLOAD ===');
+        console.log('Payload:', scopesUpdatePayload);
+        console.log('API Endpoint: PATCH /packages/deployments/{deploymentId}/update-scopes');
+        console.log('Request Body:', { scopes: selectedScopes.map(s => s.id) });
+        console.log('Selected Scopes:', selectedScopes);
+        console.log('Initial Scopes:', initialScopes);
+        console.log('Scopes Changed:', JSON.stringify(selectedScopes.map(s => s.id).sort()) !== JSON.stringify(initialScopes.map(s => s.id).sort()));
 
         // TODO: Replace with actual API call when endpoint is available
         // const response = await api(`/packages/deployments/${selectedMcpServer.deploymentId}/update-scopes`, {
@@ -146,15 +180,21 @@ export function McpServerEditSidebar() {
         await new Promise(resolve => setTimeout(resolve, 1000));
         toast.success("MCP server scopes updated successfully");
         setInitialScopes(selectedScopes);
+        console.log('=== SCOPES UPDATE - COMPLETED ===');
     };
 
     const handlePolicyUpdate = async () => {
         if (!selectedMcpServer) return;
 
+        console.log('=== POLICY UPDATE - START ===');
+        console.log('Selected MCP Server:', selectedMcpServer);
+        console.log('Current Deployment:', currentDeployment);
+
         let policy;
         try {
             policy = JSON.parse(policyValue);
         } catch (error) {
+            console.error('Policy JSON Parse Error:', error);
             toast.error("Invalid policy JSON format");
             throw error;
         }
@@ -164,9 +204,22 @@ export function McpServerEditSidebar() {
             policy: policy
         };
 
+        console.log('=== POLICY UPDATE PAYLOAD ===');
+        console.log('Payload:', policyUpdatePayload);
+        console.log('API Endpoint: PATCH /packages/deployments/{deploymentId}/update-policy');
+        console.log('Full API URL:', `/packages/deployments/${selectedMcpServer.deploymentId}/update-policy`);
+        console.log('Request Body:', { policy: policy });
+        console.log('Policy Value:', policyValue);
+        console.log('Initial Policy Value:', initialPolicyValue);
+        console.log('Policy Changed:', policyValue !== initialPolicyValue);
+        console.log('Parsed Policy Object:', policy);
+
+        console.log('=== CALLING ACTUAL API ===');
+        console.log('Using updatePolicyMutation with payload:', policyUpdatePayload);
         await updatePolicyMutation.mutateAsync(policyUpdatePayload);
         toast.success("Policy updated successfully");
         setInitialPolicyValue(policyValue);
+        console.log('=== POLICY UPDATE - COMPLETED ===');
     };
 
     const handleCancel = () => {
