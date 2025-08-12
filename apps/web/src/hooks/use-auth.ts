@@ -1,18 +1,19 @@
 import { useQuery } from '@tanstack/react-query'
 import { userQueries } from '@/lib/queries'
-import { hasAuthCookie } from '@/lib/auth-utils'
 
 export function useAuth() {
-    const { data: user, isLoading } = useQuery({
+    const { data: user, isLoading, error } = useQuery({
         ...userQueries.meOptions(),
         retry: false,
         throwOnError: false,
-        enabled: hasAuthCookie(), // Only fetch if there's an auth cookie
+        // Always try to fetch user data - the API will handle auth state
+        // If no valid auth, it will return 401 and we'll handle it gracefully
     })
 
     return {
         user: user || null,
         isAuthenticated: !!user,
         isLoading,
+        error,
     }
 }

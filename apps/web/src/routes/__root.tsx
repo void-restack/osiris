@@ -8,7 +8,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import "../index.css";
 import type { QueryClient } from "@tanstack/react-query";
-import { getAuthState, hasAuthCookie } from "@/lib/auth-utils";
+import { getAuthState } from "@/lib/auth-utils";
 
 export type RouterAppContext = {
   queryClient: QueryClient;
