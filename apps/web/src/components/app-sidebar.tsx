@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Button } from "./ui/button";
 import { Icon } from "./ui/icon";
-import { isAuthenticated } from "@/lib/auth-optimized";
+import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
 import { creditQueries } from "@/lib/queries";
 import { Skeleton } from "./ui/skeleton";
@@ -77,12 +77,12 @@ const data = {
 };
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const authenticated = isAuthenticated();
+  const { isAuthenticated } = useAuth();
 
   // Fetch credits balance if authenticated
   const { data: creditsData, isLoading: creditsLoading } = useQuery({
     ...creditQueries.balanceOptions(),
-    enabled: authenticated,
+    enabled: isAuthenticated,
   });
 
   // Format credits for display
@@ -122,7 +122,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarContent>
       <SidebarFooter>
         <NavMain items={data.navFooter} />
-        {authenticated && (
+        {isAuthenticated && (
           <div className="inset-shadow-credit-card rounded-[6px] bg-white px-2 py-3">
             <p className="mb-2 text-primary-300 text-xs">Available Credits</p>
             <div className="mb-6 flex items-center justify-between">

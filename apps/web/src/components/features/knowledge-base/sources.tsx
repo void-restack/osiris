@@ -58,7 +58,7 @@ import { cn } from "@/lib/utils";
 import { knowledgeQueries, userQueries } from "@/lib/queries";
 import { useRetryKnowledgeSourceMutation } from "@/lib/mutations";
 import { Route } from "@/routes/_hub/knowledge/$id";
-import { isAuthenticated } from "@/lib/auth-optimized";
+import { useAuth } from "@/hooks/use-auth";
 import { UploadContentInput } from "./upload-contnet";
 import { GetStartedAlerts } from "./get-started-alert";
 import { DataTableSkeleton } from "@/components/data-table/data-table-skeleton";
@@ -451,12 +451,12 @@ export function SourcesTable() {
     React.useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = React.useState({});
 
-  const authenticated = isAuthenticated();
+  const { isAuthenticated } = useAuth();
 
   // Fetch current user data if authenticated
   const { data: currentUser } = useQuery({
-    ...userQueries.meOptions(authenticated),
-    enabled: authenticated,
+    ...userQueries.meOptions(isAuthenticated),
+    enabled: isAuthenticated,
   });
 
   // Fetch knowledge base details including user information
@@ -561,11 +561,11 @@ export function SourcesTable() {
                   {row.getVisibleCells().map((cell, index) => (
                     <TableCell
                       className={`h-14 ${index === 0 ||
-                          index === table.getVisibleFlatColumns().length - 1
-                          ? "w-[42px] pr-3"
-                          : index === 1
-                            ? "pl-0"
-                            : ""
+                        index === table.getVisibleFlatColumns().length - 1
+                        ? "w-[42px] pr-3"
+                        : index === 1
+                          ? "pl-0"
+                          : ""
                         }`}
                       key={cell.id}
                     >

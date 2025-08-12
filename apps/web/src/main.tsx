@@ -4,10 +4,10 @@ import { createRouter, RouterProvider } from "@tanstack/react-router";
 import { NuqsAdapter } from "nuqs/adapters/tanstack-router";
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { Toaster } from "sonner";
 import { queryClient } from "./lib/query-client";
 import { routeTree } from "./routeTree.gen";
 import { FullPageLoadingScreen } from "./components/ui/loading-screen";
+import type { RouterAppContext } from "./routes/__root";
 
 const router = createRouter({
   routeTree,
@@ -15,6 +15,7 @@ const router = createRouter({
   defaultPendingComponent: () => <FullPageLoadingScreen message="Loading page..." />,
   context: {
     queryClient: queryClient,
+    auth: undefined!, // Will be set by root route
   },
   defaultPreloadStaleTime: 0,
 });
@@ -41,7 +42,6 @@ if (!rootElement.innerHTML) {
           {/* {process.env.NODE_ENV === "development" && (
             <ReactQueryDevtools initialIsOpen={false} position="bottom" />
           )} */}
-          <Toaster position="top-right" />
         </NuqsAdapter>
       </QueryClientProvider>
     </React.StrictMode>,

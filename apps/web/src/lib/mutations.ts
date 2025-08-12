@@ -47,8 +47,6 @@ export const useCreateUserMutation = () => {
       return response.data;
     },
     onSuccess: (data) => {
-      localStorage.setItem("access_token", data.tokens.accessToken);
-      localStorage.setItem("refresh_token", data.tokens.refreshToken);
       queryClient.setQueryData(userQueries.me(), data.user);
     },
   });
@@ -86,10 +84,8 @@ export const useDeleteUserMutation = () => {
       return response;
     },
     onSuccess: () => {
-      localStorage.removeItem("access_token");
-      localStorage.removeItem("refresh_token");
       queryClient.clear();
-      window.location.href = "/login";
+      window.location.href = "/";
     },
   });
 };
@@ -139,12 +135,35 @@ export const useUploadFilesMutation = () => {
 };
 
 // ===== AUTH MUTATIONS =====
+// export const useLoginMutation = () => {
+//   return useMutation({
+//     mutationFn: async (provider: "google" | "github") => {
+//       const response = await api("/users/auth/url", {
+//         method: "GET",
+//         params: { type: provider },
+//         schema: responseSchema(z.object({ url: z.string().url() })),
+//       });
+//       if (response.status === "FAILED") {
+//         throw new Error(response.error);
+//       }
+//       return response.data;
+//     },
+//     onSuccess: (data) => {
+//       // Redirect to OAuth URL
+//       window.location.href = data.url;
+//     },
+//   });
+// };
+
 export const useLoginMutation = () => {
   return useMutation({
-    mutationFn: async (provider: "google" | "github") => {
+    mutationFn: async (data: {
+      provider: 'google' | 'github';
+      redirectUri?: string;
+    }) => {
       const response = await api("/users/auth/url", {
         method: "GET",
-        params: { type: provider },
+        params: { type: data.provider, redirectUri: data.redirectUri ?? "http://localhost:3000/auth" },
         schema: responseSchema(z.object({ url: z.string().url() })),
       });
       if (response.status === "FAILED") {
@@ -165,10 +184,7 @@ export const useLogoutMutation = () => {
   return useMutation({
     mutationFn: async () => {
       await api("/users/auth/revoke-refresh", { method: "POST" });
-      localStorage.removeItem("access_token");
-      localStorage.removeItem("refresh_token");
-      // Clear refresh_token cookie
-      document.cookie = 'refresh_token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+      // document.cookie = 'refresh_token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
     },
     onSuccess: () => {
       queryClient.clear();
@@ -178,8 +194,6 @@ export const useLogoutMutation = () => {
 };
 
 export const useRefreshTokenMutation = () => {
-  const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: async () => {
       const response = await api("/users/auth/refresh", {
@@ -197,7 +211,7 @@ export const useRefreshTokenMutation = () => {
       return response.data;
     },
     onSuccess: (data) => {
-      localStorage.setItem("access_token", data.accessToken);
+      // Token is now handled by cookies
     },
   });
 };
@@ -277,7 +291,6 @@ export const useAddWalletMutation = () => {
   });
 };
 
-// ===== HUB MUTATIONS =====
 export const useCreateServiceConnectionMutation = () => {
   return useMutation({
     mutationFn: async (data: {
@@ -835,6 +848,7 @@ export const useDeployPackageMutation = () => {
       packageId: string;
       version: string;
       url: string;
+      name?: string;
       scopes: string[];
       authData: any;
       connectionIds: string[];

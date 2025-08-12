@@ -6,9 +6,14 @@ import { formatRelativeTime } from "@/lib/format";
 import { BuyKnowledgeBaseButton } from "./buy-knowledge-base-button";
 import { useQuery } from "@tanstack/react-query";
 import { userQueries } from "@/lib/queries";
+import { useAuth } from "@/hooks/use-auth";
 
 export function KnowledgeBaseDetailsHeader({ kb }: { kb: KnowledgeBase }) {
-	const { data: user } = useQuery(userQueries.meOptions());
+	const { isAuthenticated } = useAuth();
+	const { data: user } = useQuery({
+		...userQueries.meOptions(),
+		enabled: isAuthenticated,
+	});
 
 	return (
 		<section className="flex w-full flex-col px-6">
@@ -34,7 +39,7 @@ export function KnowledgeBaseDetailsHeader({ kb }: { kb: KnowledgeBase }) {
 					<Button className="text-primary-300 w-full" variant={"secondary"}>
 						last updated: {formatRelativeTime(kb.updatedAt)}
 					</Button>
-					
+
 					{/* Buy Button */}
 					{
 						user?.id !== kb.userId && (
@@ -43,7 +48,7 @@ export function KnowledgeBaseDetailsHeader({ kb }: { kb: KnowledgeBase }) {
 							/>
 						)
 					}
-					
+
 					{user?.id === kb.userId && (
 						<UploadContentDialog knowledgeBaseId={kb.knowledgeBaseId} />
 					)}

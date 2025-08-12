@@ -25,7 +25,7 @@ import {
   useCreateWalletMutation,
 } from "@/lib/mutations";
 import { getInitials } from "@/lib/utils";
-import { isAuthenticated } from "@/lib/auth-optimized";
+import { useAuth } from "@/hooks/use-auth";
 import type { ServiceClient } from "@/types/auth";
 import type { Permission } from "@/types";
 import { getScopeDisplayName } from "@/lib/scope-definitions";
@@ -120,7 +120,8 @@ export function AuthMethodDialog({
   const createServiceConnection = useCreateServiceConnectionMutation();
   const createSecretSharing = useCreateSecretSharingMutation();
   const createWallet = useCreateWalletMutation();
-  const { data: user } = useSuspenseQuery(userQueries.meOptions(isAuthenticated()));
+  const { isAuthenticated } = useAuth();
+  const { data: user } = useQuery(userQueries.meOptions(isAuthenticated));
 
   const { data: connectionData, isLoading: isLoadingConnection, error: _connectionError } = useQuery({
     ...hubQueries.userAuthConnectionOptions(callbackData?.connectionId || ''),
@@ -635,9 +636,9 @@ export function AuthMethodDialog({
           <div className="flex items-center justify-between px-4">
             <div className="flex">
               <Avatar className="rounded-lg size-10">
-                <AvatarImage src={user.profileImageUrl} alt={user.name} />
+                <AvatarImage src={user?.profileImageUrl} alt={user?.name || 'User'} />
                 <AvatarFallback className="rounded-sm">
-                  {getInitials(user.name)}
+                  {user ? getInitials(user.name) : 'U'}
                 </AvatarFallback>
               </Avatar>
               <Avatar className="-ml-3 rounded-lg size-10">
@@ -648,10 +649,10 @@ export function AuthMethodDialog({
               </Avatar>
               <div className="ml-2 flex flex-col">
                 <span className="text-primary-800 text-sm">
-                  {user.name}
+                  {user?.name || 'User'}
                 </span>
                 <span className="text-primary-300 text-xs">
-                  {user.email}
+                  {user?.email || 'user@example.com'}
                 </span>
               </div>
             </div>
@@ -806,9 +807,9 @@ export function AuthMethodDialog({
           <div className="flex items-center justify-between px-4">
             <div className="flex">
               <Avatar className="rounded-lg size-10">
-                <AvatarImage src={user.profileImageUrl} alt={user.name} />
+                <AvatarImage src={user?.profileImageUrl} alt={user?.name || 'User'} />
                 <AvatarFallback className="rounded-sm">
-                  {getInitials(user.name)}
+                  {user ? getInitials(user.name) : 'U'}
                 </AvatarFallback>
               </Avatar>
               <Avatar className="-ml-3 rounded-lg size-10">
@@ -819,10 +820,10 @@ export function AuthMethodDialog({
               </Avatar>
               <div className="ml-2 flex flex-col">
                 <span className="text-primary-800 text-sm">
-                  {user.name}
+                  {user?.name || 'User'}
                 </span>
                 <span className="text-primary-300 text-xs">
-                  {user.email}
+                  {user?.email || 'user@example.com'}
                 </span>
               </div>
             </div>

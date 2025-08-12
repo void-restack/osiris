@@ -6,7 +6,7 @@ import { Autocomplete } from "@/components/ui/autocomplete";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { hubQueries, userQueries } from "@/lib/queries";
-import { isAuthenticated } from "@/lib/auth-optimized";
+import { getAuthState } from "@/lib/auth-utils";
 import type { ServiceClient } from "@/types/auth";
 import { AuthTable } from "@/components/features/authhub/auth-table";
 import { AuthMethodDialog } from "@/components/features/authhub/auth-method-dialog";
@@ -26,21 +26,20 @@ export const Route = createFileRoute("/_hub/auth/")({
   ),
   validateSearch: searchSchema,
   beforeLoad: () => {
-    const authenticated = isAuthenticated();
-    return { authenticated };
+    return {};
   },
   loader: async ({ context: { queryClient } }) => {
-    const authenticated = isAuthenticated();
+    const auth = await getAuthState(queryClient);
 
     // Always load available auth methods (public data)
     await queryClient.ensureQueryData(hubQueries.authMethodsOptions(undefined));
 
     // Only load user data if authenticated
-    if (authenticated) {
+    if (auth.isAuthenticated) {
       await queryClient.ensureQueryData(userQueries.meOptions());
     }
 
-    return { breadcrumb: "Authentication", authenticated };
+    return { breadcrumb: "Authentication", auth };
   },
 });
 
@@ -84,7 +83,7 @@ function AuthPageSkeleton() {
 function RouteComponent() {
   const navigate = useNavigate();
   const search = Route.useSearch();
-  const { authenticated } = Route.useLoaderData();
+  const { auth } = Route.useLoaderData();
   const [authTable, setAuthTable] = useState<any>(null);
   const [callbackDialogOpen, setCallbackDialogOpen] = useState(false);
   const [callbackMethod, setCallbackMethod] = useState<ServiceClient | null>(null);
@@ -194,7 +193,7 @@ function RouteComponent() {
       </div>
 
       {/* OAuth Callback Dialog */}
-      {authenticated && callbackMethod && (
+      {auth.isAuthenticated && callbackMethod && (
         <AuthMethodDialog
           method={callbackMethod}
           open={callbackDialogOpen}

@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { useDataTable } from "@/hooks/use-data-table";
 import { hubQueries } from "@/lib/queries";
 import { useAppStore } from "@/lib/store";
-import { isAuthenticated, useReactiveAuth } from "@/lib/auth-optimized";
+import { useAuth } from "@/hooks/use-auth";
 import { useDisconnectServiceMutation } from "@/lib/mutations";
 import { toast } from "sonner";
 import { AuthMethodDialog } from "@/components/features/authhub/auth-method-dialog";
@@ -180,26 +180,24 @@ const createColumns = (
 export const Route = createFileRoute("/_hub/auth/$authId")({
   component: RouteComponent,
   beforeLoad: () => {
-    const authenticated = isAuthenticated();
-    return { authenticated };
+    return {};
   },
   loader: async ({ context: { queryClient } }) => {
-    const authenticated = isAuthenticated();
-    const [authMethods, userAuth] = await Promise.all([
+    const [authMethods] = await Promise.all([
       queryClient.ensureQueryData(hubQueries.authMethodsOptions(undefined)),
-      authenticated ? queryClient.ensureQueryData(hubQueries.userAuthOptions()) : Promise.resolve([])
     ]);
-    return { authMethods, userAuth };
+    return { authMethods };
   },
 });
 
 function RouteComponent() {
   const { authId } = Route.useParams();
-  const authenticated = useReactiveAuth();
+  // Use auth hook instead of reactive auth
+  const { isAuthenticated } = useAuth();
   const { data: authMethods } = useSuspenseQuery(hubQueries.authMethodsOptions(undefined));
   const { data: userAuth } = useQuery({
-    ...hubQueries.userAuthOptions(authenticated),
-    enabled: authenticated,
+    ...hubQueries.userAuthOptions(isAuthenticated),
+    enabled: isAuthenticated,
   });
   const { openEditSidebar, closeEditSidebar } = useAppStore();
   const { mutate: disconnectService } = useDisconnectServiceMutation();
@@ -299,6 +297,42 @@ function RouteComponent() {
     );
   }
 
+  const transformedServiceClient = transformBackendServiceClient(serviceClient);
+
+  // Only process user connections if authenticated and data is available
+  const allConnections = isAuthenticated && userAuth ? transformBackendUserAuth(userAuth) : [];
+  const connectionsForThisClient = allConnections.filter(conn => conn.clientId === authId);
+
+  const columns = createColumns((connection, serviceClient) => {
+    openEditSidebar(connection, transformedServiceClient);
+  }, (connectionId) => {
+    disconnectService(connectionId);
+    toast.success("Connection disconnected");
+  }, transformedServiceClient);
+
+  const { table } = useDataTable({
+    data: connectionsForThisClient,
+    columns: columns,
+    pageCount: Math.ceil(connectionsForThisClient.length / 10),
+  });
+
+  const getTypeColor = (type: string) => {
+    const colors: Record<string, string> = {
+      oauth: "bg-blue-400",
+      secret_sharing: "bg-purple-400",
+      embedded_wallet: "bg-orange-400",
+    };
+    return colors[type] || "bg-gray-400";
+  };
+
+  const getContentTitle = () => {
+    return `${transformedServiceClient.name.toWellFormed()} Connections`;
+  };
+
+  const getContentDescription = () => {
+    return `Manage your ${transformedServiceClient.name.toLowerCase()} connections`;
+  };
+
   return (
     <div className="px-8 pt-10">
       <div className="flex w-full items-center justify-between">
@@ -319,7 +353,13 @@ function RouteComponent() {
           </div>
         </div>
         <div className="flex items-center gap-4">
-          {authenticated && (
+          {/* <Button variant="secondary">
+            {transformedServiceClient.type === 'oauth' ? `${transformedServiceClient.supportedScopes?.length || 0} scopes` :
+              transformedServiceClient.type === 'secret_sharing' ? 'Database Config' :
+                transformedServiceClient.type === 'embedded_wallet' ? 'Wallet Config' : 'Config'}
+          </Button> */}
+
+          {isAuthenticated && (
             <AuthMethodDialog
               method={transformedServiceClient}
               open={dialogOpen}
@@ -343,7 +383,7 @@ function RouteComponent() {
         <span className="text-primary-300 text-pretty">{getContentDescription()}</span>
       </div>
 
-      {authenticated ? (
+      {isAuthenticated ? (
         <div>
           <DataTable table={table} />
         </div>

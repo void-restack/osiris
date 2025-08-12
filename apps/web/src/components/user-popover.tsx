@@ -1,7 +1,7 @@
 import { LogOut, User, Loader2 } from "lucide-react";
 import { useState } from "react";
-import { useSuspenseQuery } from "@tanstack/react-query";
-import { isAuthenticated } from "@/lib/auth-optimized";
+import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/use-auth";
 import { ICONS } from "./icons";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Button } from "./ui/button";
@@ -13,8 +13,14 @@ import { toast } from "sonner";
 
 export function UserPopover() {
   const [isOpen, setIsOpen] = useState(false);
+  const { isAuthenticated } = useAuth();
 
-  const { data: user } = useSuspenseQuery(userQueries.meOptions(isAuthenticated()));
+  const { data: user } = useQuery(userQueries.meOptions(isAuthenticated));
+
+  // Don't render if not authenticated or user data is not loaded
+  if (!isAuthenticated || !user) {
+    return null;
+  }
 
   const getInitials = (name: string) => {
     return name

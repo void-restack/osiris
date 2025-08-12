@@ -4,7 +4,7 @@ import { useSuspenseQuery, useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { Autocomplete } from "@/components/ui/autocomplete";
 import { packageQueries, userQueries } from "@/lib/queries";
-import { isAuthenticated } from "@/lib/auth-optimized";
+import { getAuthState } from "@/lib/auth-utils";
 import type { Package } from "@/types";
 import { PackagesTable } from "@/components/features/packages-table/packages-table";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
@@ -64,17 +64,16 @@ export const Route = createFileRoute("/_hub/mcp/")({
   ),
   validateSearch: searchSchema,
   beforeLoad: () => {
-    const authenticated = isAuthenticated();
-    return { authenticated };
+    return {};
   },
   loader: async ({ context: { queryClient } }) => {
-    const authenticated = isAuthenticated();
+    const auth = await getAuthState(queryClient);
 
     // Always fetch popular packages for autocomplete (public data)
     await queryClient.ensureQueryData(packageQueries.popularOptions());
 
     // Only fetch user-specific data if authenticated
-    if (authenticated) {
+    if (auth.isAuthenticated) {
       // Fetch user's installed MCPs
       await queryClient.ensureQueryData(packageQueries.userInstalledOptions());
       // Fetch user's deployed MCPs  
@@ -83,7 +82,7 @@ export const Route = createFileRoute("/_hub/mcp/")({
       await queryClient.ensureQueryData(userQueries.meOptions());
     }
 
-    return { breadcrumb: "MCP Packages", authenticated };
+    return { breadcrumb: "MCP Packages", auth };
   },
 });
 
@@ -140,7 +139,7 @@ function normalizePackage(pkg: any): Package {
 
 function RouteComponent() {
   const search = Route.useSearch();
-  const { authenticated: isAuth } = Route.useLoaderData();
+  const { auth } = Route.useLoaderData();
   const [packagesTable, setPackagesTable] = useState<any>(null);
 
   const { data: packageData, isPending } = useQuery({
@@ -154,13 +153,13 @@ function RouteComponent() {
   });
 
   const { data: userInstalled } = useQuery({
-    ...packageQueries.userInstalledOptions(isAuth),
-    enabled: isAuth,
+    ...packageQueries.userInstalledOptions(auth.isAuthenticated),
+    enabled: auth.isAuthenticated,
   });
 
   const { data: userDeployments } = useQuery({
-    ...packageQueries.userDeploymentsOptions(isAuth),
-    enabled: isAuth,
+    ...packageQueries.userDeploymentsOptions(auth.isAuthenticated),
+    enabled: auth.isAuthenticated,
   });
 
   const { data: popularPackages } = useSuspenseQuery(
@@ -174,15 +173,15 @@ function RouteComponent() {
     const normalizedPackages: Package[] = allPackages.map(normalizePackage);
 
     const installedMap = new Map(
-      isAuth && userInstalled ? userInstalled.map((item: any) => [item.packageId, item]) : []
+      auth.isAuthenticated && userInstalled ? userInstalled.map((item: any) => [item.packageId, item]) : []
     );
 
     const deployedMap = new Map(
-      isAuth && userDeployments ? userDeployments.map((item: any) => [item.package.packageId, item]) : []
+      auth.isAuthenticated && userDeployments ? userDeployments.map((item: any) => [item.package.packageId, item]) : []
     );
 
     return normalizedPackages;
-  }, [packageData, userInstalled, userDeployments, isAuth]);
+  }, [packageData, userInstalled, userDeployments, auth.isAuthenticated]);
 
   const searchPackages = (query: string) => {
     const filtered = packages

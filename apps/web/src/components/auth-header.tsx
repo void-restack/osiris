@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { useReactiveAuth } from "@/lib/auth-optimized";
+import { useAuth } from "@/hooks/use-auth";
 import { UserPopover } from "./user-popover";
 import { LoginButton } from "./login-button";
 import { Skeleton } from "./ui/skeleton";
@@ -10,9 +10,9 @@ import { AuthErrorBoundary } from "./auth-error-boundary";
  * Uses reactive auth for real-time updates when auth state changes
  */
 export function AuthHeader() {
-    const authenticated = useReactiveAuth();
+    const { isAuthenticated } = useAuth();
 
-    if (authenticated) {
+    if (isAuthenticated) {
         return (
             <AuthErrorBoundary fallback={<LoginButton />}>
                 <Suspense fallback={<AuthHeaderSkeleton />}>

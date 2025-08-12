@@ -5,11 +5,11 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header";
 import { AuthMethodDialog } from "./auth-method-dialog";
-import { isAuthenticated } from "@/lib/auth-optimized";
+
 import type { ServiceClient } from "@/types/auth";
 import { formatDistanceToNow } from "date-fns";
 
-export const createColumns = (): ColumnDef<ServiceClient>[] => [
+export const createColumns = (isAuthenticated: boolean): ColumnDef<ServiceClient>[] => [
   {
     id: "name",
     header: ({ column }) => (
@@ -181,11 +181,9 @@ export const createColumns = (): ColumnDef<ServiceClient>[] => [
     id: "actions",
     header: "",
     cell: ({ row }) => {
-      const authenticated = isAuthenticated();
-
       return (
         <div className="flex items-center gap-2">
-          {authenticated && <AuthMethodDialog method={row.original} />}
+          {isAuthenticated && <AuthMethodDialog method={row.original} />}
           <Link to={`/auth/${row.original.clientId}`}>
             <Button variant="outline" size="sm" className="h-7 text-xs rounded-[6px]">
               View
