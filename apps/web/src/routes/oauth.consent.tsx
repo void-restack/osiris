@@ -1,7 +1,7 @@
 import { hubQueries, packageQueries, userQueries } from '@/lib/queries'
 import { useCreateServiceConnectionMutation, useCreateSecretSharingMutation, useCreateWalletMutation, useDeployPackageMutation, useAuthorizeOsirisMutation, useAuthorizeFrontendMutation } from '@/lib/mutations'
-import { isAuthenticated } from '@/lib/auth-optimized'
-import { useSuspenseQuery } from '@tanstack/react-query'
+import { useAuth } from '@/hooks/use-auth'
+import { useSuspenseQuery, useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { useState, useCallback, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
@@ -36,12 +36,7 @@ import { getScopeDisplayName } from "@/lib/scope-definitions";
 export const Route = createFileRoute('/oauth/consent')({
   component: RouteComponent,
   beforeLoad: () => {
-    const authenticated = isAuthenticated();
-    if (!authenticated) {
-      // Redirect to login if not authenticated
-      throw new Error('Authentication required for OAuth consent');
-    }
-    return { authenticated };
+    return {};
   },
 })
 
@@ -58,13 +53,15 @@ function RouteComponent() {
   const [error, setError] = useState<string | null>(null)
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({})
 
+  const { isAuthenticated } = useAuth()
+
   // API queries
   const { data: packageDetails } = useSuspenseQuery(packageQueries.detailOptions(package_id as string))
   const { data: authScopes } = useSuspenseQuery(packageQueries.authScopesOptions(package_id as string))
-  const { data: userInfo } = useSuspenseQuery(userQueries.meOptions(isAuthenticated()))
+  const { data: userInfo } = useQuery(userQueries.meOptions(isAuthenticated))
   const { data: authMethods } = useSuspenseQuery(hubQueries.authMethodsOptions())
 
-  let { data: userAuthConnections } = useSuspenseQuery(hubQueries.userAuthOptions(isAuthenticated()))
+  let { data: userAuthConnections } = useQuery(hubQueries.userAuthOptions(isAuthenticated))
   const filteredUserAuthConnections = userAuthConnections?.filter((connection: any) => {
     const allowed = Object.keys(authScopes.serviceClientMap)
     return allowed.includes(connection.service_clients.name)

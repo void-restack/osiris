@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { useDataTable } from "@/hooks/use-data-table";
 import { hubQueries } from "@/lib/queries";
 import { useAppStore } from "@/lib/store";
-import { isAuthenticated, useReactiveAuth } from "@/lib/auth-optimized";
+import { useAuth } from "@/hooks/use-auth";
 import { useDisconnectServiceMutation } from "@/lib/mutations";
 import { toast } from "sonner";
 import { AuthMethodDialog } from "@/components/features/authhub/auth-method-dialog";
@@ -183,27 +183,24 @@ const createColumns = (
 export const Route = createFileRoute("/_hub/auth/$authId")({
   component: RouteComponent,
   beforeLoad: () => {
-    const authenticated = isAuthenticated();
-    return { authenticated };
+    return {};
   },
   loader: async ({ context: { queryClient } }) => {
-    const authenticated = isAuthenticated();
-    const [authMethods, userAuth] = await Promise.all([
+    const [authMethods] = await Promise.all([
       queryClient.ensureQueryData(hubQueries.authMethodsOptions(undefined)),
-      authenticated ? queryClient.ensureQueryData(hubQueries.userAuthOptions()) : Promise.resolve([])
     ]);
-    return { authMethods, userAuth };
+    return { authMethods };
   },
 });
 
 function RouteComponent() {
   const { authId } = Route.useParams();
-  // Use reactive auth state instead of stale loader data
-  const authenticated = useReactiveAuth();
+  // Use auth hook instead of reactive auth
+  const { isAuthenticated } = useAuth();
   const { data: authMethods } = useSuspenseQuery(hubQueries.authMethodsOptions(undefined));
   const { data: userAuth } = useQuery({
-    ...hubQueries.userAuthOptions(authenticated),
-    enabled: authenticated,
+    ...hubQueries.userAuthOptions(isAuthenticated),
+    enabled: isAuthenticated,
   });
   const { openEditSidebar, closeEditSidebar } = useAppStore();
   const { mutate: disconnectService } = useDisconnectServiceMutation();
@@ -236,7 +233,7 @@ function RouteComponent() {
   const transformedServiceClient = transformBackendServiceClient(serviceClient);
 
   // Only process user connections if authenticated and data is available
-  const allConnections = authenticated && userAuth ? transformBackendUserAuth(userAuth) : [];
+  const allConnections = isAuthenticated && userAuth ? transformBackendUserAuth(userAuth) : [];
   const connectionsForThisClient = allConnections.filter(conn => conn.clientId === authId);
 
   const columns = createColumns((connection, serviceClient) => {
@@ -295,7 +292,7 @@ function RouteComponent() {
                 transformedServiceClient.type === 'embedded_wallet' ? 'Wallet Config' : 'Config'}
           </Button> */}
 
-          {authenticated && (
+          {isAuthenticated && (
             <AuthMethodDialog
               method={transformedServiceClient}
               open={dialogOpen}
@@ -319,7 +316,7 @@ function RouteComponent() {
         <span className="text-primary-300 text-pretty">{getContentDescription()}</span>
       </div>
 
-      {authenticated ? (
+      {isAuthenticated ? (
         <div>
           <DataTable table={table} />
         </div>

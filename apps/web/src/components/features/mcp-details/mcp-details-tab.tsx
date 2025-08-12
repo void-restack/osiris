@@ -8,7 +8,7 @@ import { McpDetailsView } from "./mcp-details-view";
 import { useParams } from "@tanstack/react-router";
 import { useSuspenseQuery, useQuery } from "@tanstack/react-query";
 import { packageQueries } from "@/lib/queries";
-import { isAuthenticated } from "@/lib/auth-optimized";
+import { useAuth } from "@/hooks/use-auth";
 import { ToolCaseIcon } from "lucide-react";
 import { MarkdownRenderer } from "@/components/ui/markdown-renderer";
 import { useState } from "react";
@@ -16,7 +16,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 
 export function McpTabs() {
 	const { mcpId } = useParams({ from: "/_hub/mcp/$mcpId" });
-	const authenticated = isAuthenticated();
+	const { isAuthenticated } = useAuth();
 	const [serversPage, setServersPage] = useState(1);
 	const [actionsPage, setActionsPage] = useState(1);
 
@@ -24,14 +24,14 @@ export function McpTabs() {
 	const { data: authScopes } = useSuspenseQuery(packageQueries.authScopesOptions(mcpId));
 
 	const { data: actionsData } = useQuery({
-		...packageQueries.actionsOptions(mcpId, authenticated, { page: actionsPage, limit: 5 }),
-		enabled: authenticated,
+		...packageQueries.actionsOptions(mcpId, isAuthenticated, { page: actionsPage, limit: 5 }),
+		enabled: isAuthenticated,
 		placeholderData: (previousData) => previousData, // Keep previous data while loading new data
 	});
 
 	const { data: serversData } = useQuery({
 		...packageQueries.userDeploymentsForPackageOptions(mcpId, { page: serversPage, limit: 5 }),
-		enabled: authenticated,
+		enabled: isAuthenticated,
 		placeholderData: (previousData) => previousData, // Keep previous data while loading new data
 	});
 
@@ -178,7 +178,7 @@ export function McpTabs() {
 			</TabsContent>
 			<TabsContent value="servers">
 				<TabLayout>
-					{!authenticated ? (
+					{!isAuthenticated ? (
 						<div className="text-center py-8">
 							<p className="text-primary-600 mb-4">Sign in to view your deployed servers.</p>
 							<div className="text-sm text-primary-500">
@@ -203,7 +203,7 @@ export function McpTabs() {
 			</TabsContent>
 			<TabsContent value="actions">
 				<TabLayout>
-					{!authenticated ? (
+					{!isAuthenticated ? (
 						<div className="text-center py-8">
 							<p className="text-primary-600 mb-4">Sign in to view package actions and deployment history.</p>
 							<div className="text-sm text-primary-500">

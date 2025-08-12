@@ -4,12 +4,12 @@ import { useParams } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { packageQueries } from "@/lib/queries";
 import { Button } from "@/components/ui/button";
-import { isAuthenticated } from "@/lib/auth-optimized";
+import { useAuth } from "@/hooks/use-auth";
 
 export function McpDetailsHeader() {
   const { mcpId } = useParams({ from: "/_hub/mcp/$mcpId" });
   const { data: packageData } = useSuspenseQuery(packageQueries.detailOptions(mcpId));
-  const authenticated = isAuthenticated();
+  const { isAuthenticated } = useAuth();
 
   const isDeployed = false;
 
@@ -56,7 +56,7 @@ export function McpDetailsHeader() {
                 Deployed
               </Badge>
             )} */}
-            {authenticated ? (
+            {isAuthenticated ? (
               <McpDeployDialog
                 package={packageWithUserStatus}
                 trigger={

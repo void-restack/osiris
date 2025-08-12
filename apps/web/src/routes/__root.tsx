@@ -8,12 +8,29 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import "../index.css";
 import type { QueryClient } from "@tanstack/react-query";
+import { getAuthState, hasAuthCookie } from "@/lib/auth-utils";
 
 export type RouterAppContext = {
   queryClient: QueryClient;
+  auth?: {
+    user: any | null;
+    isAuthenticated: boolean;
+  };
 };
 
 export const Route = createRootRouteWithContext<RouterAppContext>()({
+  beforeLoad: async ({ context }) => {
+    if (hasAuthCookie()) {
+      try {
+        const auth = await getAuthState(context.queryClient);
+        return { auth };
+      } catch {
+        return { auth: { user: null, isAuthenticated: false } };
+      }
+    } else {
+      return { auth: { user: null, isAuthenticated: false } };
+    }
+  },
   component: RootComponent,
   head: () => ({
     meta: [

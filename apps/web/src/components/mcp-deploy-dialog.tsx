@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from "react";
 import { Loader2, Rocket, CheckCircle, AlertCircle, X } from "lucide-react";
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -30,7 +30,7 @@ import { PermissionSelector, type Permission } from "@/components/ui/permission-
 import { userQueries, hubQueries, packageQueries } from "@/lib/queries";
 import { useDeployPackageMutation, useCreateServiceConnectionMutation, useCreateSecretSharingMutation, useCreateWalletMutation } from "@/lib/mutations";
 import { AuthMethodDialog } from "@/components/features/authhub/auth-method-dialog";
-import { isAuthenticated } from "@/lib/auth-optimized";
+import { useAuth } from "@/hooks/use-auth";
 import { getInitials } from "@/lib/utils";
 import { getReadableScopes } from "@/lib/scope-utils";
 import { getScopeDisplayName } from "@/lib/scope-definitions";
@@ -58,10 +58,11 @@ export function McpDeployDialog({
   const createServiceConnection = useCreateServiceConnectionMutation();
   const createSecretSharing = useCreateSecretSharingMutation();
   const createWallet = useCreateWalletMutation();
-  const { data: user } = useSuspenseQuery(userQueries.meOptions(isAuthenticated()));
+  const { isAuthenticated } = useAuth();
+  const { data: user } = useQuery(userQueries.meOptions(isAuthenticated));
   const { data: authScopes } = useSuspenseQuery(packageQueries.authScopesOptions(pkg.packageId));
 
-  const { data: allUserAuth } = useSuspenseQuery(hubQueries.userAuthOptions(isAuthenticated()));
+  const { data: allUserAuth } = useQuery(hubQueries.userAuthOptions(isAuthenticated));
   const { data: authMethods } = useSuspenseQuery(hubQueries.authMethodsOptions());
 
   const userAuth = allUserAuth?.filter((connection: any) => {
@@ -435,9 +436,9 @@ export function McpDeployDialog({
           <div className="flex items-center justify-between px-4 pt-4">
             <div className="flex">
               <Avatar className="rounded-lg size-10">
-                <AvatarImage src={user.profileImageUrl} alt={user.name} />
+                <AvatarImage src={user?.profileImageUrl} alt={user?.name || 'User'} />
                 <AvatarFallback className="rounded-sm">
-                  {getInitials(user.name)}
+                  {user ? getInitials(user.name) : 'U'}
                 </AvatarFallback>
               </Avatar>
               <Avatar className="-ml-3 rounded-lg size-10 bg-blue-400">
@@ -446,8 +447,8 @@ export function McpDeployDialog({
                 </AvatarFallback>
               </Avatar>
               <div className="ml-2 flex flex-col">
-                <span className="text-primary-800 text-sm">{user.name}</span>
-                <span className="text-primary-300 text-xs">{user.email}</span>
+                <span className="text-primary-800 text-sm">{user?.name || 'User'}</span>
+                <span className="text-primary-300 text-xs">{user?.email || 'user@example.com'}</span>
               </div>
             </div>
             {/* <div className="rounded-md border border-primary-300 p-1">

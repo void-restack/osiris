@@ -3,7 +3,7 @@ import { AuthMethodDialog } from "./auth-method-dialog";
 import type { ServiceClient } from "@/types/auth";
 import { Link } from "@tanstack/react-router";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { isAuthenticated } from "@/lib/auth-optimized";
+import { useAuth } from "@/hooks/use-auth";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface AuthGridViewProps {
@@ -11,7 +11,7 @@ interface AuthGridViewProps {
 }
 
 export function AuthGridView({ methods }: AuthGridViewProps) {
-  const authenticated = isAuthenticated();
+  const { isAuthenticated } = useAuth();
 
   return (
     <ScrollArea className="relative h-[calc(100vh-560px)] hidebar">
@@ -66,7 +66,7 @@ export function AuthGridView({ methods }: AuthGridViewProps) {
                     <p className="text-[13px] text-primary-300">{Object.keys(method.scopeDefinitions).length} Scopes</p>
                   </div>
                 </div>
-                {authenticated && (
+                {isAuthenticated && (
                   <div
                     className="relative z-30 pointer-events-auto auth-method-dialog-trigger"
                     onClick={e => {

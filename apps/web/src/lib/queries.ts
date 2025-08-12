@@ -10,7 +10,7 @@ import {
   userSchema,
 } from "@/types";
 import { api } from "./api";
-import { isAuthenticated } from "./auth-optimized";
+
 
 export const userQueries = {
   all: () => ["users"] as const,
@@ -29,7 +29,7 @@ export const userQueries = {
         return response.data;
       },
       staleTime: 5 * 60 * 1000,
-      enabled: enabled && isAuthenticated(),
+      enabled: enabled,
     }),
 
   authProviders: () => [...userQueries.all(), "auth-providers"] as const,
@@ -57,7 +57,7 @@ export const userQueries = {
         return response.data;
       },
       staleTime: 5 * 60 * 1000,
-      enabled: enabled && isAuthenticated(),
+      enabled: enabled,
     }),
 };
 
@@ -192,7 +192,7 @@ export const packageQueries = {
         return response.data;
       },
       staleTime: 1 * 60 * 1000,
-      enabled: enabled && isAuthenticated(),
+      enabled: enabled,
     }),
 
   userDeploymentsOptions: (enabled: boolean = true) =>
@@ -224,7 +224,7 @@ export const packageQueries = {
         return response.data; // Not response.data.data
       },
       staleTime: 1 * 60 * 1000,
-      enabled: enabled && isAuthenticated(),
+      enabled: enabled,
     }),
 
   popularOptions: () =>
@@ -450,9 +450,6 @@ export const packageQueries = {
       if (packageId) {
         queryParams.packageId = packageId;
       }
-      if (!isAuthenticated()) {
-        return { data: [], pagination: { total: 0, totalPages: 0, page: 1, limit: 10 } };
-      }
       const response = await api("/packages/packages/user/actions", {
         params: queryParams,
         schema: responseSchema(z.object({
@@ -498,7 +495,7 @@ export const packageQueries = {
       });
       return response;
     },
-    enabled: enabled && isAuthenticated(),
+    enabled: enabled,
   }),
 
   mcpToolsOptions: (serverUrl: string) => queryOptions({
@@ -1221,7 +1218,7 @@ export const hubQueries = {
         return response.data;
       },
       staleTime: 2 * 60 * 1000,
-      enabled: enabled && isAuthenticated(),
+      enabled: enabled,
     }),
 
   userAuthConnectionOptions: (id: string, enabled: boolean = true) =>
@@ -1266,7 +1263,7 @@ export const hubQueries = {
         }
         return response;
       },
-      enabled: enabled && isAuthenticated(),
+      enabled: enabled,
     }),
 
   oauthClientsOptions: () =>
@@ -1364,6 +1361,6 @@ export const hubQueries = {
         }
         return response.data;
       },
-      enabled: enabled && isAuthenticated(), // Only fetch when explicitly requested AND authenticated
+      enabled: enabled, // Only fetch when explicitly requested
     }),
 };

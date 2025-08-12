@@ -47,8 +47,6 @@ export const useCreateUserMutation = () => {
       return response.data;
     },
     onSuccess: (data) => {
-      localStorage.setItem("access_token", data.tokens.accessToken);
-      localStorage.setItem("refresh_token", data.tokens.refreshToken);
       queryClient.setQueryData(userQueries.me(), data.user);
     },
   });
@@ -86,10 +84,8 @@ export const useDeleteUserMutation = () => {
       return response;
     },
     onSuccess: () => {
-      localStorage.removeItem("access_token");
-      localStorage.removeItem("refresh_token");
       queryClient.clear();
-      window.location.href = "/login";
+      window.location.href = "/";
     },
   });
 };
@@ -165,8 +161,6 @@ export const useLogoutMutation = () => {
   return useMutation({
     mutationFn: async () => {
       await api("/users/auth/revoke-refresh", { method: "POST" });
-      localStorage.removeItem("access_token");
-      localStorage.removeItem("refresh_token");
       // Clear refresh_token cookie
       document.cookie = 'refresh_token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
     },
@@ -197,7 +191,7 @@ export const useRefreshTokenMutation = () => {
       return response.data;
     },
     onSuccess: (data) => {
-      localStorage.setItem("access_token", data.accessToken);
+      // Token is now handled by cookies
     },
   });
 };

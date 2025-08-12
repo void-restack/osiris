@@ -4,27 +4,27 @@ import { McpDetailsHeader } from "@/components/features/mcp-details/details-head
 import { McpTabs } from "@/components/features/mcp-details/mcp-details-tab";
 import { packageQueries } from "@/lib/queries";
 import { McpDetailHeaderSkeleton } from "@/components/skeletons/mcp-skeleton";
-import { isAuthenticated } from "@/lib/auth-optimized";
+import { getAuthState } from "@/lib/auth-utils";
 
 export const Route = createFileRoute("/_hub/mcp/$mcpId")({
 	component: SlugComponent,
 	loader: async ({ context: { queryClient }, params: { mcpId } }) => {
-		const authenticated = isAuthenticated();
+		const auth = await getAuthState(queryClient);
 
 		// Fetch package details (public data)
 		const packageData = await queryClient.ensureQueryData(packageQueries.detailOptions(mcpId));
 		// Fetch auth scopes (public data)
 		await queryClient.ensureQueryData(packageQueries.authScopesOptions(mcpId));
 		// Fetch actions (user-specific data, only if authenticated)
-		if (authenticated) {
-			await queryClient.ensureQueryData(packageQueries.actionsOptions(mcpId, authenticated, { page: 1, limit: 5 }));
+		if (auth.isAuthenticated) {
+			await queryClient.ensureQueryData(packageQueries.actionsOptions(mcpId, true, { page: 1, limit: 5 }));
 			await queryClient.ensureQueryData(packageQueries.userDeploymentsForPackageOptions(mcpId, { page: 1, limit: 5 }));
 		}
 		// Fetch MCP tools if server URL is available (public data with fallbacks)
 		if (packageData?.url) {
 			await queryClient.ensureQueryData(packageQueries.mcpToolsOptions(packageData.url));
 		}
-		return { breadcrumb: packageData?.name ?? "Package Details", authenticated };
+		return { breadcrumb: packageData?.name ?? "Package Details", auth };
 	},
 });
 
