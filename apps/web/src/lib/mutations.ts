@@ -848,6 +848,7 @@ export const useDeployPackageMutation = () => {
       packageId: string;
       version: string;
       url: string;
+      name?: string;
       scopes: string[];
       authData: any;
       connectionIds: string[];
