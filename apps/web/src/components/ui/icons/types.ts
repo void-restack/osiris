@@ -8,6 +8,8 @@ export const iconNames = [
   "support",
   "settings",
   "home",
+  "google",
+  "github",
   "file",
   "doc",
   "code",
