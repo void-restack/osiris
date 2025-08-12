@@ -135,12 +135,35 @@ export const useUploadFilesMutation = () => {
 };
 
 // ===== AUTH MUTATIONS =====
+// export const useLoginMutation = () => {
+//   return useMutation({
+//     mutationFn: async (provider: "google" | "github") => {
+//       const response = await api("/users/auth/url", {
+//         method: "GET",
+//         params: { type: provider },
+//         schema: responseSchema(z.object({ url: z.string().url() })),
+//       });
+//       if (response.status === "FAILED") {
+//         throw new Error(response.error);
+//       }
+//       return response.data;
+//     },
+//     onSuccess: (data) => {
+//       // Redirect to OAuth URL
+//       window.location.href = data.url;
+//     },
+//   });
+// };
+
 export const useLoginMutation = () => {
   return useMutation({
-    mutationFn: async (provider: "google" | "github") => {
+    mutationFn: async (data: {
+      provider: 'google' | 'github';
+      redirectUri?: string;
+    }) => {
       const response = await api("/users/auth/url", {
         method: "GET",
-        params: { type: provider },
+        params: { type: data.provider, redirectUri: data.redirectUri ?? "http://localhost:3000/auth" },
         schema: responseSchema(z.object({ url: z.string().url() })),
       });
       if (response.status === "FAILED") {
@@ -161,8 +184,7 @@ export const useLogoutMutation = () => {
   return useMutation({
     mutationFn: async () => {
       await api("/users/auth/revoke-refresh", { method: "POST" });
-      // Clear refresh_token cookie
-      document.cookie = 'refresh_token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+      // document.cookie = 'refresh_token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
     },
     onSuccess: () => {
       queryClient.clear();
@@ -172,8 +194,6 @@ export const useLogoutMutation = () => {
 };
 
 export const useRefreshTokenMutation = () => {
-  const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: async () => {
       const response = await api("/users/auth/refresh", {
@@ -271,7 +291,6 @@ export const useAddWalletMutation = () => {
   });
 };
 
-// ===== HUB MUTATIONS =====
 export const useCreateServiceConnectionMutation = () => {
   return useMutation({
     mutationFn: async (data: {

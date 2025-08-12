@@ -20,14 +20,10 @@ export type RouterAppContext = {
 
 export const Route = createRootRouteWithContext<RouterAppContext>()({
   beforeLoad: async ({ context }) => {
-    if (hasAuthCookie()) {
-      try {
-        const auth = await getAuthState(context.queryClient);
-        return { auth };
-      } catch {
-        return { auth: { user: null, isAuthenticated: false } };
-      }
-    } else {
+    try {
+      const auth = await getAuthState(context.queryClient);
+      return { auth };
+    } catch {
       return { auth: { user: null, isAuthenticated: false } };
     }
   },

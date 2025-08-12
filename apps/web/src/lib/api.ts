@@ -24,8 +24,6 @@ class ApiError extends Error {
   }
 }
 
-
-
 async function api<T = any>(
   endpoint: string,
   options: ApiOptions = {},
@@ -43,8 +41,6 @@ async function api<T = any>(
       url.searchParams.append(key, String(value));
     }
   });
-
-
 
   const requestHeaders: Record<string, string> = {
     ...headers,

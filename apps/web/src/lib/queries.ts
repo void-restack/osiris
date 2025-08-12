@@ -11,7 +11,6 @@ import {
 } from "@/types";
 import { api } from "./api";
 
-
 export const userQueries = {
   all: () => ["users"] as const,
   me: () => [...userQueries.all(), "me"] as const,

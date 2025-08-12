@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as HubRouteRouteImport } from './routes/_hub/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as OauthConsentRouteImport } from './routes/oauth.consent'
@@ -20,6 +21,11 @@ import { Route as HubKnowledgeNewRouteImport } from './routes/_hub/knowledge/new
 import { Route as HubKnowledgeIdRouteImport } from './routes/_hub/knowledge/$id'
 import { Route as HubAuthAuthIdRouteImport } from './routes/_hub/auth.$authId'
 
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const HubRouteRoute = HubRouteRouteImport.update({
   id: '/_hub',
   getParentRoute: () => rootRouteImport,
@@ -72,6 +78,7 @@ const HubAuthAuthIdRoute = HubAuthAuthIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
   '/oauth/consent': typeof OauthConsentRoute
   '/auth/$authId': typeof HubAuthAuthIdRoute
   '/knowledge/$id': typeof HubKnowledgeIdRoute
@@ -83,6 +90,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
   '/oauth/consent': typeof OauthConsentRoute
   '/auth/$authId': typeof HubAuthAuthIdRoute
   '/knowledge/$id': typeof HubKnowledgeIdRoute
@@ -96,6 +104,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_hub': typeof HubRouteRouteWithChildren
+  '/login': typeof LoginRoute
   '/oauth/consent': typeof OauthConsentRoute
   '/_hub/auth/$authId': typeof HubAuthAuthIdRoute
   '/_hub/knowledge/$id': typeof HubKnowledgeIdRoute
@@ -109,6 +118,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/login'
     | '/oauth/consent'
     | '/auth/$authId'
     | '/knowledge/$id'
@@ -120,6 +130,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/login'
     | '/oauth/consent'
     | '/auth/$authId'
     | '/knowledge/$id'
@@ -132,6 +143,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/_hub'
+    | '/login'
     | '/oauth/consent'
     | '/_hub/auth/$authId'
     | '/_hub/knowledge/$id'
@@ -145,11 +157,19 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   HubRouteRoute: typeof HubRouteRouteWithChildren
+  LoginRoute: typeof LoginRoute
   OauthConsentRoute: typeof OauthConsentRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_hub': {
       id: '/_hub'
       path: ''
@@ -250,6 +270,7 @@ const HubRouteRouteWithChildren = HubRouteRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   HubRouteRoute: HubRouteRouteWithChildren,
+  LoginRoute: LoginRoute,
   OauthConsentRoute: OauthConsentRoute,
 }
 export const routeTree = rootRouteImport

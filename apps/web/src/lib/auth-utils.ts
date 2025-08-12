@@ -3,9 +3,9 @@ import type { QueryClient } from '@tanstack/react-query'
 
 export async function getAuthState(queryClient: QueryClient) {
     // First check if there's an auth cookie
-    if (!hasAuthCookie()) {
-        return { user: null, isAuthenticated: false }
-    }
+    // if (!hasAuthCookie()) {
+    //     return { user: null, isAuthenticated: false }
+    // }
 
     try {
         const user = await queryClient.ensureQueryData(userQueries.meOptions())
