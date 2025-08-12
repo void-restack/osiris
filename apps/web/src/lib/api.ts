@@ -9,6 +9,12 @@ interface ApiOptions {
 interface ApiResponse<T = any> {
   status: "SUCCESS" | "FAILED";
   data?: T;
+  pagination?: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
   error?: string;
   message?: string;
 }
@@ -31,7 +37,7 @@ async function api<T = any>(
   const { method = "GET", body, headers = {}, params = {}, schema } = options;
   const baseUrl =
     (
-      import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/v1"
+      import.meta.env.VITE_API_BASE_URL || "https://api.osirislabs.xyz/v1"
     ).replace(/\/$/, "") + "/";
   const cleanEndpoint = endpoint.replace(/^\//, "");
   const url = new URL(cleanEndpoint, baseUrl);

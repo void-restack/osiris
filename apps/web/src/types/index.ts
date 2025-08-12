@@ -75,12 +75,36 @@ export const knowledgeBaseSchema = z.object({
     price: z.number(),
     downloads: z.number(),
     rating: z.number(),
+    ratingCount: z.number(),
   }),
   iconUrl: z.string().nullable(),
   coverImageUrl: z.string().nullable(),
   tags: z.array(z.string()),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
+});
+
+// Schema for knowledge base ratings
+export const knowledgeBaseRatingSchema = z.object({
+  ratingId: z.string().uuid(),
+  knowledgeBaseId: z.string().uuid(),
+  userId: z.string().uuid(),
+  rating: z.number(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+
+// Schema for user installed knowledge bases
+export const userInstalledKnowledgeBaseSchema = z.object({
+  // Add fields as needed based on API response
+  // For now, using nullable since the API returns null
+}).nullable();
+
+// Schema for the joined response structure
+export const knowledgeBaseJoinedSchema = z.object({
+  knowledge_bases: knowledgeBaseSchema,
+  knowledge_base_ratings: knowledgeBaseRatingSchema.nullable(),
+  user_installed_knowledge_bases: userInstalledKnowledgeBaseSchema,
 });
 
 export const installedKnowledgeBaseSchema = z.object({
@@ -187,6 +211,8 @@ export type PackageList = z.infer<typeof packageListSchema>;
 export type CreditAccount = z.infer<typeof creditAccountSchema>;
 export type KnowledgeBase = z.infer<typeof knowledgeBaseSchema>;
 export type InstalledKnowledgeBase = z.infer<typeof installedKnowledgeBaseSchema>;
+export type KnowledgeBaseRating = z.infer<typeof knowledgeBaseRatingSchema>;
+export type KnowledgeBaseJoined = z.infer<typeof knowledgeBaseJoinedSchema>;
 
 export type ViewMode = "grid" | "table";
 export type SortOption =

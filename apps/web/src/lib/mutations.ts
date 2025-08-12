@@ -1242,6 +1242,9 @@ export const useRateKnowledgeBaseMutation = () => {
       queryClient.invalidateQueries({
         queryKey: knowledgeQueries.base(variables.knowledgeBaseId),
       });
+      queryClient.invalidateQueries({
+        queryKey: knowledgeQueries.bases(),
+      });
     },
   });
 };

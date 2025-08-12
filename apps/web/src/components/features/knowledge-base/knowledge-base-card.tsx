@@ -1,9 +1,10 @@
-import { Star } from "lucide-react";
+import { useState } from "react";
 import { ICONS } from "@/components/icons";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { Link } from "@tanstack/react-router";
 import type { KnowledgeBase } from "@/types";
+import { RatingDropdown } from "./rating-dropdown";
 
 export function KnowledgeBaseCard({
   name,
@@ -13,6 +14,7 @@ export function KnowledgeBaseCard({
   knowledgeBaseId,
   publicMetadata
 }: KnowledgeBase) {
+  const [localRating, setLocalRating] = useState(publicMetadata.rating);
   return (
     <section className="flex flex-col gap-y-4 relative">
       <div className="relative h-[120px]">
@@ -26,8 +28,12 @@ export function KnowledgeBaseCard({
             <AvatarImage src={iconUrl ?? ""} />
             <AvatarFallback className="text-2xl">B</AvatarFallback>
           </Avatar>
-          <div className="absolute top-4 right-4 flex gap-2">
-            <KnowledgebaseStars stars={publicMetadata.rating} />
+          <div className="absolute top-4 right-4 flex gap-2 z-10">
+            <RatingDropdown 
+              knowledgeBaseId={knowledgeBaseId} 
+              currentRating={localRating}
+              onRatingChange={setLocalRating}
+            />
             <KnowledgebaseCredits credits={publicMetadata.price} />
           </div>
         </div>
@@ -42,26 +48,13 @@ export function KnowledgeBaseCard({
         <p className="line-clamp-1 text-primary-300 text-sm">{description}</p>
       </div>
         <Link to={`/knowledge/${knowledgeBaseId}`}>
-
-      <span className="absolute w-full h-full inset-0"></span>
-		</Link>
+          <span className="absolute w-full h-full inset-0 z-0"></span>
+        </Link>
     </section>
   );
 }
 
-function KnowledgebaseStars({ stars }: { stars: number }) {
-  return (
-    <div
-      className={cn(
-        "flex h-7 items-center gap-2.5 rounded-[6px] px-2 py-[2px] font-medium text-sm drop-shadow-[0_0_1px_rgba(0,0,0,0.1)]",
-        "bg-primary-00 text-primary-400"
-      )}
-    >
-      <Star className="size-4" />
-      <span>{stars}</span>
-    </div>
-  );
-}
+
 
 function KnowledgebaseCredits({ credits }: { credits: number }) {
   const isFree = credits === 0;
