@@ -28,7 +28,6 @@ export function McpDetailsView() {
 	const { mcpId } = useParams({ from: "/_hub/mcp/$mcpId" });
 	const { data: packageData } = useSuspenseQuery(packageQueries.detailOptions(mcpId));
 
-	// Add safety check for packageData
 	if (!packageData) {
 		return (
 			<div className="w-full max-w-[344px] h-fit shrink-0 rounded-lg border border-primary-100">

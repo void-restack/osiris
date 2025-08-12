@@ -37,7 +37,7 @@ export function McpDetailsHeader() {
         <Avatar className="relative bottom-10 left-6 size-[72px] rounded-[4px] border border-primary-00 p-0">
           <AvatarImage src={packageData?.iconUrl || "/test/avatar.svg"} />
           <AvatarFallback className="text-2xl">
-            {packageData?.name?.charAt(0).toUpperCase() || "B"}
+            {packageData?.name ? packageData.name.charAt(0).toUpperCase() : "B"}
           </AvatarFallback>
         </Avatar>
       </div>

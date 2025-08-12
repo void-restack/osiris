@@ -26,20 +26,21 @@ export function McpTabs() {
 	const { data: actionsData } = useQuery({
 		...packageQueries.actionsOptions(mcpId, isAuthenticated, { page: actionsPage, limit: 5 }),
 		enabled: isAuthenticated,
-		placeholderData: (previousData) => previousData, // Keep previous data while loading new data
+		placeholderData: (previousData) => previousData,
 	});
 
 	const { data: serversData } = useQuery({
 		...packageQueries.userDeploymentsForPackageOptions(mcpId, { page: serversPage, limit: 5 }),
 		enabled: isAuthenticated,
-		placeholderData: (previousData) => previousData, // Keep previous data while loading new data
+		placeholderData: (previousData) => previousData,
 	});
 
 	const serverUrl = packageData?.url || '';
 
-	const { data: mcpTools } = useSuspenseQuery(
-		packageQueries.mcpToolsOptions(serverUrl)
-	);
+	const { data: mcpTools } = useQuery({
+		...packageQueries.mcpToolsOptions(serverUrl),
+		enabled: !!serverUrl, // Only run query if serverUrl exists
+	});
 
 	const transformedCapabilities = (mcpTools as any)?.tools?.map((tool: any, index: number) => {
 		// Add safety check for tool
@@ -67,9 +68,8 @@ export function McpTabs() {
 			})) : [];
 
 	const transformedActions = actionsData?.data?.map((action: any) => {
-		// Add safety check for action.mcp_actions
 		if (!action?.mcp_actions) {
-			return null; // Skip invalid actions
+			return null;
 		}
 
 		return {
@@ -85,40 +85,11 @@ export function McpTabs() {
 			createdAt: action.mcp_actions.createdAt,
 			updatedAt: action.mcp_actions.updatedAt,
 		};
-	}).filter(Boolean) || []; // Filter out null values
+	}).filter(Boolean) || [];
 
-	// Temporary mock data for testing if API is not working
-	const mockActionsData = {
-		status: "SUCCESS",
-		data: [
-			{
-				mcp_actions: {
-					actionId: "test-action-1",
-					deploymentId: "test-deployment-1",
-					userId: "test-user-1",
-					connectionId: "test-connection-1",
-					actionType: "test-action-type",
-					request: { test: "request" },
-					response: { test: "response" },
-					status: "success",
-					errorMessage: null,
-					createdAt: "2025-01-08T13:44:50.000Z",
-					updatedAt: "2025-01-08T13:44:50.000Z",
-				}
-			}
-		],
-		pagination: {
-			total: 1,
-			totalPages: 1,
-			page: 1,
-			limit: 10
-		}
-	};
+	const finalActionsData = actionsData || { data: [] };
 
-	// Use mock data if actionsData is not available
-	const finalActionsData = actionsData || mockActionsData;
-
-	const finalTransformedActions = finalActionsData?.data?.map((action: any) => ({
+	const finalTransformedActions = finalActionsData.data?.map((action: any) => ({
 		actionId: action.mcp_actions.actionId,
 		deploymentId: action.mcp_actions.deploymentId,
 		userId: action.mcp_actions.userId,
@@ -133,9 +104,8 @@ export function McpTabs() {
 	})) || [];
 
 	const transformedServers = serversData?.data?.map((deployment: any) => {
-		// Add safety check for deployment
 		if (!deployment) {
-			return null; // Skip invalid deployments
+			return null;
 		}
 
 		return {
@@ -147,7 +117,7 @@ export function McpTabs() {
 			createdAt: deployment.createdAt,
 			updatedAt: deployment.updatedAt,
 		};
-	}).filter(Boolean) || []; // Filter out null values
+	}).filter(Boolean) || [];
 
 	return (
 		<Tabs defaultValue="readme" className="flex w-full flex-col gap-y-8">
