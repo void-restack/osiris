@@ -19,6 +19,7 @@ export function McpDetailsHeader() {
     description: packageData?.description || "",
     publisherId: packageData?.publisherId || "",
     latestVersion: packageData?.latestVersion || "1.0.0",
+    url: packageData?.url,
     iconUrl: packageData?.iconUrl,
     coverImageUrl: packageData?.coverImageUrl,
     paymentConfig: packageData?.paymentConfig,

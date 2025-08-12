@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Link2, Loader2, Loader, Plus, X } from "lucide-react";
-import { useSuspenseQuery, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -86,6 +86,10 @@ export function AuthMethodDialog({
   callbackData,
   trigger
 }: AuthMethodDialogProps) {
+  if (!method) {
+    return null;
+  }
+
   const [selectedScopes, setSelectedScopes] = useState<Permission[]>([]);
   const [authHubName, setAuthHubName] = useState(
     method.type === 'embedded_wallet' ? `${method.name} wallet` : `${method.name} connection`

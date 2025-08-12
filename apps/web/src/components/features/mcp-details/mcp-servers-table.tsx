@@ -64,7 +64,7 @@ export const columns: ColumnDef<McpServerData>[] = [
         accessorKey: "url",
         header: "URL",
         cell: ({ row }) => (
-            <div className="text-[#171717] text-sm">
+            <div className="text-[#171717] text-sm max-w-xs truncate">
                 {row.getValue("url")}
             </div>
         ),

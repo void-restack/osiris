@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from "react";
-import { Loader2, Rocket, CheckCircle, AlertCircle, X } from "lucide-react";
+import { Loader2, CheckCircle, AlertCircle, X } from "lucide-react";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -383,7 +383,7 @@ export function McpDeployDialog({
     }
 
     return (
-      <div className="w-full max-w-md flex flex-col items-center mt-8 mb-12 text-[18px]">
+      <div className="w-full flex flex-col justify-center items-center mt-8 mb-12 text-[18px]">
         <div className="flex flex-col text-center mb-8">
           <h3 className="flex items-center justify-center gap-2">
             {isPending ? 'Deploying' : isSuccess ? 'Deployed' : 'Deploy Failed'}
@@ -399,10 +399,19 @@ export function McpDeployDialog({
           </span>
         </div>
 
-        <div className="flex items-center w-full relative max-w-[294px]">
+        <div className="flex items-center justify-center w-full relative max-w-[294px]">
           <div className="flex z-20 w-full items-center justify-between">
-            <div className="bg-purple-400 rounded-[6px] size-14"></div>
+            {/* User Avatar */}
+            <Avatar className="size-14 rounded-[6px]">
+              <AvatarImage src={user?.profileImageUrl} alt={user?.name || 'User'} />
+              <AvatarFallback className="text-lg font-bold">
+                {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
+              </AvatarFallback>
+            </Avatar>
+
             <div className={`bg-${statusColor} w-full h-0.5`} />
+
+            {/* Status Indicator */}
             <div className={`h-fit text-xs border flex items-center gap-1 rounded-[6px] p-1 ${isPending ? 'border-primary-600/15 text-primary-400 bg-primary-50' :
               isSuccess ? 'border-success-600/15 text-success-600 bg-success-50' :
                 'border-warning-600/15 text-warning-600 bg-warning-50'
@@ -410,10 +419,16 @@ export function McpDeployDialog({
               {statusIcon}
               {statusText}
             </div>
+
             <div className={`bg-${statusColor} w-full h-0.5`} />
-            <div className="bg-blue-400 rounded-[6px] size-14 flex items-center justify-center text-white text-lg font-bold">
-              {pkg.name.charAt(0).toUpperCase()}
-            </div>
+
+            {/* Package Avatar */}
+            <Avatar className="size-14 rounded-[6px]">
+              <AvatarImage src={pkg.iconUrl || undefined} alt={pkg.name} />
+              <AvatarFallback className="text-lg font-bold">
+                {pkg.name.charAt(0).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
           </div>
         </div>
       </div>
@@ -422,7 +437,6 @@ export function McpDeployDialog({
 
   const defaultTrigger = (
     <Button variant="ghost" size="sm" className="gap-2">
-      <Rocket className="size-4" />
       Deploy
     </Button>
   );
@@ -459,6 +473,7 @@ export function McpDeployDialog({
                 </AvatarFallback>
               </Avatar>
               <Avatar className="-ml-3 rounded-lg size-10 bg-blue-400">
+                <AvatarImage src={pkg.iconUrl ?? ""} alt={pkg.name} />
                 <AvatarFallback className="rounded-sm text-white font-bold">
                   {pkg.name.charAt(0).toUpperCase()}
                 </AvatarFallback>
@@ -506,23 +521,20 @@ export function McpDeployDialog({
           </div>
         </div>
 
-        <AlertDialogFooter className="flex w-full items-center rounded-b-[12px] border-t border-t-primary-100 bg-primary-25 px-4 py-3 sm:justify-end">
+        <AlertDialogFooter className="flex w-full items-center justify-between rounded-b-[12px] border-t border-t-primary-100 bg-primary-25 px-4 py-2 sm:justify-end">
           {isSuccess ? (
             <Button onClick={handleClose} className="gap-2">
               <X className="size-4" />
               Close
             </Button>
           ) : isError ? (
-            <>
-              <Button variant="outline" onClick={() => deployMutation.reset()}>
-                Try Again
-              </Button>
+            <AlertDialogFooter className="flex w-full items-center rounded-b-[12px] bg-primary-25 px-4 py-1 sm:justify-end">
               <Button onClick={handleClose}>
                 Close
               </Button>
-            </>
+            </AlertDialogFooter>
           ) : !isPending ? (
-            <>
+            <div className="w-full flex items-center justify-between">
               <AlertDialogCancel className="bg-primary-50">
                 Cancel
               </AlertDialogCancel>
@@ -534,10 +546,9 @@ export function McpDeployDialog({
                 }}
                 disabled={!isFormValid}
               >
-                <Rocket className="size-4 mr-2" />
                 Deploy Package
               </AlertDialogAction>
-            </>
+            </div>
           ) : (
             <div className="flex items-center gap-2">
               <Loader2 className="size-4 animate-spin" />
@@ -548,15 +559,17 @@ export function McpDeployDialog({
       </AlertDialogContent>
 
       {/* Auth Method Dialog for connecting new accounts */}
-      <AuthMethodDialog
-        method={authMethods?.find((method: any) => method.name === connectingService)}
-        open={!!connectingService}
-        onOpenChange={(open) => {
-          if (!open) {
-            setConnectingService(null);
-          }
-        }}
-      />
+      {connectingService && authMethods && (
+        <AuthMethodDialog
+          method={authMethods.find((method: any) => method.name === connectingService)}
+          open={!!connectingService}
+          onOpenChange={(open) => {
+            if (!open) {
+              setConnectingService(null);
+            }
+          }}
+        />
+      )}
     </AlertDialog>
   );
 }

@@ -59,7 +59,7 @@ export function McpTabs() {
 
 	const transformedAuthenticators = authScopes?.serviceClientMap ?
 		Object.entries(authScopes.serviceClientMap)
-			.filter(([_, serviceData]) => serviceData) // Filter first
+			.filter(([_, serviceData]) => serviceData)
 			.map(([serviceName, serviceData]: [string, any]) => ({
 				id: serviceName.toLowerCase(),
 				name: serviceName,
@@ -108,10 +108,15 @@ export function McpTabs() {
 			return null;
 		}
 
+		// Construct deployment URL: packageUrl?deploymentId=deploymentId
+		const deploymentUrl = packageData?.url ?
+			`${packageData.url}?deploymentId=${deployment.deploymentId}` :
+			'No URL';
+
 		return {
 			deploymentId: deployment.deploymentId,
 			userMcpId: deployment.userMcpId,
-			url: deployment.userServiceConnectionMcpDeployments?.[0]?.connectionId || 'No URL',
+			url: deploymentUrl,
 			scopes: deployment.userServiceConnectionMcpDeployments?.[0]?.scopes || [],
 			status: deployment.status,
 			createdAt: deployment.createdAt,
