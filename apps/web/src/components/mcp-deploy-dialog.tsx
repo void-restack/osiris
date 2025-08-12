@@ -146,6 +146,8 @@ function ServiceSection({
                             const md = connection.user_service_connections.metadata;
                             const t = connection.service_clients?.type;
                             const shortId = connection.user_service_connections.id.slice(0, 8);
+                            if (!t) return `${connection.user_service_connections.name || 'Unknown Connection'} (${shortId})`;
+
                             switch (t) {
                               case 'oauth':
                                 return `${md?.user?.name || md?.user?.email || 'Unknown User'} (${shortId})`;
@@ -166,6 +168,8 @@ function ServiceSection({
                         {(() => {
                           const md = connection.user_service_connections.metadata;
                           const t = connection.service_clients?.type;
+                          if (!t) return 'Unknown connection type';
+
                           switch (t) {
                             case 'oauth':
                               return md?.user?.email || md?.user?.name || 'No email available';
