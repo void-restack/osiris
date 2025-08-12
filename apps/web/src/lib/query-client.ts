@@ -88,12 +88,6 @@ export const queryClient = new QueryClient({
 	}),
 });
 
-
-
-
-
-
-
 export const handlePaymentError = (
 	error: unknown,
 	onPaymentRequired?: (details: any) => void,

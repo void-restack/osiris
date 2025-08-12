@@ -4,7 +4,6 @@ import { createRouter, RouterProvider } from "@tanstack/react-router";
 import { NuqsAdapter } from "nuqs/adapters/tanstack-router";
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { Toaster } from "sonner";
 import { queryClient } from "./lib/query-client";
 import { routeTree } from "./routeTree.gen";
 import { FullPageLoadingScreen } from "./components/ui/loading-screen";
@@ -43,7 +42,6 @@ if (!rootElement.innerHTML) {
           {/* {process.env.NODE_ENV === "development" && (
             <ReactQueryDevtools initialIsOpen={false} position="bottom" />
           )} */}
-          <Toaster position="top-right" />
         </NuqsAdapter>
       </QueryClientProvider>
     </React.StrictMode>,
