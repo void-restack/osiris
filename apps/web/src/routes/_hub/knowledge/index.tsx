@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { isAuthenticated } from "@/lib/auth-optimized";
+import { useAuth } from "@/hooks/use-auth";
+import { getAuthState } from "@/lib/auth-utils";
 
 import { KnowledgeBaseListContainer } from "@/components/features/knowledge-base/browse-knowledge-base-list-containter";
 import { useState } from "react";
@@ -9,7 +10,7 @@ import { DataTablePagination } from "@/components/data-table/data-table-paginati
 const searchSchema = z.object({
   query: z.string().optional(),
   tags: z.string().optional(),
-  sortBy: z.enum([ "price", "rating", "credits", "installs", "recent"]).optional(),
+  sortBy: z.enum(["price", "rating", "credits", "installs", "recent"]).optional(),
   sortOrder: z.enum(['asc', 'desc']).default('asc'),
   isPublic: z.boolean().optional(),
   startPrice: z.number().optional(),
@@ -21,21 +22,21 @@ const searchSchema = z.object({
   showInstalled: z.coerce.boolean().optional(),
 });
 
-
-
 export const Route = createFileRoute("/_hub/knowledge/")({
   shouldReload: false,
   component: () => (
-      <RouteComponent />
+    <RouteComponent />
   ),
   validateSearch: searchSchema,
   beforeLoad: () => {
-    const authenticated = isAuthenticated();
-    return { authenticated };
+    return {};
   },
-  loader: async () => {
-    // No need to fetch data here anymore - it's handled by the list container
-    return { breadcrumb: "Knowledge Bases" };
+  loader: async ({ context: { queryClient } }) => {
+    const auth = await getAuthState(queryClient);
+    return {
+      breadcrumb: "Knowledge Bases",
+      auth
+    };
   },
 });
 

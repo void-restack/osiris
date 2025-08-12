@@ -1,11 +1,11 @@
 
 import { useNavigate, useRouter } from "@tanstack/react-router";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import type { KnowledgeBase } from "@/types";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { knowledgeQueries } from "@/lib/queries";
-import { isAuthenticated } from "@/lib/auth-optimized";
+import { useAuth } from "@/hooks/use-auth";
 import { useQueryState, parseAsString, parseAsInteger, parseAsBoolean } from "nuqs";
 import { Autocomplete } from "@/components/ui/autocomplete";
 import { Link } from "@tanstack/react-router";
@@ -20,8 +20,8 @@ export function KnowledgeBaseListContainer({
 	const isMobile = useIsMobile()
 	const navigate = useNavigate();
 	const router = useRouter();
-	const isAuth = isAuthenticated();
-	
+	const { isAuthenticated } = useAuth();
+
 	// URL state management for filters
 	const [search] = useQueryState("query", parseAsString.withDefault(""));
 
@@ -41,13 +41,13 @@ export function KnowledgeBaseListContainer({
 	// Fetch user's knowledge bases
 	const { data: userKnowledgeBases } = useQuery({
 		...knowledgeQueries.myOptions(),
-		enabled: isAuth && showOnlyMyKBsState && !showInstalledState,
+		enabled: isAuthenticated && showOnlyMyKBsState && !showInstalledState,
 	});
 
 	// Fetch installed knowledge bases
 	const { data: installedKnowledgeBases } = useQuery({
 		...knowledgeQueries.allInstalledOptions(),
-		enabled: isAuth && showInstalledState,
+		enabled: isAuthenticated && showInstalledState,
 	});
 
 	// Fetch popular knowledge bases for autocomplete
@@ -57,10 +57,10 @@ export function KnowledgeBaseListContainer({
 
 	const searchKnowledgeBases = (query: string) => {
 		let allData: KnowledgeBase[] = [];
-		
-		if (showInstalledState && isAuth) {
+
+		if (showInstalledState && isAuthenticated) {
 			allData = (installedKnowledgeBases?.data || []).map(normalizeKnowledgeBase);
-		} else if (showOnlyMyKBsState && isAuth) {
+		} else if (showOnlyMyKBsState && isAuthenticated) {
 			allData = (userKnowledgeBases?.data || []).map(normalizeKnowledgeBase);
 		} else {
 			allData = (knowledgeBaseData?.data || []).map(normalizeKnowledgeBase);
@@ -89,7 +89,7 @@ export function KnowledgeBaseListContainer({
 	}, [popularKnowledgeBases]);
 
 
-	
+
 
 	return (
 		<div className="flex min-h-0 flex-1 flex-col gap-3">
