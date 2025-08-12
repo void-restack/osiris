@@ -129,29 +129,35 @@ export const SCOPE_DEFINITIONS: ScopeDefinitions = {
 
 /**
  * Get a human-readable scope name from the local definitions
- * @param scope - The scope string (e.g., "google:https://www.googleapis.com/auth/calendar")
+ * @param scope - The scope string (e.g., "google:https://www.googleapis.com/auth/calendar" or "https://www.googleapis.com/auth/calendar")
  * @returns Human-readable scope name or the original scope if not found
  */
 export function getScopeDisplayName(scope: string): string {
   // Split only on the first colon to handle URLs with multiple colons
   const firstColonIndex = scope.indexOf(':');
-  if (firstColonIndex === -1) {
-    return scope;
+
+  // If there's a colon, try the service:url format first
+  if (firstColonIndex !== -1) {
+    const serviceName = scope.substring(0, firstColonIndex);
+    const scopeUrl = scope.substring(firstColonIndex + 1);
+
+    if (serviceName && scopeUrl) {
+      const serviceDefinitions = SCOPE_DEFINITIONS[serviceName];
+      if (serviceDefinitions && serviceDefinitions[scopeUrl]) {
+        return serviceDefinitions[scopeUrl];
+      }
+    }
   }
 
-  const serviceName = scope.substring(0, firstColonIndex);
-  const scopeUrl = scope.substring(firstColonIndex + 1);
-
-  if (!serviceName || !scopeUrl) {
-    return scope;
+  // If no service prefix or not found, search across all services
+  for (const [serviceName, serviceDefinitions] of Object.entries(SCOPE_DEFINITIONS)) {
+    if (serviceDefinitions[scope]) {
+      return serviceDefinitions[scope];
+    }
   }
 
-  const serviceDefinitions = SCOPE_DEFINITIONS[serviceName];
-  if (!serviceDefinitions) {
-    return scope;
-  }
-
-  return serviceDefinitions[scopeUrl] || scopeUrl;
+  // If still not found, return the original scope
+  return scope;
 }
 
 /**

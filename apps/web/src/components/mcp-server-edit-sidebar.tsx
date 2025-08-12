@@ -4,7 +4,7 @@ import { useParams } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { useAppStore, type McpServerData } from "@/lib/store";
+import { useAppStore } from "@/lib/store";
 import { PermissionSelector, type Permission } from "./ui/permission-selector";
 import { Badge } from "./ui/badge";
 import { Separator } from "./ui/separator";
@@ -46,7 +46,6 @@ export function McpServerEditSidebar() {
     });
 
     const packageRequiredScopes = getPackageRequiredScopes(availableScopes);
-    console.log('🔍 Package Required Scopes:', packageRequiredScopes);
 
     const currentScopesAsPermissions = currentDeployment ? getCurrentScopesAsPermissions(currentDeployment) : [];
 
@@ -137,7 +136,6 @@ export function McpServerEditSidebar() {
 
         console.log('=== Handling Embedded Wallet Update ===');
 
-        // Parse the policy JSON
         let policy;
         try {
             policy = JSON.parse(policyValue);
@@ -146,7 +144,6 @@ export function McpServerEditSidebar() {
             throw error;
         }
 
-        // Log the policy update payload
         const policyUpdatePayload = {
             deploymentId: selectedMcpServer.deploymentId,
             policy: policy
@@ -155,7 +152,6 @@ export function McpServerEditSidebar() {
         console.log('API Endpoint that would be called: PATCH /packages/deployments/{deploymentId}/update-policy');
         console.log('Request Body:', { policy: policy });
 
-        // Update policy if it has changed
         if (policyValue !== initialPolicyValue) {
             console.log('Policy has changed, calling updateDeploymentPolicyMutation...');
             await updatePolicyMutation.mutateAsync(policyUpdatePayload);

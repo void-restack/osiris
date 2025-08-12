@@ -1,8 +1,8 @@
 import { useSuspenseQuery, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { PenLine, Trash2, Database, Wallet, Key, Plus } from "lucide-react";
+import { PenLine, Trash2, Database, Wallet, Key } from "lucide-react";
 import { DataTable } from "@/components/data-table/data-table";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -95,9 +95,6 @@ const createColumns = (
             <p className="font-medium text-primary-800 text-sm max-w-xs truncate">
               {displayInfo.name}
             </p>
-            {/* <span className="text-primary-400 text-xs">
-              {displayInfo.subtitle}
-            </span> */}
           </div>
         );
       },
@@ -198,7 +195,6 @@ export const Route = createFileRoute("/_hub/auth/$authId")({
 
 function RouteComponent() {
   const { authId } = Route.useParams();
-  // Use reactive auth state instead of stale loader data
   const authenticated = useReactiveAuth();
   const { data: authMethods } = useSuspenseQuery(hubQueries.authMethodsOptions(undefined));
   const { data: userAuth } = useQuery({
@@ -210,17 +206,87 @@ function RouteComponent() {
 
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  // Close the edit sidebar when navigating away from this page
   useEffect(() => {
     return () => {
       closeEditSidebar();
     };
   }, [closeEditSidebar]);
 
+  const serviceClient = useMemo(
+    () => authMethods.find((method: any) => method.clientId === authId),
+    [authMethods, authId]
+  );
 
-  const serviceClient = authMethods.find((method: any) => method.clientId === authId);
+  const transformedServiceClient = useMemo(
+    () => serviceClient ? transformBackendServiceClient(serviceClient) : null,
+    [serviceClient]
+  );
 
-  if (!serviceClient) {
+  const allConnections = useMemo(
+    () => authenticated && userAuth ? transformBackendUserAuth(userAuth) : [],
+    [authenticated, userAuth]
+  );
+
+  const connectionsForThisClient = useMemo(
+    () => allConnections.filter(conn => conn.clientId === authId),
+    [allConnections, authId]
+  );
+
+  const handleOpenEditSidebar = useCallback(
+    (connection: UserServiceConnection) => {
+      if (transformedServiceClient) {
+        openEditSidebar(connection, transformedServiceClient);
+      }
+    },
+    [openEditSidebar, transformedServiceClient]
+  );
+
+  const handleDisconnectConnection = useCallback(
+    (connectionId: string) => {
+      disconnectService(connectionId);
+      toast.success("Connection disconnected");
+    },
+    [disconnectService]
+  );
+
+  const columns = useMemo(
+    () => {
+      if (!transformedServiceClient) return [];
+      return createColumns(
+        (connection) => handleOpenEditSidebar(connection),
+        handleDisconnectConnection,
+        transformedServiceClient
+      );
+    },
+    [transformedServiceClient, handleOpenEditSidebar, handleDisconnectConnection]
+  );
+
+  const { table } = useDataTable({
+    data: connectionsForThisClient,
+    columns,
+    pageCount: Math.ceil(connectionsForThisClient.length / 10),
+  });
+
+  const getTypeColor = useCallback((type: string) => {
+    const colors: Record<string, string> = {
+      oauth: "bg-blue-400",
+      secret_sharing: "bg-purple-400",
+      embedded_wallet: "bg-orange-400",
+    };
+    return colors[type] || "bg-gray-400";
+  }, []);
+
+  const getContentTitle = useCallback(() => {
+    if (!transformedServiceClient) return "";
+    return `${transformedServiceClient.name} Connections`;
+  }, [transformedServiceClient]);
+
+  const getContentDescription = useCallback(() => {
+    if (!transformedServiceClient) return "";
+    return `Manage your ${transformedServiceClient.name.toLowerCase()} connections`;
+  }, [transformedServiceClient]);
+
+  if (!serviceClient || !transformedServiceClient) {
     return (
       <div className="px-8 pt-10">
         <div className="text-center">
@@ -232,42 +298,6 @@ function RouteComponent() {
       </div>
     );
   }
-
-  const transformedServiceClient = transformBackendServiceClient(serviceClient);
-
-  // Only process user connections if authenticated and data is available
-  const allConnections = authenticated && userAuth ? transformBackendUserAuth(userAuth) : [];
-  const connectionsForThisClient = allConnections.filter(conn => conn.clientId === authId);
-
-  const columns = createColumns((connection, serviceClient) => {
-    openEditSidebar(connection, transformedServiceClient);
-  }, (connectionId) => {
-    disconnectService(connectionId);
-    toast.success("Connection disconnected");
-  }, transformedServiceClient);
-
-  const { table } = useDataTable({
-    data: connectionsForThisClient,
-    columns: columns,
-    pageCount: Math.ceil(connectionsForThisClient.length / 10),
-  });
-
-  const getTypeColor = (type: string) => {
-    const colors: Record<string, string> = {
-      oauth: "bg-blue-400",
-      secret_sharing: "bg-purple-400",
-      embedded_wallet: "bg-orange-400",
-    };
-    return colors[type] || "bg-gray-400";
-  };
-
-  const getContentTitle = () => {
-    return `${transformedServiceClient.name.toWellFormed()} Connections`;
-  };
-
-  const getContentDescription = () => {
-    return `Manage your ${transformedServiceClient.name.toLowerCase()} connections`;
-  };
 
   return (
     <div className="px-8 pt-10">
@@ -289,12 +319,6 @@ function RouteComponent() {
           </div>
         </div>
         <div className="flex items-center gap-4">
-          {/* <Button variant="secondary">
-            {transformedServiceClient.type === 'oauth' ? `${transformedServiceClient.supportedScopes?.length || 0} scopes` :
-              transformedServiceClient.type === 'secret_sharing' ? 'Database Config' :
-                transformedServiceClient.type === 'embedded_wallet' ? 'Wallet Config' : 'Config'}
-          </Button> */}
-
           {authenticated && (
             <AuthMethodDialog
               method={transformedServiceClient}
