@@ -41,36 +41,51 @@ export function McpTabs() {
 		packageQueries.mcpToolsOptions(serverUrl)
 	);
 
-	const transformedCapabilities = (mcpTools as any)?.tools?.map((tool: any, index: number) => ({
-		id: tool.name || `tool-${index}`,
-		title: tool.name || 'Unknown Tool',
-		description: tool.description || 'No description available',
-		icon: ToolCaseIcon,
-		inputSchema: tool.inputSchema,
-	}))
+	const transformedCapabilities = (mcpTools as any)?.tools?.map((tool: any, index: number) => {
+		// Add safety check for tool
+		if (!tool) {
+			return null; // Skip invalid tools
+		}
 
+		return {
+			id: tool.name || `tool-${index}`,
+			title: tool.name || 'Unknown Tool',
+			description: tool.description || 'No description available',
+			icon: ToolCaseIcon,
+			inputSchema: tool.inputSchema,
+		};
+	}).filter((item: any) => item !== null) || [];
 
 	const transformedAuthenticators = authScopes?.serviceClientMap ?
-		Object.entries(authScopes.serviceClientMap).map(([serviceName, serviceData]: [string, any]) => ({
-			id: serviceName.toLowerCase(),
-			name: serviceName,
-			icon: `/test/${serviceName.toLowerCase()}.svg`,
-			scopes: serviceData.requiredScopes || [],
-		})) : [];
+		Object.entries(authScopes.serviceClientMap)
+			.filter(([_, serviceData]) => serviceData) // Filter first
+			.map(([serviceName, serviceData]: [string, any]) => ({
+				id: serviceName.toLowerCase(),
+				name: serviceName,
+				icon: `/test/${serviceName.toLowerCase()}.svg`,
+				scopes: serviceData.requiredScopes || [],
+			})) : [];
 
-	const transformedActions = actionsData?.data?.map((action: any) => ({
-		actionId: action.mcp_actions.actionId,
-		deploymentId: action.mcp_actions.deploymentId,
-		userId: action.mcp_actions.userId,
-		connectionId: action.mcp_actions.connectionId,
-		actionType: action.mcp_actions.actionType || "Unknown Action",
-		request: action.mcp_actions.request,
-		response: action.mcp_actions.response,
-		status: action.mcp_actions.status,
-		errorMessage: action.mcp_actions.errorMessage,
-		createdAt: action.mcp_actions.createdAt,
-		updatedAt: action.mcp_actions.updatedAt,
-	})) || [];
+	const transformedActions = actionsData?.data?.map((action: any) => {
+		// Add safety check for action.mcp_actions
+		if (!action?.mcp_actions) {
+			return null; // Skip invalid actions
+		}
+
+		return {
+			actionId: action.mcp_actions.actionId,
+			deploymentId: action.mcp_actions.deploymentId,
+			userId: action.mcp_actions.userId,
+			connectionId: action.mcp_actions.connectionId,
+			actionType: action.mcp_actions.actionType || "Unknown Action",
+			request: action.mcp_actions.request,
+			response: action.mcp_actions.response,
+			status: action.mcp_actions.status,
+			errorMessage: action.mcp_actions.errorMessage,
+			createdAt: action.mcp_actions.createdAt,
+			updatedAt: action.mcp_actions.updatedAt,
+		};
+	}).filter(Boolean) || []; // Filter out null values
 
 	// Temporary mock data for testing if API is not working
 	const mockActionsData = {
@@ -117,15 +132,22 @@ export function McpTabs() {
 		updatedAt: action.mcp_actions.updatedAt,
 	})) || [];
 
-	const transformedServers = serversData?.data?.map((deployment: any) => ({
-		deploymentId: deployment.deploymentId,
-		userMcpId: deployment.userMcpId,
-		url: deployment.userServiceConnectionMcpDeployments?.[0]?.connectionId || 'No URL',
-		scopes: deployment.userServiceConnectionMcpDeployments?.[0]?.scopes || [],
-		status: deployment.status,
-		createdAt: deployment.createdAt,
-		updatedAt: deployment.updatedAt,
-	})) || [];
+	const transformedServers = serversData?.data?.map((deployment: any) => {
+		// Add safety check for deployment
+		if (!deployment) {
+			return null; // Skip invalid deployments
+		}
+
+		return {
+			deploymentId: deployment.deploymentId,
+			userMcpId: deployment.userMcpId,
+			url: deployment.userServiceConnectionMcpDeployments?.[0]?.connectionId || 'No URL',
+			scopes: deployment.userServiceConnectionMcpDeployments?.[0]?.scopes || [],
+			status: deployment.status,
+			createdAt: deployment.createdAt,
+			updatedAt: deployment.updatedAt,
+		};
+	}).filter(Boolean) || []; // Filter out null values
 
 	return (
 		<Tabs defaultValue="readme" className="flex w-full flex-col gap-y-8">

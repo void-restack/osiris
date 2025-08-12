@@ -28,6 +28,23 @@ export function McpDetailsView() {
 	const { mcpId } = useParams({ from: "/_hub/mcp/$mcpId" });
 	const { data: packageData } = useSuspenseQuery(packageQueries.detailOptions(mcpId));
 
+	// Add safety check for packageData
+	if (!packageData) {
+		return (
+			<div className="w-full max-w-[344px] h-fit shrink-0 rounded-lg border border-primary-100">
+				<div className="flex items-center gap-1 bg-primary-25 px-4 py-3 text-primary-300 text-sm">
+					<ICONS.readme />
+					<p>MCP details</p>
+				</div>
+				<div className="flex w-full flex-col gap-4 p-4 text-primary-300 text-sm">
+					<div className="text-center py-8">
+						<p className="text-primary-600">Loading package details...</p>
+					</div>
+				</div>
+			</div>
+		);
+	}
+
 	return (
 		<div className="w-full max-w-[344px] h-fit shrink-0 rounded-lg border border-primary-100">
 			<div className="flex items-center gap-1 bg-primary-25 px-4 py-3 text-primary-300 text-sm">
@@ -37,21 +54,21 @@ export function McpDetailsView() {
 			<div className="flex w-full flex-col gap-4 p-4 text-primary-300 text-sm">
 				<div className="flex items-center justify-between">
 					<p>Mcp Type</p>
-					<p>{String(packageData?.type).toUpperCase() || "Unknown"}</p>
+					<p>{packageData.type ? String(packageData.type).toUpperCase() : "Unknown"}</p>
 				</div>
 				<div className="flex items-center justify-between">
 					<p>Credits Required</p>
-					{packageData?.paymentConfig !== null ? packageData?.paymentConfig?.credits : "Free"}
+					{packageData.paymentConfig !== null ? packageData.paymentConfig?.credits : "Free"}
 				</div>
 				<div className="flex items-center justify-between">
 					<p>Publisher</p>
-					<p className="text-right truncate max-w-32" title={packageData?.publisherId || "Unknown"}>
-						{String(packageData?.publisherId).slice(0, 4) + "..." + String(packageData?.publisherId).slice(-4) || "Unknown"}
+					<p className="text-right truncate max-w-32" title={packageData.publisherId || "Unknown"}>
+						{packageData.publisherId ? String(packageData.publisherId).slice(0, 4) + "..." + String(packageData.publisherId).slice(-4) : "Unknown"}
 					</p>
 				</div>
 				<div className="flex items-center justify-between">
 					<p>Version</p>
-					<p>{packageData?.latestVersion || "Unknown"}</p>
+					<p>{packageData.latestVersion || "Unknown"}</p>
 				</div>
 
 				{/* Weekly Downloads Chart */}

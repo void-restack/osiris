@@ -195,7 +195,6 @@ export const Route = createFileRoute("/_hub/auth/$authId")({
 
 function RouteComponent() {
   const { authId } = Route.useParams();
-  // Use auth hook instead of reactive auth
   const { isAuthenticated } = useAuth();
   const { data: authMethods } = useSuspenseQuery(hubQueries.authMethodsOptions(undefined));
   const { data: userAuth } = useQuery({
@@ -207,13 +206,11 @@ function RouteComponent() {
 
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  // Close the edit sidebar when navigating away from this page
   useEffect(() => {
     return () => {
       closeEditSidebar();
     };
   }, [closeEditSidebar]);
-
 
   const serviceClient = authMethods.find((method: any) => method.clientId === authId);
 
@@ -259,7 +256,7 @@ function RouteComponent() {
   };
 
   const getContentTitle = () => {
-    return `${transformedServiceClient.name.toWellFormed()} Connections`;
+    return `${transformedServiceClient.name.charAt(0).toUpperCase()}${transformedServiceClient.name.slice(1)} Connections`;
   };
 
   const getContentDescription = () => {
