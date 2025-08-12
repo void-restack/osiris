@@ -12,7 +12,7 @@ function RouteComponent() {
 
   const handleGoogleLogin = () => {
     loginMutation.mutate(
-      { provider: 'google' },
+      { provider: 'google', redirectUri: window.location.href },
       {
         onError: (error) => {
           toast.error(`Google login failed: ${error.message}`)
@@ -23,7 +23,7 @@ function RouteComponent() {
 
   const handleGithubLogin = () => {
     loginMutation.mutate(
-      { provider: 'github' },
+      { provider: 'github', redirectUri: window.location.href },
       {
         onError: (error) => {
           toast.error(`GitHub login failed: ${error.message}`)
