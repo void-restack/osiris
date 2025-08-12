@@ -6,7 +6,6 @@ import { defineConfig } from "vite";
 import { iconsSpritesheet } from "vite-plugin-icons-spritesheet";
 
 export default defineConfig({
-
   plugins: [
     tailwindcss(),
     tanstackRouter({}),
