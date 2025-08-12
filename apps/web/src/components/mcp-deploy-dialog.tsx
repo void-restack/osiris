@@ -17,7 +17,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Accordion,
@@ -261,6 +260,8 @@ export function McpDeployDialog({
       return mcpRequiredScopes.length > 0;
     });
 
+    console.log("authScopes", authScopes);
+
     const servicesWithoutPermissions = servicesWithScopes.filter(
       service => !selectedPermissions[service] || selectedPermissions[service].length === 0
     );
@@ -424,7 +425,6 @@ export function McpDeployDialog({
 
   const requiredServices = Object.keys(authScopes?.serviceClientMap || {});
 
-  // Only validate permissions for services that have scopes
   const servicesWithScopes = requiredServices.filter(service => {
     const mcpRequiredScopes = authScopes?.serviceClientMap?.[service] || [];
     return mcpRequiredScopes.length > 0;
@@ -470,84 +470,89 @@ export function McpDeployDialog({
           </div>
 
           {/* Deployment Name */}
-          {!isPending && !isSuccess && !isError && (
-            <div className="flex flex-col space-y-1.5 mt-6 px-4 text-[13px] text-primary-400">
-              <Label htmlFor="deployment_name">Deployment Name</Label>
-              <Input
-                id="deployment_name"
-                type="text"
-                value={deploymentName}
-                onChange={(e) => setDeploymentName(e.target.value)}
-                placeholder={`${pkg.name} deployment`}
-              />
-            </div>
-          )}
+          <div className="flex flex-col space-y-1.5 mt-6 px-4 text-[13px] text-primary-400">
+            <Label htmlFor="deployment_name">Deployment Name</Label>
+            <Input
+              id="deployment_name"
+              type="text"
+              value={deploymentName}
+              onChange={(e) => setDeploymentName(e.target.value)}
+              placeholder={`${pkg.name} deployment`}
+              disabled={isPending || isSuccess || isError}
+            />
+          </div>
 
           <div className="border-t border-t-primary-200 border-dashed my-6" />
 
-          {(isPending || isSuccess || isError) ? (
-            renderStatusVisual()
-          ) : (
-            <div className="flex flex-col">
-              <div className="mb-4 flex flex-col px-4">
-                <span>Configure Deployment</span>
-                <span className="text-[13px] text-primary-300">
-                  Set up your MCP server connection and permissions
-                </span>
+          {/* Main Content Area - Always present with consistent structure */}
+          <div className="min-h-[200px]">
+            {(isPending || isSuccess || isError) ? (
+              renderStatusVisual()
+            ) : (
+              <div className="flex flex-col">
+                <div className="mb-4 flex flex-col px-4">
+                  <span>Configure Deployment</span>
+                  <span className="text-[13px] text-primary-300">
+                    Set up your MCP server connection and permissions
+                  </span>
+                </div>
+                {renderDeployForm()}
               </div>
-              {renderDeployForm()}
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
-        {isSuccess ? (
-          <AlertDialogFooter className="flex w-full items-center rounded-b-[12px] border-t border-t-primary-100 bg-primary-25 px-4 py-3 sm:justify-end">
+        <AlertDialogFooter className="flex w-full items-center rounded-b-[12px] border-t border-t-primary-100 bg-primary-25 px-4 py-3 sm:justify-end">
+          {isSuccess ? (
             <Button onClick={handleClose} className="gap-2">
               <X className="size-4" />
               Close
             </Button>
-          </AlertDialogFooter>
-        ) : isError ? (
-          <AlertDialogFooter className="flex w-full items-center rounded-b-[12px] border-t border-t-primary-100 bg-primary-25 px-4 py-3 sm:justify-between">
-            <Button variant="outline" onClick={() => deployMutation.reset()}>
-              Try Again
-            </Button>
-            <Button onClick={handleClose}>
-              Close
-            </Button>
-          </AlertDialogFooter>
-        ) : !isPending ? (
-          <AlertDialogFooter className="flex w-full items-center rounded-b-[12px] border-t border-t-primary-100 bg-primary-25 px-4 py-3 sm:justify-between">
-            <AlertDialogCancel className="bg-primary-50">
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              className="inset-shadow-search-btn"
-              onClick={(e) => {
-                e.preventDefault();
-                handleDeploy();
-              }}
-              disabled={!isFormValid}
-            >
-              <Rocket className="size-4 mr-2" />
-              Deploy Package
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        ) : null}
+          ) : isError ? (
+            <>
+              <Button variant="outline" onClick={() => deployMutation.reset()}>
+                Try Again
+              </Button>
+              <Button onClick={handleClose}>
+                Close
+              </Button>
+            </>
+          ) : !isPending ? (
+            <>
+              <AlertDialogCancel className="bg-primary-50">
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
+                className="inset-shadow-search-btn"
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleDeploy();
+                }}
+                disabled={!isFormValid}
+              >
+                <Rocket className="size-4 mr-2" />
+                Deploy Package
+              </AlertDialogAction>
+            </>
+          ) : (
+            <div className="flex items-center gap-2">
+              <Loader2 className="size-4 animate-spin" />
+              Deploying...
+            </div>
+          )}
+        </AlertDialogFooter>
       </AlertDialogContent>
 
       {/* Auth Method Dialog for connecting new accounts */}
-      {connectingService && authMethods && (
-        <AuthMethodDialog
-          method={authMethods.find((method: any) => method.name === connectingService)!}
-          open={!!connectingService}
-          onOpenChange={(open) => {
-            if (!open) {
-              setConnectingService(null);
-            }
-          }}
-        />
-      )}
+      <AuthMethodDialog
+        method={authMethods?.find((method: any) => method.name === connectingService)}
+        open={!!connectingService}
+        onOpenChange={(open) => {
+          if (!open) {
+            setConnectingService(null);
+          }
+        }}
+      />
     </AlertDialog>
   );
 }
