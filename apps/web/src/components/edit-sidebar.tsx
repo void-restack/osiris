@@ -1,5 +1,5 @@
 import { X, Eye, EyeOff, Copy, Loader2 } from "lucide-react";
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -72,6 +72,8 @@ export function EditConnectionSidebar() {
     addressFormat: ''
   });
 
+  const initialFormDataRef = useRef<ConnectionFormData | null>(null);
+
   const createSecretSharingMutation = useCreateSecretSharingMutation();
   const createServiceConnectionMutation = useCreateServiceConnectionMutation();
   const updateWalletMutation = useUpdateWalletMutation();
@@ -84,11 +86,13 @@ export function EditConnectionSidebar() {
       setHasChanges(false);
       setSelectedScopes([]);
       setInitialScopes([]);
+      initialFormDataRef.current = null;
       return;
     }
 
     const newFormData = connectionToFormData(selectedConnection);
     setFormData(newFormData);
+    initialFormDataRef.current = newFormData;
     setHasChanges(false);
 
     if (isOAuthConnection(selectedConnection) && selectedServiceClient?.scopeDefinitions) {
@@ -99,38 +103,33 @@ export function EditConnectionSidebar() {
       setSelectedScopes(connectionScopes);
       setInitialScopes(connectionScopes);
     }
-  }, [selectedConnection, selectedServiceClient, isEditSidebarOpen]);
+  }, [selectedConnection?.id, selectedServiceClient?.clientId, isEditSidebarOpen]);
 
-  const checkForChanges = useCallback((newFormData?: ConnectionFormData, newScopes?: Permission[]) => {
-    if (!selectedConnection) return false;
+  useEffect(() => {
+    if (!formData || !initialFormDataRef.current) {
+      setHasChanges(false);
+      return;
+    }
 
-    const currentFormData = newFormData || formData;
-    const currentScopes = newScopes || selectedScopes;
+    const formChanged = JSON.stringify(formData) !== JSON.stringify(initialFormDataRef.current);
 
-    const formChanged = currentFormData ?
-      JSON.stringify(currentFormData) !== JSON.stringify(connectionToFormData(selectedConnection)) :
-      false;
+    const scopeChanged = selectedConnection && isOAuthConnection(selectedConnection)
+      ? JSON.stringify(selectedScopes) !== JSON.stringify(initialScopes)
+      : false;
 
-    const scopeChanged = isOAuthConnection(selectedConnection) ?
-      JSON.stringify(currentScopes) !== JSON.stringify(initialScopes) :
-      false;
-
-    return formChanged || scopeChanged;
-  }, [selectedConnection, formData, selectedScopes, initialScopes]);
+    setHasChanges(formChanged || scopeChanged);
+  }, [formData, selectedScopes, selectedConnection, initialScopes]);
 
   const handleScopeChange = useCallback((scopes: Permission[]) => {
     setSelectedScopes(scopes);
-    setHasChanges(checkForChanges(undefined, scopes));
-  }, [checkForChanges]);
+  }, []);
 
   const handleInputChange = useCallback((field: string, value: any) => {
     setFormData(prevFormData => {
       if (!prevFormData) return prevFormData;
-      const newFormData = { ...prevFormData, [field]: value };
-      setHasChanges(checkForChanges(newFormData));
-      return newFormData;
+      return { ...prevFormData, [field]: value };
     });
-  }, [checkForChanges]);
+  }, []);
 
   const handleSave = useCallback(async () => {
     if (!formData || !hasChanges || !selectedConnection) return;
@@ -225,7 +224,7 @@ export function EditConnectionSidebar() {
     closeEditSidebar();
   }, [hasChanges, closeEditSidebar]);
 
-  const getBreadcrumb = useMemo(() => {
+  const breadcrumb = useMemo(() => {
     if (!selectedServiceClient) return '';
 
     switch (selectedServiceClient.type) {
@@ -240,7 +239,7 @@ export function EditConnectionSidebar() {
     }
   }, [selectedServiceClient]);
 
-  const getSaveButtonText = useMemo(() => {
+  const saveButtonText = useMemo(() => {
     if (!selectedServiceClient) return 'Save';
 
     switch (selectedServiceClient.type) {
@@ -263,7 +262,7 @@ export function EditConnectionSidebar() {
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between p-6 border-b border-primary-100">
         <div className="flex flex-col">
-          <h2 className="text-lg font-semibold text-primary-800">{`${getBreadcrumb}${formData.name}`}</h2>
+          <h2 className="text-lg font-semibold text-primary-800">{`${breadcrumb}${formData.name}`}</h2>
         </div>
         <Button
           variant="ghost"
@@ -359,7 +358,7 @@ export function EditConnectionSidebar() {
             className="flex-1"
             disabled={!hasChanges}
           >
-            {getSaveButtonText}
+            {saveButtonText}
           </Button>
         </div>
         {hasChanges && (
@@ -391,7 +390,7 @@ const DatabaseFields = ({
 }) => {
   const [dbUrl, setDbUrl] = useState("*****");
   const [isRevealed, setIsRevealed] = useState(false);
-  const [hasChanges, setHasChanges] = useState(false);
+  const [hasLocalChanges, setHasLocalChanges] = useState(false);
 
   const { data: unencryptedData, isLoading: isLoadingCredentials } = useQuery({
     ...hubQueries.userAuthConnectionUnencryptedOptions(connectionId),
@@ -410,18 +409,18 @@ const DatabaseFields = ({
     } else {
       setIsRevealed(false);
       setDbUrl("*******************");
-      setHasChanges(false);
+      setHasLocalChanges(false);
     }
   }, [isRevealed]);
 
   const handleDbUrlChange = useCallback((value: string) => {
     setDbUrl(value);
-    setHasChanges(value !== unencryptedData?.credentials?.db_url);
+    setHasLocalChanges(value !== unencryptedData?.credentials?.db_url);
   }, [unencryptedData]);
 
   const handleSaveChanges = useCallback(() => {
     onChange("host", dbUrl);
-    setHasChanges(false);
+    setHasLocalChanges(false);
     toast.success("Database URL applied. Click 'Save Database' to persist changes.");
   }, [onChange, dbUrl]);
 
@@ -471,7 +470,7 @@ const DatabaseFields = ({
             )}
           </div>
         </div>
-        {hasChanges && (
+        {hasLocalChanges && (
           <div className="flex items-center justify-between">
             <p className="text-xs text-amber-600">You have unsaved changes</p>
             <Button
@@ -537,7 +536,7 @@ const OAuthFields = ({
 }) => {
   const { selectedServiceClient } = useAppStore();
 
-  const scopeDefinitions = selectedServiceClient?.scopeDefinitions || [];
+  const scopeDefinitions = selectedServiceClient?.scopeDefinitions || {};
 
   const availablePermissions = useMemo(() =>
     Object.entries(scopeDefinitions).map(([scope, label]) => ({
@@ -650,13 +649,13 @@ const WalletFields = ({
         </Label>
         <div className="space-y-3">
           {formData.addresses.map((address, index) => (
-            <div key={index} className="border rounded-lg p-3 bg-primary-25">
+            <div key={`address-${index}-${address.address}`} className="border rounded-lg p-3 bg-primary-25">
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex gap-1 flex-wrap">
-                    {address.chains.map((chain, chainIndex) => (
+                    {address.chains.map((chain) => (
                       <span
-                        key={chainIndex}
+                        key={`${index}-${chain}`}
                         className="text-xs bg-primary-100 text-primary-700 px-2 py-0.5 rounded"
                       >
                         {getChainDisplayName(chain)}
@@ -717,8 +716,8 @@ const WalletFields = ({
 
         {formData.chains.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-2 w-full">
-            {formData.chains.map((chainValue, chainIndex) => (
-              <div key={chainIndex} className="flex overflow-hidden items-center gap-1 bg-primary-100 text-primary-700 px-2 py-1 rounded-md text-xs">
+            {formData.chains.map((chainValue) => (
+              <div key={`chain-${chainValue}`} className="flex overflow-hidden items-center gap-1 bg-primary-100 text-primary-700 px-2 py-1 rounded-md text-xs">
                 <span className="whitespace-nowrap">{getChainDisplayName(chainValue)}</span>
                 <Button
                   type="button"
@@ -814,7 +813,7 @@ const AddAddressForm = ({
         {newAddress.chains.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-2">
             {newAddress.chains.map((chainValue: string, chainIndex: number) => (
-              <div key={chainIndex} className="flex items-center gap-1 bg-primary-100 text-primary-700 px-2 py-1 rounded-md text-xs">
+              <div key={`new-chain-${chainIndex}-${chainValue}`} className="flex items-center gap-1 bg-primary-100 text-primary-700 px-2 py-1 rounded-md text-xs">
                 <span>{getChainDisplayName(chainValue)}</span>
                 <Button
                   type="button"
