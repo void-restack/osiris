@@ -17,7 +17,6 @@ export function UserPopover() {
 
   const { data: user } = useQuery(userQueries.meOptions(isAuthenticated));
 
-  // Don't render if not authenticated or user data is not loaded
   if (!isAuthenticated || !user) {
     return null;
   }
