@@ -1273,6 +1273,7 @@ export const useBuyKnowledgeBaseMutation = () => {
     },
     onError: (error) => {
       console.error("Failed to purchase knowledge base:", error);
+      toast.error(error.message);
     },
   });
 };

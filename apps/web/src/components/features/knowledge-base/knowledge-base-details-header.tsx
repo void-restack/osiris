@@ -14,6 +14,7 @@ export function KnowledgeBaseDetailsHeader({ kb }: { kb: KnowledgeBase }) {
 		...userQueries.meOptions(),
 		enabled: isAuthenticated,
 	});
+	const areYouAnOwner = user?.id === kb.userId;
 
 	return (
 		<section className="flex w-full flex-col px-6">
@@ -42,14 +43,14 @@ export function KnowledgeBaseDetailsHeader({ kb }: { kb: KnowledgeBase }) {
 
 					{/* Buy Button */}
 					{
-						user?.id !== kb.userId && (
+						!areYouAnOwner && (
 							<BuyKnowledgeBaseButton
 								kb={kb}
 							/>
 						)
 					}
 
-					{user?.id === kb.userId && (
+					{areYouAnOwner && (
 						<UploadContentDialog knowledgeBaseId={kb.knowledgeBaseId} />
 					)}
 				</div>
