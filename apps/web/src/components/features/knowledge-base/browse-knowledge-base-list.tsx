@@ -10,7 +10,8 @@ export function BrowseKnowledgeBaseList({
   rows,
 }: BrowseKnowledgeBaseListProps) {
   return (
-    <ScrollArea className="relative h-[calc(100vh-660px)] hidebar">
+
+                    <ScrollArea className="relative h-[calc(100vh-560px)] hidebar overflow-y-auto hidebar">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 p-2 pb-8 hidebar gap-4">
         {rows.map((row) => (
           <KnowledgeBaseCard key={row.original.knowledgeBaseId} {...row.original} />

@@ -13,6 +13,7 @@ import {
 import Attach from "@/components/attach";
 import { useAddKnowledgeSourceMutation } from "@/lib/mutations";
 import { toast } from "sonner";
+import { useQueryState } from "nuqs";
 
 interface UploadContentDialogProps {
   knowledgeBaseId: string;
@@ -130,6 +131,7 @@ export function UploadContentInput({ knowledgeBaseId, onSuccess }: UploadContent
   const [input, setInput] = useState('');
   const [parsedContent, setParsedContent] = useState<ParsedContent | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [searchParams, setSearchParams] = useQueryState("tab", { defaultValue: "units" });
   
   const addSourceMutation = useAddKnowledgeSourceMutation();
 
@@ -193,6 +195,8 @@ export function UploadContentInput({ knowledgeBaseId, onSuccess }: UploadContent
         }
         setFiles([]);
         onSuccess?.();
+        toast.success("Files uploaded successfully");
+        setSearchParams("Source");
       } else if (input.trim() && parsedContent) {
         if (parsedContent.type === 'links' || parsedContent.type === 'social') {
           const urls = parsedContent.links || [];
@@ -215,6 +219,8 @@ export function UploadContentInput({ knowledgeBaseId, onSuccess }: UploadContent
         setInput('');
         setParsedContent(null);
         onSuccess?.();
+        setSearchParams("Source");
+        toast.success("Content uploaded successfully");
       }
     } catch (error) {
       console.error("Upload failed:", error);

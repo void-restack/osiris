@@ -442,6 +442,11 @@ export const createColumns = (currentUser?: any, knowledgeBaseUserId?: string): 
 ];
 
 export function SourcesTable() {
+  const { isAuthenticated } = useAuth();
+  const { data: user } = useQuery({
+		...userQueries.meOptions(),
+		enabled: isAuthenticated,
+	}); 
   const { id: knowledgeBaseId } = Route.useParams();
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
@@ -451,7 +456,6 @@ export function SourcesTable() {
     React.useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = React.useState({});
 
-  const { isAuthenticated } = useAuth();
 
   // Fetch current user data if authenticated
   const { data: currentUser } = useQuery({
@@ -481,6 +485,7 @@ export function SourcesTable() {
     createColumns(currentUser, knowledgeBase?.userId),
     [currentUser, knowledgeBase?.userId]
   );
+  const areYouAnOwner = user?.id === knowledgeBase?.userId;
 
   const table = useReactTable({
     data: paginatedData,
@@ -513,7 +518,7 @@ export function SourcesTable() {
     );
   }
 
-  if (sources.length === 0) {
+  if (sources.length === 0 && areYouAnOwner) {
     return (
       <div className="w-full flex flex-col gap-4">
         <UploadContentInput

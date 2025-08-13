@@ -12,7 +12,7 @@ import { useKnowledgeBaseTable } from "@/hooks/use-knowledge-base-table"
 import type { KnowledgeBase } from "@/types";
 import { Link } from "@tanstack/react-router";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Clock, Eye, MoreHorizontal, Share2 } from "lucide-react";
+import { Clock, Eye, MoreHorizontal, Plus, Share2 } from "lucide-react";
 import React, { useMemo, useState } from "react";
 import { BuyKnowledgeBaseButton } from "./buy-knowledge-base-button";
 import { BrowseKnowledgeBaseList, KnowledgeBaseGridViewColumns } from "./browse-knowledge-base-list";
@@ -226,8 +226,9 @@ export function KnowledgeBaseTable({
                 )}
             </div>
 
-            <div className="flex w-full items-center justify-end">
+            <div className="flex w-full items-center justify-end gap-2">
                 <DataTableToolbar className="w-full" table={table} />
+              
 
                 <ToggleGroup
                     className="rounded-[6px] bg-[#F5F5F5] p-[2px] h-8"
@@ -254,11 +255,18 @@ export function KnowledgeBaseTable({
                         <ICONS.directory stroke={viewMode === "grid" ? "#000000" : "#A3A3A3"} />
                     </ToggleGroupItem>
                 </ToggleGroup>
+                <Link to="/knowledge/new">
+                    <Button  size="sm">
+                        <Plus className="h-3 w-3 mr-2" />
+                        Create Knowledge Base
+                    </Button>
+                </Link>
             </div>
         </div>
 
         {viewMode === "table" ? (
-            <ScrollArea className="relative h-[calc(100vh-560px)] hidebar overflow-y-auto">
+
+                    <ScrollArea className="relative h-[calc(100vh-560px)] hidebar overflow-y-auto hidebar">
                 <div className="w-full hidebar  pb-8">
                     <DataTable table={table} />
                 </div>

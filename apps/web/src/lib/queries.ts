@@ -1028,7 +1028,27 @@ export const knowledgeQueries = {
               z.object({
                 unitId: z.string().uuid(),
                 knowledgeBaseId: z.string().uuid(),
-                sourceId: z.string().uuid(),
+                source: z.object({
+                    sourceId: z.string().uuid(),
+                    sourceType: z.enum([
+                      "image",
+                      "text",
+                      "youtube_url",
+                      "url",
+                      "file",
+                    ]),
+                    source: z.string(),
+                    processingStatus: z.enum([
+                      "pending",
+                      "processing",
+                      "completed",
+                      "failed",
+                    ]),
+                    processingErrorMessage: z.string().nullable(),
+                    createdAt: z.string().datetime(),
+                    updatedAt: z.string().datetime(),
+                    knowledgeBaseId: z.string().uuid(),
+                }),
                 name: z.string(),
                 content: z.string(),
                 tags: z.array(z.string()),

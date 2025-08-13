@@ -1,8 +1,5 @@
-
-import { useNavigate, useRouter } from "@tanstack/react-router";
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useMemo } from "react";
 import type { KnowledgeBase } from "@/types";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { knowledgeQueries } from "@/lib/queries";
 import { useAuth } from "@/hooks/use-auth";
@@ -10,16 +7,12 @@ import { useQueryState, parseAsString, parseAsInteger, parseAsBoolean } from "nu
 import { Autocomplete } from "@/components/ui/autocomplete";
 import { Link } from "@tanstack/react-router";
 import { KnowledgeBaseTable } from "./knowledge-base-table";
-import { DataTablePagination } from "@/components/data-table/data-table-pagination";
 
 export function KnowledgeBaseListContainer({
 	setKnowledgeBaseTable
 }: {
 	setKnowledgeBaseTable: (table: any) => void;
 }) {
-	const isMobile = useIsMobile()
-	const navigate = useNavigate();
-	const router = useRouter();
 	const { isAuthenticated } = useAuth();
 
 	// URL state management for filters
@@ -93,7 +86,6 @@ export function KnowledgeBaseListContainer({
 
 	return (
 		<div className="flex min-h-0 flex-1 flex-col gap-3">
-			<div className="h-12 md:h-[72px] px-4 md:px-6" />
 			{/* Header */}
 			<div className="mx-auto mt-8 max-w-[496px] pb-6 text-center md:w-[496px]">
 				<h2 className="mb-2 font-medium text-xl leading-3 tracking-tight">

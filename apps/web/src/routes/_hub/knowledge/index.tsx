@@ -43,7 +43,7 @@ export const Route = createFileRoute("/_hub/knowledge/")({
 function RouteComponent() {
   const [knowledgeBaseTable, setKnowledgeBaseTable] = useState<any>(null);
   return (
-    <div className="flex flex-1 flex-col pt-4 relative">
+    <div className="flex flex-1 flex-col pt-4 relative h-full">
       <KnowledgeBaseListContainer setKnowledgeBaseTable={setKnowledgeBaseTable} />
       {knowledgeBaseTable && <DataTablePagination className="absolute -bottom-2 z-20 left-0 right-0 bg-primary-100" table={knowledgeBaseTable} />}
     </div>

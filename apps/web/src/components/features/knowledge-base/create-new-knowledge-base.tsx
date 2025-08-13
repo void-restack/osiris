@@ -17,6 +17,8 @@ import { useKnowledgeBaseUpload } from "@/hooks/use-knowledge-base-upload";
 import { cn } from "@/lib/utils";
 import { useCreateKnowledgeBaseMutation } from "@/lib/mutations";
 import { Link, useNavigate } from "@tanstack/react-router";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { toast } from "sonner";
 
 const Permissions: SharePermissionCardProps[] = [
 	{
@@ -79,6 +81,7 @@ export function CreateNewKnowledgeBase() {
 						: undefined,
 			});
 
+			toast.success("Knowledge base created successfully");
 			// Navigate to the created knowledge base
 			navigate({
 				to: "/knowledge/$id",
@@ -86,12 +89,13 @@ export function CreateNewKnowledgeBase() {
 			});
 		} catch (error) {
 			console.error("Creation failed:", error);
+			toast.error("Failed to create knowledge base");
 			// Error is already handled in the mutation and upload hook
 		}
 	};
 
 	return (
-		<section className="">
+		<ScrollArea className="h-full pb-10 hidebar">
 			<div className="mb-10 items-center justify-between space-y-6 border border-b-primary-100 border-dashed px-8 py-[42px] md:flex md:space-y-0">
 				<div>
 					<h1 className="text-primary-800 text-xl">Create a new Knowledge base</h1>
@@ -99,7 +103,7 @@ export function CreateNewKnowledgeBase() {
 				</div>
 							<div className="flex items-center gap-3">
 				<Link
-					to="/knowledge/browse"
+					to="/knowledge"
 					className={buttonVariants({ variant: "secondary" })}
 				>
 					Cancel
@@ -223,7 +227,7 @@ export function CreateNewKnowledgeBase() {
 				</div>
 			</div>
 		)}
-		</section>
+		</ScrollArea>
 	);
 }
 
