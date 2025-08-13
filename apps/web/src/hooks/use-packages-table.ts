@@ -16,11 +16,13 @@ import { useMemo } from "react";
 interface UsePackagesTableProps {
     columns: ColumnDef<PackageList>[];
     initialPageSize?: number;
+    customFilters?: Record<string, any>;
 }
 
 export function usePackagesTable({
     columns,
     initialPageSize = 20,
+    customFilters = {},
 }: UsePackagesTableProps) {
     // URL state management for server-side filtering
     const [search] = useQueryState("search", parseAsString.withDefault(""));
@@ -38,8 +40,6 @@ export function usePackagesTable({
         "pricing",
         parseAsArrayOf(parseAsString).withDefault([])
     );
-
-
 
     // Build API filters from URL state
     const apiFilters = useMemo(() => {
@@ -81,8 +81,9 @@ export function usePackagesTable({
             }
         }
 
-        return filters;
-    }, [search, nameFilter, typeFilter, pricingFilter, page, limit]);
+        // Merge custom filters
+        return { ...filters, ...customFilters };
+    }, [search, nameFilter, typeFilter, pricingFilter, page, limit, customFilters]);
 
     // Fetch packages with server-side filtering
     const { data: packagesResponse, isLoading, error, isFetching } = useQuery({
@@ -106,8 +107,6 @@ export function usePackagesTable({
         },
         enableAdvancedFilter: false,
     });
-
-
 
     return {
         table,

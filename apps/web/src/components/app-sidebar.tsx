@@ -52,11 +52,11 @@ const data = {
     {
       title: "Knowledge Base",
       url: "/knowledge",
-      icon: () => <Icon name="doc" />,
+      icon: () => <Icon name="file" />,
     },
     {
-      title: "Settings",
-      url: "#",
+      title: "Profile",
+      url: "/profile",
       icon: () => <Icon name="settings" />,
     },
   ],

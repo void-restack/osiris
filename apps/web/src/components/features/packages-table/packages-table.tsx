@@ -39,10 +39,14 @@ const PACKAGE_TYPES = [
 
 export function PackagesTable({
     showPagination = false,
-    onTableReady
+    onTableReady,
+    customFilters = {},
+    title = "All MCPs"
 }: {
     showPagination?: boolean;
     onTableReady?: (table: any) => void;
+    customFilters?: Record<string, any>;
+    title?: string;
 } = {}) {
     const [viewMode, setViewMode] = useState<"table" | "grid">("grid");
 
@@ -286,6 +290,7 @@ export function PackagesTable({
     const { table, isLoading, isFetching } = usePackagesTable({
         columns: activeColumns,
         initialPageSize: 10,
+        customFilters,
     });
 
     React.useEffect(() => {
@@ -300,7 +305,7 @@ export function PackagesTable({
                 <div className="flex w-full gap-4 md:items-center md:justify-between flex-col md:flex-row border-b border-b-primary-100 pb-4">
                     <div className="flex items-center gap-2">
                         <span className="text-xl text-primary-800 font-medium whitespace-nowrap">
-                            All MCPs
+                            {title}
                         </span>
                         {isFetching && !isLoading && (
                             <div className="flex items-center gap-1">

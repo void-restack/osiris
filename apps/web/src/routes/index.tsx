@@ -16,12 +16,10 @@ export const Route = createFileRoute("/")({
 });
 
 function HomeComponent() {
-  // Fetch trending knowledge bases
   const { data: knowledgeBasesData } = useQuery({
     ...knowledgeQueries.basesOptions({ limit: 5 }),
   });
 
-  // Fetch trending MCP packages
   const { data: packagesData } = useQuery({
     ...packageQueries.popularOptions(),
   });
@@ -31,11 +29,11 @@ function HomeComponent() {
       <header className="flex h-[86px] shrink-0 items-center justify-between gap-2 border-b border-b-primary-100 pr-4">
         <div className="flex items-center gap-2 px-4">
           <SidebarTrigger className="-ml-1" />
-          <Separator
+          {/* <Separator
             orientation="vertical"
             className="mr-2 data-[orientation=vertical]:h-4"
-          />
-          Profile
+          /> */}
+          {/* Profile */}
         </div>
         <AuthHeader />
       </header>
