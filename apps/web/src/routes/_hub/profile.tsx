@@ -1,7 +1,7 @@
-import { createFileRoute, redirect, Link } from '@tanstack/react-router'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 import { PlusIcon } from 'lucide-react'
 import { getAuthState } from '@/lib/auth-utils'
-import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { userQueries, creditQueries, packageQueries } from '@/lib/queries'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -9,6 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Icon } from '@/components/ui/icon'
 import { PackagesTable } from '@/components/features/packages-table/packages-table'
 import { DataTablePagination } from '@/components/data-table/data-table-pagination'
+import { OAuthClientsTable } from '@/components/features/oauth-clients/oauth-clients-table'
+
 import { useState } from 'react'
 
 export const Route = createFileRoute('/_hub/profile')({
@@ -127,23 +129,23 @@ function RouteComponent() {
                 <Tabs value={activeTab} onValueChange={setActiveTab}>
                     <TabsList>
                         <TabsTrigger value="oauth-clients" className='px-0 flex gap-2 items-center'>
-                            <Icon name="ai" />
+                            <Icon name="ai" size='md' />
                             OAuth Clients</TabsTrigger>
                         <TabsTrigger value="mcps" className='px-0 mx-6 flex gap-2 items-center'>
-                            <Icon name="code" />
+                            <Icon name="code" size='md' />
                             Developed MCP's</TabsTrigger>
                         <TabsTrigger value="knowledge-bases" className='px-0 flex items-center gap-2'>
-                            <Icon name="file" />
+                            <Icon name="file" size='md' />
                             Knowledge Bases</TabsTrigger>
                     </TabsList>
                     <TabsContent value="oauth-clients" className="mt-10">
                         {user?.id ? (
-                            <div className="text-center py-12">
-                                <Icon name="ai" className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                                <h3 className="text-lg font-medium text-gray-900 mb-2">OAuth Clients</h3>
-                                <p className="text-gray-500">
-                                    OAuth clients functionality coming soon.
-                                </p>
+                            <div>
+                                <OAuthClientsTable
+                                    title="My OAuth Clients"
+                                    onTableReady={setOauthClientsTable}
+                                    showPagination={false}
+                                />
                             </div>
                         ) : (
                             <div className="text-center py-12">

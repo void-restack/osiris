@@ -206,6 +206,17 @@ export const responseSchema = <T extends z.ZodType>(dataSchema: T) =>
     errorResponseSchema,
   ]);
 
+export const oauthClientSchema = z.object({
+  clientId: z.string().uuid(),
+  developerId: z.string().uuid(),
+  name: z.string(),
+  iconUrl: z.string().nullable(),
+  redirectUris: z.array(z.string()),
+  metadata: z.record(z.any()),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+
 export type User = z.infer<typeof userSchema>;
 export type PackageList = z.infer<typeof packageListSchema>;
 export type CreditAccount = z.infer<typeof creditAccountSchema>;
@@ -213,6 +224,7 @@ export type KnowledgeBase = z.infer<typeof knowledgeBaseSchema>;
 export type InstalledKnowledgeBase = z.infer<typeof installedKnowledgeBaseSchema>;
 export type KnowledgeBaseRating = z.infer<typeof knowledgeBaseRatingSchema>;
 export type KnowledgeBaseJoined = z.infer<typeof knowledgeBaseJoinedSchema>;
+export type OAuthClient = z.infer<typeof oauthClientSchema>;
 
 export type ViewMode = "grid" | "table";
 export type SortOption =

@@ -15,6 +15,17 @@ export interface McpServerData {
   updatedAt: string;
 }
 
+export interface OAuthClientData {
+  clientId: string;
+  developerId: string;
+  name: string;
+  iconUrl: string | null;
+  redirectUris: string[];
+  metadata: Record<string, any>;
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface AppState {
   mcpView: McpViewType;
   setMcpView: (view: McpViewType) => void;
@@ -28,6 +39,9 @@ interface AppState {
   selectedMcpServer: McpServerData | null;
   isMcpServerEditSidebarOpen: boolean;
 
+  selectedOAuthClient: OAuthClientData | null;
+  isOAuthClientEditSidebarOpen: boolean;
+
   openEditSidebar: (
     connection: UserServiceConnection,
     serviceClient?: ServiceClient,
@@ -40,6 +54,10 @@ interface AppState {
   openMcpServerEditSidebar: (server: McpServerData) => void;
   closeMcpServerEditSidebar: () => void;
   updateSelectedMcpServer: (server: McpServerData) => void;
+
+  openOAuthClientEditSidebar: (client: OAuthClientData) => void;
+  closeOAuthClientEditSidebar: () => void;
+  updateSelectedOAuthClient: (client: OAuthClientData) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -57,6 +75,9 @@ export const useAppStore = create<AppState>()(
       selectedMcpServer: null,
       isMcpServerEditSidebarOpen: false,
 
+      selectedOAuthClient: null,
+      isOAuthClientEditSidebarOpen: false,
+
       openEditSidebar: (connection, serviceClient) => {
         set((state) => ({
           selectedConnection: connection,
@@ -64,6 +85,8 @@ export const useAppStore = create<AppState>()(
           isEditSidebarOpen: true,
           isMcpServerEditSidebarOpen: false,
           selectedMcpServer: null,
+          isOAuthClientEditSidebarOpen: false,
+          selectedOAuthClient: null,
         }));
 
         const state = get();
@@ -92,6 +115,8 @@ export const useAppStore = create<AppState>()(
           isEditSidebarOpen: false,
           selectedConnection: null,
           selectedServiceClient: null,
+          isOAuthClientEditSidebarOpen: false,
+          selectedOAuthClient: null,
         }));
 
         const state = get();
@@ -108,6 +133,32 @@ export const useAppStore = create<AppState>()(
 
       updateSelectedMcpServer: (server) =>
         set({ selectedMcpServer: server }),
+
+      openOAuthClientEditSidebar: (client) => {
+        set((state) => ({
+          selectedOAuthClient: client,
+          isOAuthClientEditSidebarOpen: true,
+          isEditSidebarOpen: false,
+          selectedConnection: null,
+          selectedServiceClient: null,
+          isMcpServerEditSidebarOpen: false,
+          selectedMcpServer: null,
+        }));
+
+        const state = get();
+        if (state.setSidebarOpen) {
+          state.setSidebarOpen(false);
+        }
+      },
+
+      closeOAuthClientEditSidebar: () =>
+        set({
+          selectedOAuthClient: null,
+          isOAuthClientEditSidebarOpen: false,
+        }),
+
+      updateSelectedOAuthClient: (client) =>
+        set({ selectedOAuthClient: client }),
     }),
     {
       name: "osiris-app-store",

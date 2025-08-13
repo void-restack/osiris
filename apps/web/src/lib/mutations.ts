@@ -558,11 +558,21 @@ export const useDeleteOAuthClientMutation = () => {
     mutationFn: async (clientId: string) => {
       const response = await api(`/hub/oauth-clients/${clientId}`, {
         method: "DELETE",
+        schema: z.object({
+          status: z.literal("SUCCESS"),
+          message: z.string(),
+        }),
       });
       return response;
     },
-    onSuccess: () => {
+    onSuccess: (data, clientId) => {
       queryClient.invalidateQueries({ queryKey: hubQueries.oauthClients() });
+      queryClient.removeQueries({ queryKey: hubQueries.oauthClient(clientId) });
+      toast.success(data.message || "OAuth client deleted successfully");
+    },
+    onError: (error) => {
+      console.error("Failed to delete OAuth client:", error);
+      toast.error(error.message || "Failed to delete OAuth client");
     },
   });
 };
@@ -581,7 +591,7 @@ export const useRegenerateOAuthSecretMutation = () => {
               clientId: z.string().uuid(),
               developerId: z.string().uuid(),
               name: z.string(),
-              redirectUris: z.array(z.string().url()),
+              redirectUris: z.array(z.string()),
               metadata: z.record(z.any()),
               createdAt: z.string(),
               updatedAt: z.string(),
@@ -595,13 +605,19 @@ export const useRegenerateOAuthSecretMutation = () => {
       }
       return response.data;
     },
-    onSuccess: (_, clientId) => {
-      queryClient.invalidateQueries({
-        queryKey: hubQueries.oauthClient(clientId),
-      });
+    onSuccess: (data, clientId) => {
+      queryClient.invalidateQueries({ queryKey: hubQueries.oauthClient(clientId) });
+      queryClient.invalidateQueries({ queryKey: hubQueries.oauthClients() });
+      toast.success("Client secret regenerated successfully");
+    },
+    onError: (error) => {
+      console.error("Failed to regenerate client secret:", error);
+      toast.error(error.message || "Failed to regenerate client secret");
     },
   });
 };
+
+
 
 // OAuth Authorization
 export const useAuthorizeOsirisMutation = () => {

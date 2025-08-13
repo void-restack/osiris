@@ -7,9 +7,18 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useAppStore } from "@/lib/store";
 import { EditConnectionSidebar } from "../edit-sidebar";
 import { McpServerEditSidebar } from "../mcp-server-edit-sidebar";
+import { OAuthClientEditSidebar } from "../oauth-client-edit-sidebar";
 
 function HubLayoutInner({ children }: { children: React.ReactNode }) {
-  const { isEditSidebarOpen, closeEditSidebar, isMcpServerEditSidebarOpen, closeMcpServerEditSidebar, setSidebarOpenCallback } = useAppStore();
+  const {
+    isEditSidebarOpen,
+    closeEditSidebar,
+    isMcpServerEditSidebarOpen,
+    closeMcpServerEditSidebar,
+    isOAuthClientEditSidebarOpen,
+    closeOAuthClientEditSidebar,
+    setSidebarOpenCallback
+  } = useAppStore();
   const { setOpen } = useSidebar();
   const isMobile = useIsMobile();
 
@@ -33,6 +42,11 @@ function HubLayoutInner({ children }: { children: React.ReactNode }) {
           <McpServerEditSidebar />
         </SidebarInset>
       )}
+      {isOAuthClientEditSidebarOpen && !isMobile && (
+        <SidebarInset className="w-full max-w-[448px] border-primary-100 border-l bg-white md:w-[448px]">
+          <OAuthClientEditSidebar />
+        </SidebarInset>
+      )}
       {isMobile && (
         <>
           <Drawer open={isEditSidebarOpen} onOpenChange={(open) => !open && closeEditSidebar()}>
@@ -43,6 +57,11 @@ function HubLayoutInner({ children }: { children: React.ReactNode }) {
           <Drawer open={isMcpServerEditSidebarOpen} onOpenChange={(open) => !open && closeMcpServerEditSidebar()}>
             <DrawerContent className="h-[90vh]">
               <McpServerEditSidebar />
+            </DrawerContent>
+          </Drawer>
+          <Drawer open={isOAuthClientEditSidebarOpen} onOpenChange={(open) => !open && closeOAuthClientEditSidebar()}>
+            <DrawerContent className="h-[90vh]">
+              <OAuthClientEditSidebar />
             </DrawerContent>
           </Drawer>
         </>
