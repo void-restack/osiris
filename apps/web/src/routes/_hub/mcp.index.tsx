@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, Suspense, useState } from "react";
-import { useSuspenseQuery, useQuery } from "@tanstack/react-query";
+import { useSuspenseQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { Autocomplete } from "@/components/ui/autocomplete";
 import { packageQueries, userQueries } from "@/lib/queries";
@@ -138,66 +138,76 @@ function normalizePackage(pkg: any): Package {
 }
 
 function RouteComponent() {
-  const search = Route.useSearch();
-  const { auth } = Route.useLoaderData();
+  // const search = Route.useSearch();
+  // const { auth } = Route.useLoaderData();
   const [packagesTable, setPackagesTable] = useState<any>(null);
+  const queryClient = useQueryClient();
 
-  const { data: packageData, isPending } = useQuery({
-    ...packageQueries.listOptions({
-      publisherId: search?.publisherId,
-      name: search?.name,
-      search: search?.name || search?.description || search?.search,
-      page: search?.page || 1,
-      limit: Math.min(search?.perPage || 10, 10),
-    }),
-  });
+  // const { data: packageData, isPending } = useQuery({
+  //   ...packageQueries.listOptions({
+  //     publisherId: search?.publisherId,
+  //     name: search?.name,
+  //     search: search?.name || search?.description || search?.search,
+  //     page: search?.page || 1,
+  //     limit: Math.min(search?.perPage || 10, 10),
+  //   }),
+  // });
 
-  const { data: userInstalled } = useQuery({
-    ...packageQueries.userInstalledOptions(auth.isAuthenticated),
-    enabled: auth.isAuthenticated,
-  });
+  // const { data: userInstalled } = useQuery({
+  //   ...packageQueries.userInstalledOptions(auth.isAuthenticated),
+  //   enabled: auth.isAuthenticated,
+  // });
 
-  const { data: userDeployments } = useQuery({
-    ...packageQueries.userDeploymentsOptions(auth.isAuthenticated),
-    enabled: auth.isAuthenticated,
-  });
+  // const { data: userDeployments } = useQuery({
+  //   ...packageQueries.userDeploymentsOptions(auth.isAuthenticated),
+  //   enabled: auth.isAuthenticated,
+  // });
 
   const { data: popularPackages } = useSuspenseQuery(
     packageQueries.popularOptions()
   );
 
-  const packages = useMemo(() => {
-    if (!packageData?.data) return [];
+  // const packages = useMemo(() => {
+  //   if (!packageData?.data) return [];
 
-    const allPackages = packageData.data;
-    const normalizedPackages: Package[] = allPackages.map(normalizePackage);
+  //   const allPackages = packageData.data;
+  //   const normalizedPackages: Package[] = allPackages.map(normalizePackage);
 
-    const installedMap = new Map(
-      auth.isAuthenticated && userInstalled ? userInstalled.map((item: any) => [item.packageId, item]) : []
-    );
+  //   const installedMap = new Map(
+  //     auth.isAuthenticated && userInstalled ? userInstalled.map((item: any) => [item.packageId, item]) : []
+  //   );
 
-    const deployedMap = new Map(
-      auth.isAuthenticated && userDeployments ? userDeployments.map((item: any) => [item.package.packageId, item]) : []
-    );
+  //   const deployedMap = new Map(
+  //     auth.isAuthenticated && userDeployments ? userDeployments.map((item: any) => [item.package.packageId, item]) : []
+  //   );
 
-    return normalizedPackages;
-  }, [packageData, userInstalled, userDeployments, auth.isAuthenticated]);
+  //   return normalizedPackages;
+  // }, [packageData, userInstalled, userDeployments, auth.isAuthenticated]);
 
-  const searchPackages = (query: string) => {
-    const filtered = packages
-      .filter((pkg) =>
-        pkg.name.toLowerCase().includes(query.toLowerCase()) ||
-        (pkg.metadata?.tags || []).some((tag: string) =>
-          tag.toLowerCase().includes(query.toLowerCase())
-        )
-      )
-      .slice(0, 10);
+  const [searchQuery, setSearchQuery] = useState('');
 
-    return filtered.map(pkg => ({
-      ...pkg,
-      value: pkg.packageId,
-      label: pkg.name
-    }));
+  const { data: searchResults, isPending: isSearching } = useQuery({
+    queryKey: ['packages', 'search', searchQuery],
+    queryFn: async () => {
+      if (!searchQuery || searchQuery.length < 2) return [];
+
+      const response = await queryClient.ensureQueryData(packageQueries.listOptions({
+        search: searchQuery,
+        page: 1,
+        limit: 10
+      }));
+      return (response.data || []).map((pkg: any) => ({
+        ...pkg,
+        value: pkg.packageId,
+        label: pkg.name
+      }));
+    },
+    enabled: searchQuery.length >= 2,
+  });
+
+  const searchPackages = async (query: string) => {
+    setSearchQuery(query);
+    return searchResults || [];
   };
 
   const normalizedPopularPackages = useMemo(() => {
@@ -223,7 +233,7 @@ function RouteComponent() {
           onSearch={searchPackages}
           getItemValue={(item) => item.packageId}
           getItemLabel={(item) => item.name}
-          emptyText="No packages found."
+          emptyText={isSearching ? "Searching..." : "No packages found."}
           footerText="Explore packages"
           bottomLeftContent={
             <div className="flex items-center gap-3">

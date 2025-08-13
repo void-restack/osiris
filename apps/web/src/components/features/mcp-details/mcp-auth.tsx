@@ -21,35 +21,16 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { getScopeDisplayName } from "@/lib/scope-definitions";
 
 interface Authenticator {
 	id: string;
 	name: string;
+	description: string;
 	icon: string;
 	scopes: string[];
+	scopeDefinitions: Record<string, string>;
+	metadata: Record<string, any>;
 }
-
-export const authenticators: Authenticator[] = [
-	{
-		id: "gmail",
-		name: "Gmail",
-		icon: "/test/gmail.svg",
-		scopes: ["Read", "Write", "Send"],
-	},
-	{
-		id: "calendar",
-		name: "Calendar",
-		icon: "/test/calander.svg",
-		scopes: ["Read", "Write", "Send"],
-	},
-	{
-		id: "contact",
-		name: "Contact",
-		icon: "/test/contact.svg",
-		scopes: ["Read", "Write", "Send"],
-	},
-];
 
 export const columns: ColumnDef<Authenticator>[] = [
 	{
@@ -78,27 +59,36 @@ export const columns: ColumnDef<Authenticator>[] = [
 							</AvatarFallback>
 						</Avatar>
 					</div>
-					<p className="font-medium text-primary-800">{row.original.name}</p>
+					<div>
+						<p className="font-medium text-primary-800">{row.original.name.charAt(0).toUpperCase() + row.original.name.slice(1)}</p>
+						{row.original.description && (
+							<p className="text-sm text-primary-500">{row.original.description}</p>
+						)}
+					</div>
 				</div>
 			);
 		},
 	},
-	{
-		accessorKey: "scopes",
-		header: "",
-		cell: ({ row }) => (
-			<div className="flex items-center justify-end gap-3 px-8">
-				{row.original.scopes.map((scope) => (
-					<div
-						className="h-6 rounded-[4px] bg-primary-50 px-2 py-0.5 text-primary-400 text-xs"
-						key={scope}
-					>
-						{getScopeDisplayName(scope)}
-					</div>
-				))}
-			</div>
-		),
-	},
+	// {
+	// 	accessorKey: "scopes",
+	// 	header: "Required Scopes",
+	// 	cell: ({ row }) => (
+	// 		<div className="flex flex-wrap gap-2">
+	// 			{row.original.scopes.map((scope) => {
+	// 				const scopeDefinition = row.original.scopeDefinitions[scope];
+	// 				return (
+	// 					<div
+	// 						className="h-6 rounded-[4px] bg-primary-50 px-2 py-0.5 text-primary-400 text-xs"
+	// 						key={scope}
+	// 						title={scopeDefinition || scope}
+	// 					>
+	// 						{scopeDefinition || scope}
+	// 					</div>
+	// 				);
+	// 			})}
+	// 		</div>
+	// 	),
+	// },
 ];
 
 export function McpAuthList({ data }: { data: Authenticator[] }) {

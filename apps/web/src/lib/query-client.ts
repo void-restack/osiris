@@ -4,26 +4,26 @@ import { ApiError } from "./api";
 
 const handleQueryError = (error: unknown) => {
 	if (error instanceof ApiError) {
-		switch (error.status) {
-			case 401:
-				break;
-			case 402:
-				break;
-			case 403:
-				toast.error("You don't have permission to access this resource");
-				break;
-			case 404:
-				toast.error("Resource not found");
-				break;
-			case 429:
-				toast.error("Too many requests. Please try again later.");
-				break;
-			case 500:
-				toast.error("Server error. Please try again.");
-				break;
-			default:
-				toast.error(error.response?.error || "An unexpected error occurred");
-		}
+		// switch (error.status) {
+		// 	case 401:
+		// 		break;
+		// 	case 402:
+		// 		break;
+		// 	case 403:
+		// 		toast.error("You don't have permission to access this resource");
+		// 		break;
+		// 	case 404:
+		// 		toast.error("Resource not found");
+		// 		break;
+		// 	case 429:
+		// 		toast.error("Too many requests. Please try again later.");
+		// 		break;
+		// 	case 500:
+		// 		toast.error("Server error. Please try again.");
+		// 		break;
+		// 	default:
+		// 		toast.error(error.response?.error || "An unexpected error occurred");
+		// }
 	} else {
 		console.error("Query error:", error);
 		toast.error("Network error. Please check your connection.");

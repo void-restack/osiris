@@ -148,9 +148,10 @@ export function Autocomplete<T extends AutocompleteItem>({
 	return (
 		<div
 			className={cn(
-				"mx-auto flex w-full flex-col gap-3 rounded-[18px] bg-primary-25 p-4 shadow-[inset_0_1px_2px_0_rgba(0,0,0,0.05)] drop-shadow-[0_1px_1px_rgba(0,0,0,0.08)] sm:max-w-[496px] md:max-w-[720px]",
+				"mx-auto flex w-full flex-col gap-3 rounded-[18px] bg-primary-25 p-4 shadow-[inset_0_1px_2px_0_rgba(0,0,0,0.05)] drop-shadow-[0_1px_1px_rgba(0,0,0,0.08)] sm:max-w-[496px] md:max-w-[720px] relative",
 				className,
 			)}
+			style={{ zIndex: 2 }}
 		>
 			<Command shouldFilter={false} className="overflow-visible">
 				<div className="relative h-[84px]">
@@ -181,44 +182,46 @@ export function Autocomplete<T extends AutocompleteItem>({
 
 				<div className="relative">
 					{shouldShowResults && (
-						<CommandList className="absolute top-1.5 z-50 w-full rounded-md border border-border bg-background">
-							{popularItems ? (
-								<>
-									<span className="mb-2 px-3 py-2 text-[13px] text-primary-400">
-										Popular
-									</span>
-									<div className="px-3">{popularItems}</div>
-									<div className="mt-3 border-primary-100 border-t border-dashed" />
-								</>
-							) : null}
-							{isLoading ? (
-								<CommandLoading>
-									<LoaderCircle className="h-4 w-4 animate-spin text-muted-foreground" />
-								</CommandLoading>
-							) : (
-								<>
-									<CommandEmpty>{emptyText}</CommandEmpty>
-									<CommandGroup>
-										{items.map((item, i) => (
-											<CommandItem
-												key={`${getItemValue(item)}-${i}`}
-												value={getItemValue(item)}
-												onSelect={handleSelect}
-												onMouseDown={(e) => {
-													e.preventDefault();
-													e.stopPropagation();
-												}}
-												className="cursor-pointer"
-											>
-												{renderItem
-													? renderItem(item, debouncedSearch)
-													: defaultRenderItem(item, debouncedSearch)}
-											</CommandItem>
-										))}
-									</CommandGroup>
-								</>
-							)}
-						</CommandList>
+						<div className="absolute top-1.5 z-[99999] w-full rounded-md border border-border bg-white shadow-lg overflow-hidden">
+							<CommandList className="w-full">
+								{popularItems ? (
+									<>
+										<span className="mb-2 px-3 py-2 text-[13px] text-primary-400">
+											Popular
+										</span>
+										<div className="px-3">{popularItems}</div>
+										<div className="mt-3 border-primary-100 border-t border-dashed" />
+									</>
+								) : null}
+								{isLoading ? (
+									<CommandLoading>
+										<LoaderCircle className="h-4 w-4 animate-spin text-muted-foreground" />
+									</CommandLoading>
+								) : (
+									<>
+										<CommandEmpty>{emptyText}</CommandEmpty>
+										<CommandGroup>
+											{items.map((item, i) => (
+												<CommandItem
+													key={`${getItemValue(item)}-${i}`}
+													value={getItemValue(item)}
+													onSelect={handleSelect}
+													onMouseDown={(e) => {
+														e.preventDefault();
+														e.stopPropagation();
+													}}
+													className="cursor-pointer"
+												>
+													{renderItem
+														? renderItem(item, debouncedSearch)
+														: defaultRenderItem(item, debouncedSearch)}
+												</CommandItem>
+											))}
+										</CommandGroup>
+									</>
+								)}
+							</CommandList>
+						</div>
 					)}
 				</div>
 			</Command>

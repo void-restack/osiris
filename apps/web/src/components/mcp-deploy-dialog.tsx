@@ -44,6 +44,7 @@ interface McpDeployDialogProps {
 
 function ServiceSection({
   serviceName,
+  serviceClient,
   requiredScopes,
   userAuth,
   authScopes,
@@ -58,6 +59,7 @@ function ServiceSection({
   onConnectNewAccount,
 }: {
   serviceName: string;
+  serviceClient: any;
   requiredScopes: string[];
   userAuth: any[];
   authScopes: any;
@@ -81,6 +83,8 @@ function ServiceSection({
     [serviceName, authScopes]
   );
 
+  console.log("permissions", permissions);
+
   const handleServicePermissionSelect = useCallback(
     (perms: Permission[]) => onPermissionSelect(serviceName, perms),
     [serviceName, onPermissionSelect]
@@ -101,9 +105,16 @@ function ServiceSection({
       <AccordionItem value={serviceName} className="border-none">
         <AccordionTrigger className="px-4 py-3 hover:no-underline">
           <div className="flex items-center gap-3 w-full">
-            <div className="size-10 rounded-[6px] bg-purple-300 flex items-center justify-center text-white font-bold text-lg capitalize shadow-xl">
-              {serviceName.charAt(0)}
-            </div>
+            <Avatar className="size-10 rounded-[6px] shadow-xl">
+              <AvatarImage
+                src={serviceClient.iconUrl}
+                alt={serviceName}
+                className="rounded-[6px]"
+              />
+              <AvatarFallback className="bg-purple-300 text-white font-bold text-lg capitalize rounded-[6px]">
+                {serviceName.charAt(0)}
+              </AvatarFallback>
+            </Avatar>
             <div className="flex flex-col items-start flex-1">
               <h3 className="text-primary-800 capitalize font-medium">{serviceName} Account</h3>
               <p className="text-[13px] text-primary-300">Select an existing {serviceName} account or connect a new one</p>
@@ -133,35 +144,63 @@ function ServiceSection({
               >
                 {serviceConnections.map((connection: any) => (
                   <div key={connection.user_service_connections.id} className="flex items-start space-x-3 cursor-pointer group">
-                    <RadioGroupItem value={connection.user_service_connections.id} className="mt-1" />
-                    <div className="flex-1 p-3 border border-primary-100 rounded-[6px] group-hover:border-primary-200 transition-colors">
-                      <div className="flex items-center space-x-2 mb-2">
-                        <Avatar className="h-6 w-6">
-                          <AvatarFallback className="text-xs bg-purple-300 text-white">
-                            {serviceName.charAt(0).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                        <p className="text-sm font-medium text-primary-800">
-                          {(() => {
-                            const md = connection.user_service_connections.metadata;
-                            const t = connection.service_clients?.type;
-                            const shortId = connection.user_service_connections.id.slice(0, 8);
-                            if (!t) return `${connection.user_service_connections.name || 'Unknown Connection'} (${shortId})`;
+                    <RadioGroupItem id={connection.user_service_connections.id} value={connection.user_service_connections.id} className="mt-1" />
+                    <div id={connection.user_service_connections.id} className="flex-1 p-3 border border-primary-100 rounded-[6px] group-hover:border-primary-200 transition-colors">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center space-x-2">
+                          <p className="text-sm font-medium text-primary-800">
+                            {(() => {
+                              const md = connection.user_service_connections.metadata;
+                              const t = connection.service_clients?.type;
+                              const shortId = connection.user_service_connections.id.slice(0, 8);
+                              if (!t) return `${connection.user_service_connections.name || 'Unknown Connection'} (${shortId})`;
 
-                            switch (t) {
-                              case 'oauth':
-                                return `${md?.user?.name || md?.user?.email || 'Unknown User'} (${shortId})`;
-                              case 'secret_sharing':
-                                return `${connection.user_service_connections.name || 'Database Connection'} (${shortId})`;
-                              case 'embedded_wallet': {
-                                const walletName = md?.name || connection.user_service_connections.name || 'Wallet Connection';
-                                return `${walletName} (${shortId})`;
+                              switch (t) {
+                                case 'oauth':
+                                  return `${md?.user?.name || md?.user?.email || 'Unknown User'} (${shortId})`;
+                                case 'secret_sharing':
+                                  return `${connection.user_service_connections.name || 'Database Connection'} (${shortId})`;
+                                case 'embedded_wallet': {
+                                  const walletName = md?.name || connection.user_service_connections.name || 'Wallet Connection';
+                                  return `${walletName} (${shortId})`;
+                                }
+                                default:
+                                  return `${connection.user_service_connections.name || 'Unknown Connection'} (${shortId})`;
                               }
-                              default:
-                                return `${connection.user_service_connections.name || 'Unknown Connection'} (${shortId})`;
-                            }
-                          })()}
-                        </p>
+                            })()}
+                          </p>
+                        </div>
+
+                        {/* Ready Indicator */}
+                        {(() => {
+                          console.log("connection scopes", connection.user_service_connections.scopes);
+                          console.log("required scopes", requiredScopes);
+                          const connectionScopes = connection.user_service_connections.scopes || [];
+                          const requiredScopesArray = Array.isArray(requiredScopes) ? requiredScopes : [];
+
+                          // Check if all required scopes are covered
+                          const hasAllRequiredScopes = requiredScopesArray.every((requiredScope) => {
+                            const scopeWithoutPrefix = requiredScope.startsWith(`${serviceName}:`)
+                              ? requiredScope.replace(`${serviceName}:`, '')
+                              : requiredScope;
+                            const scopeWithPrefix = `${serviceName}:${requiredScope}`;
+
+                            return (
+                              connectionScopes.includes(requiredScope) ||
+                              connectionScopes.includes(scopeWithoutPrefix) ||
+                              connectionScopes.includes(scopeWithPrefix)
+                            );
+                          });
+
+                          if (hasAllRequiredScopes) {
+                            return (
+                              <Badge className="bg-green-100 text-green-800 px-2 py-1 text-xs font-medium">
+                                Ready
+                              </Badge>
+                            );
+                          }
+                          return null;
+                        })()}
                       </div>
 
                       <p className="text-[13px] text-primary-400 mb-2">
@@ -222,7 +261,6 @@ function ServiceSection({
   );
 }
 
-
 export function McpDeployDialog({
   package: pkg,
   trigger,
@@ -263,8 +301,6 @@ export function McpDeployDialog({
       const mcpRequiredScopes = authScopes?.serviceClientMap?.[service] || [];
       return mcpRequiredScopes.length > 0;
     });
-
-    console.log("authScopes", authScopes);
 
     const servicesWithoutPermissions = servicesWithScopes.filter(
       service => !selectedPermissions[service] || selectedPermissions[service].length === 0
@@ -320,7 +356,6 @@ export function McpDeployDialog({
   };
 
   const handleConnectNewAccount = useCallback((serviceName: string, requiredScopes: string[]) => {
-    // Find the auth method for this service
     const serviceAuthMethod = authMethods?.find((method: any) => method.name === serviceName);
 
     if (!serviceAuthMethod) {
@@ -328,7 +363,6 @@ export function McpDeployDialog({
       return;
     }
 
-    // Set the connecting service to show the appropriate dialog
     setConnectingService(serviceName);
   }, [authMethods]);
 
@@ -341,11 +375,12 @@ export function McpDeployDialog({
       {/* Services and Permissions */}
       <div className="space-y-3 overflow-y-scroll">
         <ScrollArea className="max-h-64">
-          {Object.entries(authScopes?.serviceClientMap || {}).map(([serviceName, requiredScopes]) => (
-            <div key={serviceName}>
+          {authScopes?.serviceClients?.map((serviceClient: any) => (
+            <div key={serviceClient.name}>
               <ServiceSection
-                serviceName={serviceName}
-                requiredScopes={requiredScopes as string[]}
+                serviceName={serviceClient.name}
+                serviceClient={serviceClient}
+                requiredScopes={authScopes?.serviceClientMap?.[serviceClient.name] || []}
                 userAuth={userAuth}
                 authScopes={authScopes}
                 selectedPermissions={selectedPermissions}

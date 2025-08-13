@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect, Suspense } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { Autocomplete } from "@/components/ui/autocomplete";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
@@ -87,6 +87,7 @@ function RouteComponent() {
   const [authTable, setAuthTable] = useState<any>(null);
   const [callbackDialogOpen, setCallbackDialogOpen] = useState(false);
   const [callbackMethod, setCallbackMethod] = useState<ServiceClient | null>(null);
+  const queryClient = useQueryClient();
 
   const { data: authMethods } = useQuery({
     ...hubQueries.authMethodsOptions(undefined),
@@ -102,14 +103,24 @@ function RouteComponent() {
     }
   }, [search, authMethods]);
 
-  const searchAuthMethods = (query: string) => {
-    if (!authMethods) return [];
-    return authMethods
-      .filter((method: ServiceClient) =>
-        method.name.toLowerCase().includes(query.toLowerCase()) ||
-        method.description.toLowerCase().includes(query.toLowerCase())
-      )
-      .slice(0, 10);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const { data: searchResults, isPending: isSearching } = useQuery({
+    queryKey: ['auth-methods', 'search', searchQuery],
+    queryFn: async () => {
+      if (!searchQuery || searchQuery.length < 2) return [];
+
+      const response = await queryClient.ensureQueryData(hubQueries.authMethodsOptions({
+        name: searchQuery
+      }));
+      return response || [];
+    },
+    enabled: searchQuery.length >= 2,
+  });
+
+  const searchAuthMethods = async (query: string) => {
+    setSearchQuery(query);
+    return searchResults || [];
   };
 
   return (
@@ -132,7 +143,7 @@ function RouteComponent() {
             onSearch={searchAuthMethods}
             getItemValue={(item) => item.clientId}
             getItemLabel={(item) => item.name}
-            emptyText="No auth methods found."
+            emptyText={isSearching ? "Searching..." : "No auth methods found."}
             footerText="Footer text"
             bottomLeftContent={
               <div className="flex items-center gap-3">

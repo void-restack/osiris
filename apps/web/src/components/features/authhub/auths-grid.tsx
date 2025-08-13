@@ -20,7 +20,7 @@ export function AuthGridView({ methods }: AuthGridViewProps) {
           <div
             key={method.clientId}
             className="relative group h-fit min-h-52 rounded-xl border border-primary-100 p-6 transition-all hover:border-primary-200 hover:shadow-md block cursor-pointer"
-            style={{ zIndex: 0 }}
+            style={{ zIndex: 1 }}
             aria-label={`Go to ${method.name}`}
             tabIndex={0}
             role="link"

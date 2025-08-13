@@ -57,35 +57,16 @@ export function McpTabs() {
 		};
 	}).filter((item: any) => item !== null) || [];
 
-	const transformedAuthenticators = authScopes?.serviceClientMap ?
-		Object.entries(authScopes.serviceClientMap)
-			.filter(([_, serviceData]) => serviceData)
-			.map(([serviceName, serviceData]: [string, any]) => ({
-				id: serviceName.toLowerCase(),
-				name: serviceName,
-				icon: `/test/${serviceName.toLowerCase()}.svg`,
-				scopes: serviceData.requiredScopes || [],
-			})) : [];
-
-	const transformedActions = actionsData?.data?.map((action: any) => {
-		if (!action?.mcp_actions) {
-			return null;
-		}
-
-		return {
-			actionId: action.mcp_actions.actionId,
-			deploymentId: action.mcp_actions.deploymentId,
-			userId: action.mcp_actions.userId,
-			connectionId: action.mcp_actions.connectionId,
-			actionType: action.mcp_actions.actionType || "Unknown Action",
-			request: action.mcp_actions.request,
-			response: action.mcp_actions.response,
-			status: action.mcp_actions.status,
-			errorMessage: action.mcp_actions.errorMessage,
-			createdAt: action.mcp_actions.createdAt,
-			updatedAt: action.mcp_actions.updatedAt,
-		};
-	}).filter(Boolean) || [];
+	const transformedAuthenticators = authScopes?.serviceClients ?
+		authScopes.serviceClients.map((serviceClient: any) => ({
+			id: serviceClient.name.toLowerCase(),
+			name: serviceClient.name,
+			description: serviceClient.description,
+			icon: serviceClient.iconUrl || `/test/${serviceClient.name.toLowerCase()}.svg`,
+			scopes: serviceClient.allowedScopes || [],
+			scopeDefinitions: serviceClient.scopeDefinitions || {},
+			metadata: serviceClient.metadata || {},
+		})) : [];
 
 	const finalActionsData = actionsData || { data: [] };
 
