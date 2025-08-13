@@ -4,7 +4,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { Link } from "@tanstack/react-router";
 import type { KnowledgeBase } from "@/types";
-import { RatingDropdown } from "./rating-dropdown";
+import { Star } from "lucide-react";
 
 export function KnowledgeBaseCard({
   name,
@@ -12,7 +12,7 @@ export function KnowledgeBaseCard({
   coverImageUrl,
   iconUrl,
   knowledgeBaseId,
-  publicMetadata
+  publicMetadata,
 }: KnowledgeBase) {
   const [localRating, setLocalRating] = useState(publicMetadata.rating);
   return (
@@ -29,11 +29,10 @@ export function KnowledgeBaseCard({
             <AvatarFallback className="text-2xl">B</AvatarFallback>
           </Avatar>
           <div className="absolute top-4 right-4 flex gap-2 z-10">
-            <RatingDropdown 
-              knowledgeBaseId={knowledgeBaseId} 
-              currentRating={localRating}
-              onRatingChange={setLocalRating}
-            />
+            <div className="flex h-7 items-center gap-2.5 rounded-[6px] px-2 py-[2px] font-medium text-sm bg-primary-00 text-primary-400 hover:bg-primary-50 cursor-pointer drop-shadow-[0_0_1px_rgba(0,0,0,0.1)] transition-colors">
+              <Star className="size-4" />
+              <span>{publicMetadata.rating}</span>
+            </div>
             <KnowledgebaseCredits credits={publicMetadata.price} />
           </div>
         </div>
@@ -41,20 +40,18 @@ export function KnowledgeBaseCard({
       <div className="px-3">
         <h1 className="flex items-center gap-1 font-medium text-primary-800">
           {name}
-            <span>
-              <ICONS.verifiedBadge />
-            </span>
+          <span>
+            <ICONS.verifiedBadge />
+          </span>
         </h1>
         <p className="line-clamp-1 text-primary-300 text-sm">{description}</p>
       </div>
-        <Link to={`/knowledge/${knowledgeBaseId}`}>
-          <span className="absolute w-full h-full inset-0 z-0"></span>
-        </Link>
+      <Link to={`/knowledge/${knowledgeBaseId}`}>
+        <span className="absolute w-full h-full inset-0 z-0"></span>
+      </Link>
     </section>
   );
 }
-
-
 
 function KnowledgebaseCredits({ credits }: { credits: number }) {
   const isFree = credits === 0;

@@ -7,6 +7,7 @@ import { BuyKnowledgeBaseButton } from "./buy-knowledge-base-button";
 import { useQuery } from "@tanstack/react-query";
 import { userQueries } from "@/lib/queries";
 import { useAuth } from "@/hooks/use-auth";
+import { RatingDropdown } from "./rating-dropdown";
 
 export function KnowledgeBaseDetailsHeader({ kb }: { kb: KnowledgeBase }) {
 	const { isAuthenticated } = useAuth();
@@ -37,6 +38,11 @@ export function KnowledgeBaseDetailsHeader({ kb }: { kb: KnowledgeBase }) {
 					</p>
 				</div>
 				<div className="flex flex-col md:flex-row items-center gap-4">
+					<RatingDropdown 
+              knowledgeBaseId={kb.knowledgeBaseId} 
+              currentRating={kb.publicMetadata.rating}
+              onRatingChange={() => {}}
+            />
 					<Button className="text-primary-300 w-full" variant={"secondary"}>
 						last updated: {formatRelativeTime(kb.updatedAt)}
 					</Button>
