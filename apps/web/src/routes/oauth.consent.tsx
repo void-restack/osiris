@@ -651,7 +651,7 @@ function RouteComponent() {
       }
 
       const mcpRedirectUri = new URL(packageDetails?.url as string)
-      mcpRedirectUri.pathname = '/osiris/callback'
+      mcpRedirectUri.pathname = mcpRedirectUri.pathname.replace(/\/$/, '') + '/osiris/callback'
 
       if (type === 'agent') {
         await authorizeOsirisMutation.mutateAsync({
