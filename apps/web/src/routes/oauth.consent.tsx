@@ -654,7 +654,7 @@ function RouteComponent() {
       mcpRedirectUri.pathname = mcpRedirectUri.pathname.replace(/\/$/, '') + '/osiris/callback'
 
       if (type === 'agent') {
-        await authorizeOsirisMutation.mutateAsync({
+        const authResultOsiris = await authorizeFrontendMutation.mutateAsync({
           clientId: packageDetails?.clientId,
           redirectUri: mcpRedirectUri.toString(),
           responseType: 'code',
@@ -662,6 +662,12 @@ function RouteComponent() {
           state: deploymentId || '',
           deploymentId: deploymentId,
         })
+
+		const url = new URL(authResultOsiris.url)
+		const res = await fetch(url.toString())
+		if(res.status !== 200) {
+			throw new Error('Failed to authorize')
+		}
       }
 
       const authResultFrontend = await authorizeFrontendMutation.mutateAsync({
