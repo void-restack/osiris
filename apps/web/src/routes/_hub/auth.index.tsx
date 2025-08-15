@@ -129,7 +129,7 @@ function RouteComponent() {
         {/* Header */}
         <div className="mx-auto mt-8 max-w-[496px] pb-6 text-center md:w-[496px]">
           <h2 className="mb-2 font-medium text-xl leading-3 tracking-tight">
-            Search all authenticators
+            Discover all authenticators
           </h2>
           <span className="text-primary-300 text-sm">
             Search across various authentication hubs on osiris

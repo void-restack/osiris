@@ -27,7 +27,7 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { PermissionSelector, type Permission } from "@/components/ui/permission-selector";
 import { userQueries, hubQueries, packageQueries } from "@/lib/queries";
-import { useDeployPackageMutation, useCreateServiceConnectionMutation, useCreateSecretSharingMutation, useCreateWalletMutation } from "@/lib/mutations";
+import { useDeployPackageMutation, useCreateServiceConnectionMutation, useAuthorizeFrontendMutation, useCreateSecretSharingMutation, useCreateWalletMutation } from "@/lib/mutations";
 import { AuthMethodDialog } from "@/components/features/authhub/auth-method-dialog";
 import { useAuth } from "@/hooks/use-auth";
 import { getInitials } from "@/lib/utils";
@@ -272,6 +272,7 @@ export function McpDeployDialog({
   const [deploymentName, setDeploymentName] = useState(`${pkg.name} deployment`);
   const [connectingService, setConnectingService] = useState<string | null>(null);
 
+  const authorizeMutation = useAuthorizeFrontendMutation()
   const deployMutation = useDeployPackageMutation();
   const createServiceConnection = useCreateServiceConnectionMutation();
   const createSecretSharing = useCreateSecretSharingMutation();
@@ -316,7 +317,8 @@ export function McpDeployDialog({
         permissions.map(permission => permission.id)
       );
 
-      await deployMutation.mutateAsync({
+
+      const deploymentData = await deployMutation.mutateAsync({
         packageId: pkg.packageId,
         version: pkg.latestVersion,
         url: `${pkg?.url?.replace(/\/$/, '')}/mcp`,
@@ -324,6 +326,20 @@ export function McpDeployDialog({
         authData: {},
         connectionIds: Object.values(selectedConnections),
       });
+
+      const deploymentId = deploymentData.deployment.deploymentId
+
+      const mcpRedirectUri = new URL(pkg?.url as string)
+      mcpRedirectUri.pathname = mcpRedirectUri.pathname.replace(/\/$/, '') + '/osiris/callback'
+
+      authorizeMutation.mutate({
+        clientId: pkg?.clientId ?? "",
+        redirectUri: mcpRedirectUri.toString(),
+        responseType: 'code',
+        scopes: allScopes,
+        state: deploymentId || '',
+        deploymentId: deploymentId,
+      })
 
       // Show success message
       toast.success('Package deployed successfully!');
@@ -366,9 +382,9 @@ export function McpDeployDialog({
     setConnectingService(serviceName);
   }, [authMethods]);
 
-  const isPending = deployMutation.isPending;
-  const isSuccess = deployMutation.isSuccess;
-  const isError = deployMutation.isError;
+  const isPending = deployMutation.isPending && authorizeMutation.isPending;
+  const isSuccess = deployMutation.isSuccess && authorizeMutation.isSuccess;
+  const isError = deployMutation.isError && authorizeMutation.isError;
 
   const renderDeployForm = () => (
     <div className="flex flex-col px-4">

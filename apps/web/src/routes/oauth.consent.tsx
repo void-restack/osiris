@@ -4,7 +4,6 @@ import {
   useCreateSecretSharingMutation,
   useCreateWalletMutation,
   useDeployPackageMutation,
-  useAuthorizeOsirisMutation,
   useAuthorizeFrontendMutation,
   useLoginMutation
 } from '@/lib/mutations'
@@ -463,7 +462,6 @@ function RouteComponent() {
   const createSecretSharingMutation = useCreateSecretSharingMutation()
   const createWalletMutation = useCreateWalletMutation()
   const deployPackageMutation = useDeployPackageMutation()
-  const authorizeOsirisMutation = useAuthorizeOsirisMutation()
   const authorizeFrontendMutation = useAuthorizeFrontendMutation()
 
   // Show error toasts for mutation errors
@@ -492,10 +490,10 @@ function RouteComponent() {
   }, [deployPackageMutation.error]);
 
   useEffect(() => {
-    if (authorizeOsirisMutation.error) {
-      toast.error(authorizeOsirisMutation.error.message || 'Authorization failed');
+    if (authorizeFrontendMutation.error) {
+      toast.error(authorizeFrontendMutation.error.message || 'Authorization failed');
     }
-  }, [authorizeOsirisMutation.error]);
+  }, [authorizeFrontendMutation.error]);
 
   useEffect(() => {
     if (authorizeFrontendMutation.error) {
@@ -1026,12 +1024,12 @@ function RouteComponent() {
         <div className="flex gap-4 pt-2">
           <Button
             onClick={handleAllowConsent}
-            disabled={isLoading || deployPackageMutation.isPending || authorizeOsirisMutation.isPending}
+            disabled={isLoading || deployPackageMutation.isPending || authorizeFrontendMutation.isPending}
             className="flex-1 bg-success-600 hover:bg-success-700 rounded-[6px]"
             size="lg"
             type="button"
           >
-            {isLoading || deployPackageMutation.isPending || authorizeOsirisMutation.isPending ? 'Processing...' : 'Allow'}
+            {isLoading || deployPackageMutation.isPending || authorizeFrontendMutation.isPending ? 'Processing...' : 'Allow'}
           </Button>
           <Button onClick={handleDenyConsent} variant="outline" className="flex-1 rounded-[6px]" size="lg" type="button">
             Deny

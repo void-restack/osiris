@@ -25,6 +25,7 @@ export function McpDetailsHeader() {
     paymentConfig: packageData?.paymentConfig,
     isInstalled: false,
     isDeployed,
+    clientId: packageData?.clientId || "",
   };
 
   return (

@@ -164,6 +164,7 @@ export interface PopularPackage {
 export interface PackageWithUserStatus extends Package {
   isInstalled: boolean;
   isDeployed: boolean;
+  clientId?: string;
   userInstallation?: {
     userMcpId: string;
     userId: string;

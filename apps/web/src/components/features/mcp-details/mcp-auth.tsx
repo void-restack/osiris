@@ -62,7 +62,7 @@ export const columns: ColumnDef<Authenticator>[] = [
 					<div>
 						<p className="font-medium text-primary-800">{row.original.name.charAt(0).toUpperCase() + row.original.name.slice(1)}</p>
 						{row.original.description && (
-							<p className="text-sm text-primary-500">{row.original.description}</p>
+							<p className="text-sm text-primary-500 max-w-md truncate">{row.original.description}</p>
 						)}
 					</div>
 				</div>
