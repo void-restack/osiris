@@ -55,7 +55,7 @@ function RouteComponent() {
         <Button
           variant="secondary"
           onClick={handleGoogleLogin}
-          disabled={isGoogleLoading}
+          disabled={loginMutation.isPending}
           className="w-full rounded-none"
           icon={isGoogleLoading ? () => <Loader2 className='animate-spin' /> : () => <Icon name='google' />}
           iconPlacement='left'
@@ -65,7 +65,7 @@ function RouteComponent() {
         <Button
           variant="secondary"
           onClick={handleGithubLogin}
-          disabled={isGithubLoading}
+          disabled={loginMutation.isPending}
           className="w-full"
           icon={isGithubLoading ? () => <Loader2 className='animate-spin' /> : () => <Icon name='github' size='xl' />}
           iconPlacement='left'
