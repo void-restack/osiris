@@ -2,7 +2,6 @@ import { useMemo } from "react";
 import type { KnowledgeBase } from "@/types";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { knowledgeQueries } from "@/lib/queries";
-import { useAuth } from "@/hooks/use-auth";
 import { useQueryState, parseAsString, parseAsInteger, parseAsBoolean } from "nuqs";
 import { Autocomplete } from "@/components/ui/autocomplete";
 import { Link } from "@tanstack/react-router";
@@ -13,12 +12,8 @@ export function KnowledgeBaseListContainer({
 }: {
 	setKnowledgeBaseTable: (table: any) => void;
 }) {
-	const { isAuthenticated } = useAuth();
-
 	// URL state management for filters
-	const [search] = useQueryState("query", parseAsString.withDefault(""));
-
-	const [showOnlyMyKBsState] = useQueryState("showOnlyMyKBs", parseAsBoolean.withDefault(false));
+	const [search, setSearch] = useQueryState("query", parseAsString.withDefault(""));
 	const [showInstalledState] = useQueryState("showInstalled", parseAsBoolean.withDefault(false));
 
 
@@ -31,51 +26,44 @@ export function KnowledgeBaseListContainer({
 		placeholderData: (previousData) => previousData,
 	});
 
-	// Fetch user's knowledge bases
-	const { data: userKnowledgeBases } = useQuery({
-		...knowledgeQueries.myOptions(),
-		enabled: isAuthenticated && showOnlyMyKBsState && !showInstalledState,
-	});
 
-	// Fetch installed knowledge bases
-	const { data: installedKnowledgeBases } = useQuery({
-		...knowledgeQueries.allInstalledOptions(),
-		enabled: isAuthenticated && showInstalledState,
-	});
-
-	// Fetch popular knowledge bases for autocomplete
 	const { data: popularKnowledgeBases } = useSuspenseQuery(
 		knowledgeQueries.basesOptions()
 	);
 
 	const searchKnowledgeBases = (query: string) => {
-		let allData: KnowledgeBase[] = [];
-
-		if (showInstalledState && isAuthenticated) {
-			allData = (installedKnowledgeBases?.data || []).map(normalizeKnowledgeBase);
-		} else if (showOnlyMyKBsState && isAuthenticated) {
-			allData = (userKnowledgeBases?.data || []).map(normalizeKnowledgeBase);
-		} else {
-			allData = (knowledgeBaseData?.data || []).map(normalizeKnowledgeBase);
-		}
-
-		const filtered = allData
-			.filter((kb: KnowledgeBase) =>
-				kb.name.toLowerCase().includes(query.toLowerCase()) ||
-				(kb.description || '').toLowerCase().includes(query.toLowerCase()) ||
-				(kb.tags || []).some((tag: string) =>
-					tag.toLowerCase().includes(query.toLowerCase())
-				)
-			)
-			.slice(0, 10);
-
-		return filtered.map((kb: KnowledgeBase) => ({
-			...kb,
-			value: kb.knowledgeBaseId,
-			label: kb.name,
-			link: `/knowledge/${kb.knowledgeBaseId}` // Add link property for autocomplete
+		setSearch(query);
+		return groupedSearchResults.map(group => ({
+			value: group.knowledgeBase.knowledgeBaseId,
+			label: group.knowledgeBase.name,
+			...group
 		}));
 	};
+
+	// Group search results by knowledge base ID
+	const groupedSearchResults = useMemo(() => {
+		if (!knowledgeBaseData?.data) return [];
+		
+		const grouped = new Map<string, {
+			knowledgeBase: any;
+			units: any[];
+		}>();
+		
+		knowledgeBaseData.data.forEach((result: any) => {
+			const kbId = result.knowledge_bases?.knowledgeBaseId;
+			if (!kbId) return;
+			
+			if (!grouped.has(kbId)) {
+				grouped.set(kbId, {
+					knowledgeBase: result.knowledge_bases,
+					units: []
+				});
+			}
+			grouped.get(kbId)!.units.push(result);
+		});
+		
+		return Array.from(grouped.values());
+	}, [knowledgeBaseData?.data]);
 
 	const normalizedPopularKnowledgeBases = useMemo(() => {
 		return (popularKnowledgeBases?.data || []).map(normalizeKnowledgeBase);
@@ -101,8 +89,8 @@ export function KnowledgeBaseListContainer({
 				<Autocomplete
 					className="mt-6"
 					onSearch={searchKnowledgeBases}
-					getItemValue={(item) => item.knowledgeBaseId}
-					getItemLabel={(item) => item.name}
+					getItemValue={(item) => item.value}
+					getItemLabel={(item) => item.label}
 					emptyText="No knowledge bases found."
 					footerText="Explore knowledge bases"
 					bottomLeftContent={
@@ -125,26 +113,47 @@ export function KnowledgeBaseListContainer({
 						</div>
 					}
 					renderItem={(item) => (
-						<Link to={item.link || `/knowledge/${item.knowledgeBaseId}`} className="flex items-center space-x-2 w-full">
-							{item.iconUrl ? (
-								<img
-									src={item.iconUrl}
-									alt={item.name}
-									className="size-4 rounded-md object-cover flex-shink-0"
-								/>
-							) : (
-								<div className="size-4 rounded-md bg-blue-400 flex-shink-0" />
-							)}
-							<span className="flex-shink-0">{item.name}</span>
-							<span className="flex-shink-0"> - </span>
-							<span className="text-primary-400 truncate flex-1 min-w-0">{item.description || ''}</span>
-						</Link>
+						<div className="w-full">
+							{/* Knowledge Base Header */}
+							<div className="flex items-center space-x-2 mb-2">
+								{item.knowledgeBase.iconUrl ? (
+									<img
+										src={item.knowledgeBase.iconUrl}
+										alt={item.knowledgeBase.name}
+										className="size-4 rounded-md object-cover flex-shrink-0"
+									/>
+								) : (
+									<div className="size-4 rounded-md bg-blue-400 flex-shrink-0" />
+								)}
+								<span className="flex-shrink-0 font-medium">{item.knowledgeBase.name}</span>
+								<span className="flex-shrink-0 text-gray-500">-</span>
+								<span className="text-primary-400 truncate flex-1 min-w-0">{item.knowledgeBase.description || ''}</span>
+							</div>
+							
+							{/* Units Preview
+							<div className="ml-6 space-y-1">
+								{item.units.slice(0, 2).map((unit: any, index: number) => (
+									<div key={index} className="text-sm">
+										<span className="font-medium text-gray-700">{unit.name}</span>
+										<span className="text-gray-500 ml-2">({unit.score.toFixed(3)})</span>
+										<p className="text-gray-600 text-xs truncate">{unit.content}</p>
+									</div>
+								))}
+								{item.units.length > 2 && (
+									<div className="text-xs text-gray-500">
+										+{item.units.length - 2} more units
+									</div>
+								)}
+							</div> */}
+						</div>
 					)}
 					onSelect={(item) => {
-						window.location.href = item.link || `/knowledge/${item.knowledgeBaseId}`;
+						window.location.href = `/knowledge/${item.value}`;
 					}}
 				/>
 			</div>
+			
+			{/* Knowledge Base Table */}
 			<KnowledgeBaseTable onTableReady={(table) => {
 				setKnowledgeBaseTable(table);
 			}} />
@@ -152,9 +161,7 @@ export function KnowledgeBaseListContainer({
 	);
 }
 
-// Helper function to normalize knowledge base data
 function normalizeKnowledgeBase(kb: any): KnowledgeBase {
-	// Handle new response structure with install, knowledge_base, and seller
 	if (kb.install && kb.knowledge_base) {
 		return {
 			knowledgeBaseId: kb.knowledge_base.knowledgeBaseId,
