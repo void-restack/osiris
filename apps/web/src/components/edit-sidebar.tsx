@@ -1,4 +1,4 @@
-import { X, Eye, EyeOff, Copy, Loader2 } from "lucide-react";
+import { X, Eye, EyeOff, Copy, Loader2, CopyIcon, CopyCheck } from "lucide-react";
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -34,6 +34,8 @@ import { useQuery } from "@tanstack/react-query";
 import { hubQueries } from "@/lib/queries";
 import { PermissionSelector, type Permission } from "./ui/permission-selector";
 import { getScopeDisplayName } from "@/lib/scope-definitions";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
+import { WalletDialog } from "./wallet-dialog";
 
 const BLOCKCHAIN_OPTIONS = {
   EVM: {
@@ -633,40 +635,15 @@ const WalletFields = ({
         </Label>
         <div className="space-y-3">
           {formData.addresses.map((address, index) => (
-            <div key={`address-${index}-${address.address}`} className="border rounded-lg p-3 bg-primary-25">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex gap-1 flex-wrap">
-                    {address.chains.map((chain) => (
-                      <span
-                        key={`${index}-${chain}`}
-                        className="text-xs bg-primary-100 text-primary-700 px-2 py-0.5 rounded"
-                      >
-                        {getChainDisplayName(chain)}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="font-mono text-sm text-primary-800 bg-white px-2 py-1 rounded border flex items-center justify-between">
-                  {address.address.slice(0, 10)}...{address.address.slice(-10)}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleCopyAddress(address.address)}
-                    className="ml-2 h-5 px-1"
-                  >
-                    <Copy className="size-3" />
-                  </Button>
-                </div>
-
-                {address.derivationPath && (
-                  <div className="text-xs text-primary-500">
-                    Path: {address.derivationPath} | Curve: {address.curve.replace('CURVE_', '')}
-                  </div>
-                )}
-              </div>
-            </div>
+            <WalletDialog
+              key={`address-${index}-${address.address}`}
+              address={address}
+              index={index}
+              getChainDisplayName={getChainDisplayName}
+              handleCopyAddress={handleCopyAddress}
+              userServiceConnectionId={connection.id}
+              formData={formData}
+            />
           ))}
         </div>
 
@@ -696,6 +673,8 @@ const WalletFields = ({
     </>
   );
 };
+
+
 
 const AddAddressForm = ({
   newAddress,

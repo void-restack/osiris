@@ -1189,7 +1189,7 @@ export const hubQueries = {
   userAuthConnection: (id: string) => [...hubQueries.userAuth(), id] as const,
   oauthClients: () => [...hubQueries.all(), "oauth-clients"] as const,
   oauthClient: (id: string) => [...hubQueries.oauthClients(), id] as const,
-  assetBalances: (walletId: string) => [...hubQueries.all(), "asset-balances", walletId],
+  assetBalances: (userServiceConnectionId: string) => [...hubQueries.all(), "asset-balances", userServiceConnectionId],
   popularAuth: () => [...hubQueries.all(), "popular-auth"] as const,
 
   authMethodsOptions: (filters?: { name?: string; type?: string }) =>
@@ -1256,11 +1256,19 @@ export const hubQueries = {
     },
   }),
 
-  assetBalancesOptions: (walletId: string) => queryOptions({
-    queryKey: hubQueries.assetBalances(walletId),
+  assetBalancesOptions: (userServiceConnectionId: string) => queryOptions({
+    queryKey: hubQueries.assetBalances(userServiceConnectionId),
     queryFn: async () => {
-      const response = await api(`/hub/defi/balances/${walletId}`, {
-        schema: responseSchema(z.any()),
+      const response = await api(`/hub/defi/balances/${userServiceConnectionId}`, {
+        schema: responseSchema(z.object({
+          userServiceConnectionId: z.string(),
+          walletAddresses: z.array(z.string()),
+          balances: z.array(z.object({
+            total: z.number(),
+            wallet: z.string(),
+            chains: z.array(z.any())
+          }))
+        })),
       });
       if (response.status === "FAILED") {
         throw new Error(response.error);

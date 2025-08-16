@@ -1,5 +1,3 @@
-import { QueryClientProvider } from "@tanstack/react-query";
-// import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { createRouter, RouterProvider } from "@tanstack/react-router";
 import { NuqsAdapter } from "nuqs/adapters/tanstack-router";
 import React from "react";
@@ -7,7 +5,7 @@ import ReactDOM from "react-dom/client";
 import { queryClient } from "./lib/query-client";
 import { routeTree } from "./routeTree.gen";
 import { FullPageLoadingScreen } from "./components/ui/loading-screen";
-import type { RouterAppContext } from "./routes/__root";
+import { Web3Provider } from "./components/web3-provider";
 
 const router = createRouter({
   routeTree,
@@ -36,14 +34,11 @@ if (!rootElement) {
 if (!rootElement.innerHTML) {
   ReactDOM.createRoot(rootElement).render(
     <React.StrictMode>
-      <QueryClientProvider client={queryClient}>
+      <Web3Provider>
         <NuqsAdapter>
           <RouterProvider router={router} />
-          {/* {process.env.NODE_ENV === "development" && (
-            <ReactQueryDevtools initialIsOpen={false} position="bottom" />
-          )} */}
         </NuqsAdapter>
-      </QueryClientProvider>
+      </Web3Provider>
     </React.StrictMode>,
   );
 }
