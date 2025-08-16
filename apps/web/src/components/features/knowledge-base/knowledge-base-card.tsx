@@ -16,7 +16,7 @@ export function KnowledgeBaseCard({
 }: KnowledgeBase) {
   const [localRating, setLocalRating] = useState(publicMetadata.rating);
   return (
-    <section className="flex flex-col gap-y-4 relative">
+    <section className="flex flex-col gap-y-4 relative hover:shadow-sm">
       <div className="relative h-[120px]">
         <img
           className="h-[120px] w-full rounded-[8px] object-cover object-center"
@@ -28,7 +28,7 @@ export function KnowledgeBaseCard({
             <AvatarImage src={iconUrl ?? ""} />
             <AvatarFallback className="text-2xl">B</AvatarFallback>
           </Avatar>
-          <div className="absolute top-4 right-4 flex gap-2 z-10">
+          <div className="absolute top-4 right-4 flex gap-2 ">
             <div className="flex h-7 items-center gap-2.5 rounded-[6px] px-2 py-[2px] font-medium text-sm bg-primary-00 text-primary-400 hover:bg-primary-50 cursor-pointer drop-shadow-[0_0_1px_rgba(0,0,0,0.1)] transition-colors">
               <Star className="size-4" />
               <span>{publicMetadata.rating}</span>

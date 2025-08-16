@@ -271,7 +271,7 @@ export function KnowledgeBaseTable({
         </div>
 
         {viewMode === "table" ? (
-          <ScrollArea className="relative h-[calc(100vh-560px)] hidebar overflow-y-auto hidebar">
+          <ScrollArea className="relative h-[calc(100vh-560px)] hidebar overflow-y-auto hidebar px-4">
             <div className="w-full hidebar  pb-8">
               <DataTable table={table} />
             </div>

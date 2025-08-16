@@ -130,7 +130,7 @@ export function KnowledgeBaseListContainer({
 								<span className="text-primary-400 truncate flex-1 min-w-0">{item.knowledgeBase.description || ''}</span>
 							</div>
 							
-							{/* Units Preview */}
+							{/* Units Preview
 							<div className="ml-6 space-y-1">
 								{item.units.slice(0, 2).map((unit: any, index: number) => (
 									<div key={index} className="text-sm">
@@ -144,7 +144,7 @@ export function KnowledgeBaseListContainer({
 										+{item.units.length - 2} more units
 									</div>
 								)}
-							</div>
+							</div> */}
 						</div>
 					)}
 					onSelect={(item) => {
@@ -161,9 +161,7 @@ export function KnowledgeBaseListContainer({
 	);
 }
 
-// Helper function to normalize knowledge base data
 function normalizeKnowledgeBase(kb: any): KnowledgeBase {
-	// Handle new response structure with install, knowledge_base, and seller
 	if (kb.install && kb.knowledge_base) {
 		return {
 			knowledgeBaseId: kb.knowledge_base.knowledgeBaseId,
