@@ -26,6 +26,7 @@ export default function Attach({ setFiles }: { setFiles: React.Dispatch<React.Se
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
+              className="cursor-pointer"
                 variant={"ghost"}
                 size={"icon"}
                 onClick={openFileDialog}

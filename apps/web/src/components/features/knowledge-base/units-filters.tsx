@@ -119,7 +119,7 @@ function UnitsFilterBySource({
   const [search, setSearch] = useState("");
 
   const filteredSources = useMemo(() => {
-    return sources.filter((s) =>
+    return sources?.filter((s) => s.status === "completed").filter((s) =>
       s.label.toLowerCase().includes(search.toLowerCase())
     );
   }, [sources, search]);

@@ -5,11 +5,7 @@ import { useState, useRef, useEffect } from "react";
 import { ICONS } from "@/components/icons";
 import { McpTagList } from "@/components/tag";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import Attach from "@/components/attach";
 import { useAddKnowledgeSourceMutation } from "@/lib/mutations";
 import { toast } from "sonner";
@@ -19,7 +15,9 @@ interface UploadContentDialogProps {
   knowledgeBaseId: string;
 }
 
-export function UploadContentDialog({ knowledgeBaseId }: UploadContentDialogProps) {
+export function UploadContentDialog({
+  knowledgeBaseId,
+}: UploadContentDialogProps) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -31,7 +29,10 @@ export function UploadContentDialog({ knowledgeBaseId }: UploadContentDialogProp
         </Button>
       </DialogTrigger>
       <DialogContent className="w-full max-w-[448px] rounded-[12px] border-primary-100">
-		<UploadContentInput knowledgeBaseId={knowledgeBaseId} onSuccess={() => setOpen(false)} />
+        <UploadContentInput
+          knowledgeBaseId={knowledgeBaseId}
+          onSuccess={() => setOpen(false)}
+        />
       </DialogContent>
     </Dialog>
   );
@@ -61,8 +62,7 @@ export function RetrieveMcp() {
   );
 }
 
-
-type ContentType = 'text' | 'links' | 'social';
+type ContentType = "text" | "links" | "social";
 
 interface ParsedContent {
   type: ContentType;
@@ -75,49 +75,52 @@ interface ParsedContent {
 }
 
 const SOCIAL_PLATFORMS = {
-  'twitter.com': 'Twitter',
-  'x.com': 'X (Twitter)',
-  'youtube.com': 'YouTube', 
-  'youtu.be': 'YouTube',
-  'linkedin.com': 'LinkedIn',
-  'facebook.com': 'Facebook',
-  'instagram.com': 'Instagram',
-  'tiktok.com': 'TikTok',
-  'github.com': 'GitHub',
-  'reddit.com': 'Reddit'
+  "twitter.com": "Twitter",
+  "x.com": "X (Twitter)",
+  "youtube.com": "YouTube",
+  "youtu.be": "YouTube",
+  "linkedin.com": "LinkedIn",
+  "facebook.com": "Facebook",
+  "instagram.com": "Instagram",
+  "tiktok.com": "TikTok",
+  "github.com": "GitHub",
+  "reddit.com": "Reddit",
 };
 
 function parseContent(input: string): ParsedContent {
   const urlRegex = /(https?:\/\/[^\s]+)/g;
   const urls = input.match(urlRegex) || [];
-  
+
   if (urls.length === 0) {
-    return { type: 'text', content: input };
+    return { type: "text", content: input };
   }
-  
-  const socialSources = urls.map(url => {
-    try {
-      const domain = new URL(url).hostname.replace('www.', '');
-      const platform = SOCIAL_PLATFORMS[domain as keyof typeof SOCIAL_PLATFORMS];
-      return platform ? { platform, url } : null;
-    } catch {
-      return null;
-    }
-  }).filter(Boolean) as Array<{ platform: string; url: string }>;
-  
+
+  const socialSources = urls
+    .map((url) => {
+      try {
+        const domain = new URL(url).hostname.replace("www.", "");
+        const platform =
+          SOCIAL_PLATFORMS[domain as keyof typeof SOCIAL_PLATFORMS];
+        return platform ? { platform, url } : null;
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean) as Array<{ platform: string; url: string }>;
+
   if (socialSources.length > 0) {
-    return { 
-      type: 'social', 
-      content: input, 
+    return {
+      type: "social",
+      content: input,
       links: urls,
-      socialSources 
+      socialSources,
     };
   }
-  
-  return { 
-    type: 'links', 
-    content: input, 
-    links: urls 
+
+  return {
+    type: "links",
+    content: input,
+    links: urls,
   };
 }
 
@@ -126,13 +129,20 @@ interface UploadContentInputProps {
   onSuccess?: () => void;
 }
 
-export function UploadContentInput({ knowledgeBaseId, onSuccess }: UploadContentInputProps) {
-	const [files, setFiles] = useState<File[]>([]);
-  const [input, setInput] = useState('');
-  const [parsedContent, setParsedContent] = useState<ParsedContent | null>(null);
+export function UploadContentInput({
+  knowledgeBaseId,
+  onSuccess,
+}: UploadContentInputProps) {
+  const [files, setFiles] = useState<File[]>([]);
+  const [input, setInput] = useState("");
+  const [parsedContent, setParsedContent] = useState<ParsedContent | null>(
+    null
+  );
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const [searchParams, setSearchParams] = useQueryState("tab", { defaultValue: "units" });
-  
+  const [searchParams, setSearchParams] = useQueryState("tab", {
+    defaultValue: "units",
+  });
+
   const addSourceMutation = useAddKnowledgeSourceMutation();
 
   useEffect(() => {
@@ -145,17 +155,17 @@ export function UploadContentInput({ knowledgeBaseId, onSuccess }: UploadContent
 
   useEffect(() => {
     if (files.length > 0) {
-      setInput('');
+      setInput("");
       setParsedContent(null);
     }
   }, [files]);
 
   const handlePaste = (e: React.ClipboardEvent) => {
-    const pastedText = e.clipboardData.getData('text');
+    const pastedText = e.clipboardData.getData("text");
     const parsed = parseContent(pastedText);
-    
+
     // If pasting links, allow multiple links
-    if (parsed.type === 'links' || parsed.type === 'social') {
+    if (parsed.type === "links" || parsed.type === "social") {
       e.preventDefault();
       setInput(pastedText);
     }
@@ -169,10 +179,10 @@ export function UploadContentInput({ knowledgeBaseId, onSuccess }: UploadContent
 
   const getInputValue = () => {
     if (files.length > 0) {
-      const fileNames = files.map(file => {
-        return file?.name || 'Unknown file';
+      const fileNames = files.map((file) => {
+        return file?.name || "Unknown file";
       });
-      return fileNames.join(', ');
+      return fileNames.join(", ");
     }
     return input;
   };
@@ -198,7 +208,7 @@ export function UploadContentInput({ knowledgeBaseId, onSuccess }: UploadContent
         toast.success("Files uploaded successfully");
         setSearchParams("Source");
       } else if (input.trim() && parsedContent) {
-        if (parsedContent.type === 'links' || parsedContent.type === 'social') {
+        if (parsedContent.type === "links" || parsedContent.type === "social") {
           const urls = parsedContent.links || [];
           for (const url of urls) {
             const sourceType = isYouTubeUrl(url) ? "youtube_url" : "url";
@@ -208,7 +218,7 @@ export function UploadContentInput({ knowledgeBaseId, onSuccess }: UploadContent
               source: url,
             });
           }
-        } else if (parsedContent.type === 'text') {
+        } else if (parsedContent.type === "text") {
           // Upload as text content
           await addSourceMutation.mutateAsync({
             knowledgeBaseId,
@@ -216,7 +226,7 @@ export function UploadContentInput({ knowledgeBaseId, onSuccess }: UploadContent
             source: input.trim(),
           });
         }
-        setInput('');
+        setInput("");
         setParsedContent(null);
         onSuccess?.();
         setSearchParams("Source");
@@ -230,8 +240,8 @@ export function UploadContentInput({ knowledgeBaseId, onSuccess }: UploadContent
 
   const isYouTubeUrl = (url: string): boolean => {
     try {
-      const domain = new URL(url).hostname.replace('www.', '');
-      return domain === 'youtube.com' || domain === 'youtu.be';
+      const domain = new URL(url).hostname.replace("www.", "");
+      return domain === "youtube.com" || domain === "youtu.be";
     } catch {
       return false;
     }
@@ -244,16 +254,21 @@ export function UploadContentInput({ knowledgeBaseId, onSuccess }: UploadContent
     if (!parsedContent) return null;
 
     switch (parsedContent.type) {
-      case 'links':
+      case "links":
         return (
           <div className="flex flex-wrap gap-2 mt-2">
             {parsedContent.links?.map((link, index) => (
-              <div key={index} className="flex items-center gap-1 bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">
+              <div
+                key={index}
+                className="flex items-center gap-1 bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs"
+              >
                 <span>🔗 {new URL(link).hostname}</span>
                 <button
                   onClick={() => {
-                    const newLinks = parsedContent.links?.filter((_, i) => i !== index);
-                    const newInput = newLinks?.join('\n') || '';
+                    const newLinks = parsedContent.links?.filter(
+                      (_, i) => i !== index
+                    );
+                    const newInput = newLinks?.join("\n") || "";
                     setInput(newInput);
                   }}
                   className="text-blue-600 hover:text-blue-800"
@@ -264,17 +279,22 @@ export function UploadContentInput({ knowledgeBaseId, onSuccess }: UploadContent
             ))}
           </div>
         );
-      
-      case 'social':
+
+      case "social":
         return (
           <div className="flex flex-wrap gap-2 mt-2">
             {parsedContent.socialSources?.map((source, index) => (
-              <div key={index} className="flex items-center gap-1 bg-green-100 text-green-800 px-2 py-1 rounded text-xs">
+              <div
+                key={index}
+                className="flex items-center gap-1 bg-green-100 text-green-800 px-2 py-1 rounded text-xs"
+              >
                 <span>📱 {source.platform}</span>
                 <button
                   onClick={() => {
-                    const newLinks = parsedContent.links?.filter(link => link !== source.url);
-                    const newInput = newLinks?.join('\n') || '';
+                    const newLinks = parsedContent.links?.filter(
+                      (link) => link !== source.url
+                    );
+                    const newInput = newLinks?.join("\n") || "";
                     setInput(newInput);
                   }}
                   className="text-green-600 hover:text-green-800"
@@ -285,14 +305,14 @@ export function UploadContentInput({ knowledgeBaseId, onSuccess }: UploadContent
             ))}
           </div>
         );
-      
-      case 'text':
+
+      case "text":
         return (
           <div className="mt-2 text-xs text-primary-600">
             📝 Text content ({input.length} characters)
           </div>
         );
-      
+
       default:
         return null;
     }
@@ -305,8 +325,8 @@ export function UploadContentInput({ knowledgeBaseId, onSuccess }: UploadContent
           Upload all your content
         </h2>
         <p className="text-primary-300 text-sm">
-          Add your content and let AI transform it into a resource that
-          boosts your future efficiency.
+          Add your content and let AI transform it into a resource that boosts
+          your future efficiency.
         </p>
       </div>
       <div className="mx-auto flex w-full max-w-[720px] flex-col gap-3 rounded-[18px] bg-primary-25 p-4 shadow-[inset_0_1px_2px_0_rgba(0,0,0,0.05)] drop-shadow-[0_1px_1px_rgba(0,0,0,0.08)]">
@@ -318,13 +338,19 @@ export function UploadContentInput({ knowledgeBaseId, onSuccess }: UploadContent
             onPaste={files.length > 0 ? undefined : handlePaste}
             disabled={files.length > 0}
             className={`h-[84px] w-full resize-none rounded-[12px] border border-none bg-primary-50 p-4 text-primary-700 placeholder:text-primary-300 focus:outline-none focus:ring-0 ${
-              files.length > 0 ? 'cursor-not-allowed opacity-75' : ''
+              files.length > 0 ? "cursor-not-allowed opacity-75" : ""
             }`}
             placeholder={getPlaceholderText()}
             readOnly={files.length > 0}
           />
           {renderContent()}
-          <div className="-translate-y-1/2 absolute top-1/2 right-4 flex gap-2">
+        </div>
+        <div className="flex gap-2 md:flex-row flex-col-reverse justify-between">
+          <div className="flex p-0">
+            <Attach setFiles={setFiles} />
+            <RetrieveMcp />
+          </div>
+          <div className="flex gap-2">
             {files.length > 0 && (
               <Button
                 variant="outline"
@@ -335,34 +361,19 @@ export function UploadContentInput({ knowledgeBaseId, onSuccess }: UploadContent
                 <X className="h-4 w-4" />
               </Button>
             )}
-            <Button 
+            <Button
               className="inset-shadow-search-btn"
-              disabled={(!input.trim() && files.length === 0) || addSourceMutation.isPending}
+              disabled={
+                (!input.trim() && files.length === 0) ||
+                addSourceMutation.isPending
+              }
               onClick={handleUpload}
             >
-              <span>{addSourceMutation.isPending ? "Uploading..." : "Upload"}</span>
+              <span>
+                {addSourceMutation.isPending ? "Uploading..." : "Upload"}
+              </span>
               <UploadCloud />
             </Button>
-          </div>
-        </div>
-        <div className="flex gap-2 md:flex-row flex-col-reverse justify-between">
-          <McpTagList
-            className="border border-primary-100 bg-transparent text-primary-300"
-            tags={[
-              {
-                tag: "Paste links",
-              },
-              {
-                tag: "Upload files",
-              },
-              {
-                tag: "Paste text",
-              },
-            ]}
-          />
-          <div className="flex p-0">
-            <Attach setFiles={setFiles} />
-            <RetrieveMcp />
           </div>
         </div>
       </div>

@@ -455,7 +455,7 @@ export const createColumns = (currentUser?: any, knowledgeBaseUserId?: string): 
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>{source.processingErrorMessage}</p>
+                <p>{"Failed to process source"}</p>
               </TooltipContent>
             </Tooltip>
           )}

@@ -6,7 +6,6 @@ export const Route = createFileRoute("/_hub/knowledge/new")({
 	component: RouteComponent,
 	beforeLoad: async ({ context: { queryClient } }) => {
 		const auth = await getAuthState(queryClient);
-
 		if (!auth.isAuthenticated) {
 			throw redirect({
 				to: '/login',
