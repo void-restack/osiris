@@ -1,6 +1,9 @@
-import { useState } from "react";
+// Updated WalletDialog with proper wagmi integration
+import { useMemo, useState, useCallback, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, Copy, CopyIcon, MoveDownLeft, MoveDownRight, CheckCircle, QrCode, RefreshCw, Wallet } from "lucide-react";
+import { useAccount, useDisconnect } from "wagmi";
+import { ConnectKitButton } from "connectkit";
+import { Loader2, Copy, CopyIcon, MoveDownLeft, MoveDownRight, CheckCircle, QrCode, RefreshCw, Wallet, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,8 +19,10 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { hubQueries } from "@/lib/queries";
 import { useHelioDepositMutation } from "@/lib/mutations";
-import { ConnectKitButton, useModal } from "connectkit";
 import { Icon } from "./ui/icon";
+import { ChainBadge } from "@/utils/chain-icons";
+import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
+import { ScrollArea } from "./ui/scroll-area";
 
 interface WalletDialogProps {
   address: any;
@@ -28,6 +33,17 @@ interface WalletDialogProps {
   formData: any;
 }
 
+const getChainKeyFromValue = (chainValue: string): string | null => {
+  const chainMap: Record<string, string> = {
+    "evm:eip155:1": "ethereum",
+    "evm:eip155:137": "polygon",
+    "evm:eip155:8453": "base",
+    "evm:eip155:42161": "arbitrum",
+    "solana:mainnet-beta": "solana",
+  };
+  return chainMap[chainValue] || null;
+};
+
 export function WalletDialog({
   address,
   index,
@@ -36,31 +52,21 @@ export function WalletDialog({
   userServiceConnectionId,
   formData
 }: WalletDialogProps) {
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedWalletAddress, setSelectedWalletAddress] = useState(address.address);
   const [currentStep, setCurrentStep] = useState<'wallet' | 'amount' | 'review' | 'processing' | 'success'>('wallet');
   const [depositMethod, setDepositMethod] = useState<'transfer_crypto' | 'use_card' | 'connect_exchange'>('transfer_crypto');
   const [selectedChain, setSelectedChain] = useState('polygon');
   const [selectedToken, setSelectedToken] = useState('matic');
+  const [customTokenAddress, setCustomTokenAddress] = useState('');
   const [fundAmount, setFundAmount] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isWalletConnected, setIsWalletConnected] = useState(false);
-  const [connectedWalletAddress, setConnectedWalletAddress] = useState('');
-  const [isConnecting, setIsConnecting] = useState(false);
+
+  // Wagmi hooks
+  const { address: connectedAddress, isConnected } = useAccount();
+  const { disconnect } = useDisconnect();
 
   const helioDepositMutation = useHelioDepositMutation();
-
-  // Use ConnectKit's modal hook to control the modal behavior
-  const { open, setOpen } = useModal({
-    onConnect: (wallet: any) => {
-      setIsConnecting(false);
-      setIsWalletConnected(true);
-      setConnectedWalletAddress(wallet.address || '');
-    },
-    onDisconnect: () => {
-      setIsWalletConnected(false);
-      setConnectedWalletAddress('');
-    }
-  });
 
   const { data: assetBalances, isLoading: isLoadingBalances } = useQuery(
     userServiceConnectionId
@@ -69,16 +75,107 @@ export function WalletDialog({
   );
 
   const allWalletAddresses = assetBalances?.walletAddresses || [address.address];
-
   const walletBalance = assetBalances?.balances?.find(
     (balance: any) => balance.wallet.toLowerCase() === selectedWalletAddress.toLowerCase()
   );
-
   const totalBalance = walletBalance?.total || 0;
 
   const selectedAddress = formData?.addresses?.find(
     (addr: any) => addr.address.toLowerCase() === selectedWalletAddress.toLowerCase()
   ) || address;
+
+  const supportedChainKeys = useMemo(() => {
+    const configChains = selectedAddress.chains
+      ?.map(getChainKeyFromValue)
+      .filter(Boolean) || [];
+
+    const balanceChains = walletBalance?.chains?.map((chainData: any) => chainData.chain.name) || [];
+
+    return [...new Set([...configChains, ...balanceChains])];
+  }, [selectedAddress.chains, walletBalance]);
+
+  const getTopTokensForChain = useCallback((selectedChain: string) => {
+    const topTokens: Record<string, any[]> = {
+      ethereum: [
+        { value: 'eth', label: 'Ethereum (ETH)', symbol: 'ETH' },
+        { value: 'usdc', label: 'USD Coin (USDC)', symbol: 'USDC' },
+        { value: 'usdt', label: 'Tether (USDT)', symbol: 'USDT' }
+      ],
+      polygon: [
+        { value: 'matic', label: 'Polygon (MATIC)', symbol: 'MATIC' },
+        { value: 'usdc', label: 'USD Coin (USDC)', symbol: 'USDC' },
+        { value: 'usdt', label: 'Tether (USDT)', symbol: 'USDT' }
+      ],
+      arbitrum: [
+        { value: 'eth', label: 'Ethereum (ETH)', symbol: 'ETH' },
+        { value: 'usdc', label: 'USD Coin (USDC)', symbol: 'USDC' },
+        { value: 'usdt', label: 'Tether (USDT)', symbol: 'USDT' }
+      ],
+      base: [
+        { value: 'eth', label: 'Ethereum (ETH)', symbol: 'ETH' },
+        { value: 'usdc', label: 'USD Coin (USDC)', symbol: 'USDC' }
+      ]
+    };
+
+    return topTokens[selectedChain] || [];
+  }, []);
+
+  // Custom Connect Button Component using ConnectKitButton render props
+  const CustomConnectButton = () => (
+    <ConnectKitButton.Custom>
+      {({ isConnected, isConnecting, show, hide, address, ensName, chain }) => {
+        return (
+          <div className="text-center flex flex-col items-center space-y-3 my-8">
+            <div className="w-full flex flex-col items-center gap-3">
+              <Icon className="size-12" name="wallet" />
+              {isConnected ? (
+                <>
+                  <div className="bg-green-50 p-4 rounded-lg space-y-2 w-full">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-green-700">Connected Wallet:</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => disconnect()}
+                      >
+                        Disconnect
+                      </Button>
+                    </div>
+                    <p className="text-sm text-green-800 font-mono">
+                      {ensName ?? `${address?.slice(0, 8)}...${address?.slice(-6)}`}
+                    </p>
+                    {chain && (
+                      <p className="text-xs text-green-600">
+                        Connected to {chain.name}
+                      </p>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm">Connect a wallet to add funds from your exchange</p>
+                  <Button
+                    onClick={show}
+                    disabled={isConnecting}
+                    className="bg-blue-500 hover:bg-blue-600 text-white"
+                  >
+                    {isConnecting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Connecting...
+                      </>
+                    ) : (
+                      'Connect Wallet'
+                    )}
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+        );
+      }}
+    </ConnectKitButton.Custom>
+  );
 
   const handleAddFunds = () => {
     setCurrentStep('amount');
@@ -88,8 +185,18 @@ export function WalletDialog({
     setCurrentStep('wallet');
     setFundAmount('');
     setDepositMethod('transfer_crypto');
-    setSelectedChain('polygon');
+    setSelectedChain(supportedChainKeys[0] || 'polygon');
     setSelectedToken('matic');
+    setCustomTokenAddress('');
+  };
+
+  const handleCloseDialog = () => {
+    setIsDialogOpen(false);
+    // Reset to initial state when closing
+    setCurrentStep('wallet');
+    setDepositMethod('transfer_crypto');
+    setFundAmount('');
+    setCustomTokenAddress('');
   };
 
   const handleNextStep = () => {
@@ -99,7 +206,6 @@ export function WalletDialog({
 
   const handleConfirmFunds = async () => {
     if (depositMethod === 'use_card') {
-      // Use Helio mutation for card payments
       try {
         await helioDepositMutation.mutateAsync({
           amount: fundAmount,
@@ -110,14 +216,11 @@ export function WalletDialog({
         setCurrentStep('success');
       } catch (error) {
         console.error('Payment failed:', error);
-        // Stay on review step to show error
         return;
       }
     } else {
-      // For other methods, show processing step
       setCurrentStep('processing');
       setIsProcessing(true);
-
       setTimeout(() => {
         setIsProcessing(false);
         setCurrentStep('success');
@@ -125,74 +228,118 @@ export function WalletDialog({
     }
   };
 
+  // Reset chain selection when supportedChainKeys change
+  useEffect(() => {
+    if (!supportedChainKeys.includes(selectedChain) && supportedChainKeys.length > 0) {
+      setSelectedChain(supportedChainKeys[0]);
+    }
+  }, [supportedChainKeys, selectedChain]);
+
   return (
-    <Dialog>
+    <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
       <DialogTrigger asChild>
-        <div className="border w-full rounded-lg p-3 bg-primary-25">
+        <div className="w-full rounded-lg p-3 bg-primary-25 cursor-pointer">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
+              <p className="text-sm text-primary-400">Wallet details</p>
               <div className="flex gap-1 flex-wrap">
-                {address.chains.map((chain: string) => (
-                  <span
-                    key={`${index}-${chain}`}
-                    className="text-xs bg-primary-100 text-primary-700 px-2 py-0.5 rounded"
-                  >
-                    {getChainDisplayName(chain)}
-                  </span>
-                ))}
+                {address.chains.length > 0 && (
+                  <>
+                    {address.chains.slice(0, 2).map((chain: string, i: number) => (
+                      <span
+                        key={`${i}-${chain}`}
+                        className={i !== 0 ? "-ml-4" : ""}
+                        style={{ display: "inline-block" }}
+                      >
+                        <ChainBadge chainValue={chain} />
+                      </span>
+                    ))}
+                    {address.chains.length > 2 && (
+                      <span className="-ml-3 text-xs border border-primary-200 text-primary-800 bg-primary-100 px-2 flex items-center justify-center py-1 rounded-md font-mono">
+                        +{address.chains.length - 2}
+                      </span>
+                    )}
+                  </>
+                )}
               </div>
             </div>
 
-            <div className="font-mono text-sm text-primary-800 bg-white px-2 py-1 rounded border flex items-center justify-between">
-              {address.address.slice(0, 10)}...{address.address.slice(-10)}
+            <div className="font-mono text-sm text-primary-400 rounded flex items-center gap-3">
+              <span className="text-lg text-primary-500">
+                {isLoadingBalances ? (
+                  <span className="inline-flex text-base items-center gap-1">
+                    <Loader2 className="size-3 animate-spin" />
+                    Loading...
+                  </span>
+                ) : (
+                  <>${totalBalance.toFixed(2)}</>
+                )}
+              </span>
+              <div className="size-1 rounded-full bg-primary-400" />
+              <span>
+                {address.address.slice(0, 6)}...{address.address.slice(-4)}
+              </span>
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => handleCopyAddress(address.address)}
-                className="ml-2 h-5 px-1"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleCopyAddress(address.address);
+                }}
               >
-                <Copy className="size-3" />
+                <Copy className="size-2 text-primary-400" />
               </Button>
             </div>
-
-            {address.derivationPath && (
-              <div className="text-xs text-primary-500">
-                Path: {address.derivationPath} | Curve: {address.curve.replace('CURVE_', '')}
-              </div>
-            )}
           </div>
         </div>
       </DialogTrigger>
-      <DialogContent showCloseButton={false} className="">
+
+      <DialogContent
+        showCloseButton={false}
+        className="sm:max-w-[400px] w-full p-6"
+        onInteractOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="size-10 rounded-full bg-primary-200" />
               <div className="flex flex-col gap-1">
-                {allWalletAddresses.length > 1 && (
-                  <div className="flex flex-col gap-1">
-                    <Select value={selectedWalletAddress} onValueChange={setSelectedWalletAddress}>
-                      <SelectTrigger className="w-[200px] h-fit">
-                        <SelectValue placeholder="Select wallet address" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectGroup>
-                          <SelectLabel>Wallet Addresses</SelectLabel>
-                          {allWalletAddresses.map((walletAddr: string) => (
-                            <SelectItem key={walletAddr} value={walletAddr}>
-                              {walletAddr.slice(0, 8)}...{walletAddr.slice(-6)}
-                            </SelectItem>
-                          ))}
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select>
+                {allWalletAddresses.length > 1 ? (
+                  <Select value={selectedWalletAddress} onValueChange={setSelectedWalletAddress}>
+                    <SelectTrigger className="w-fit h-fit">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectLabel>Wallet Addresses</SelectLabel>
+                        {allWalletAddresses.map((walletAddr: string) => (
+                          <SelectItem key={walletAddr} value={walletAddr}>
+                            {walletAddr.slice(0, 8)}...{walletAddr.slice(-6)}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <div>
+                    {allWalletAddresses.length === 1
+                      ? allWalletAddresses[0].slice(0, 8) + '...' + allWalletAddresses[0].slice(-6)
+                      : ''
+                    }
                   </div>
                 )}
               </div>
             </div>
-            <Button variant="ghost" size="sm" onClick={() => handleCopyAddress(selectedWalletAddress)}>
-              <CopyIcon className="size-4 text-primary-400" />
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" onClick={() => handleCopyAddress(selectedWalletAddress)}>
+                <CopyIcon className="size-4 text-primary-400" />
+              </Button>
+              <Button variant="ghost" size="sm" onClick={handleCloseDialog}>
+                <X className="size-4" />
+              </Button>
+            </div>
           </DialogTitle>
         </DialogHeader>
 
@@ -216,30 +363,68 @@ export function WalletDialog({
               <div className="flex w-full justify-center items-center gap-4">
                 <Button
                   className="max-w-[168px] w-full px-2 py-0.5"
-                  variant="outline2"
+                  variant="outline"
                   icon={MoveDownLeft}
                   iconPlacement="left"
                   onClick={handleAddFunds}
                 >
                   Add Funds
                 </Button>
-                <Button className="max-w-[168px] w-full px-2 py-0.5" variant="outline2" icon={MoveDownRight} iconPlacement="right">Withdraw Funds</Button>
+                <Button
+                  className="max-w-[168px] w-full px-2 py-0.5"
+                  variant="outline"
+                  icon={MoveDownRight}
+                  iconPlacement="right"
+                >
+                  Withdraw Funds
+                </Button>
               </div>
 
-              {/* Show selected wallet address details */}
-              <div className="mt-4 text-center">
-                <div className="text-sm text-primary-600 font-mono bg-primary-50 px-3 py-2 rounded border">
-                  {selectedWalletAddress}
-                </div>
-                {selectedAddress.chains && selectedAddress.chains.length > 0 && (
-                  <div className="flex gap-1 flex-wrap justify-center mt-2">
-                    {selectedAddress.chains.map((chain: string) => (
-                      <span
-                        key={chain}
-                        className="text-xs bg-primary-100 text-primary-700 px-2 py-0.5 rounded"
-                      >
-                        {getChainDisplayName(chain)}
-                      </span>
+              {/* Assets Display */}
+              <div className="mt-4 text-center w-full">
+                {walletBalance && walletBalance.chains && walletBalance.chains.length > 0 && (
+                  <div className="w-full space-y-4">
+                    {walletBalance.chains.map((chainData: any, chainIndex: number) => (
+                      <div key={`chain-${chainIndex}`} className="rounded-lg border border-primary-50">
+                        <div className="flex items-center justify-between border-b border-primary-50 py-3 px-4">
+                          <div className="text-sm text-primary-400">Assets</div>
+                          <div className="text-sm text-primary-400">Balance</div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <ScrollArea className="h-[160px]">
+                            {chainData.assets.map((asset: any, assetIndex: number) => (
+                              <div key={`asset-${chainIndex}-${assetIndex}`} className="flex items-center justify-between py-2 px-4 bg-white rounded">
+                                <div className="flex items-center gap-3">
+                                  <Avatar className="size-8 rounded-full">
+                                    <AvatarImage src={asset.asset.icon} alt={asset.asset.symbol} />
+                                    <AvatarFallback>
+                                      <img src="/icons/default-token.svg" alt="token" className="w-6 h-6 rounded-full" />
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div className="flex flex-col items-start">
+                                    <div className="text-sm text-primary-800">
+                                      {asset.asset.name}
+                                    </div>
+                                    <div className="text-xs text-primary-400">
+                                      {asset.asset.symbol}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="text-right">
+                                  <div className="text-sm text-primary-800">
+                                    {asset.balance.toFixed(6)} {asset.asset.symbol}
+                                  </div>
+                                  <div className="text-xs text-primary-400">
+                                    ${asset.total.toFixed(2)}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </ScrollArea>
+                        </div>
+                      </div>
                     ))}
                   </div>
                 )}
@@ -247,7 +432,7 @@ export function WalletDialog({
             </>
           )}
 
-          {/* Step Content */}
+          {/* Amount Step */}
           {currentStep === 'amount' && (
             <div className="space-y-4 w-full">
               <div className="space-y-3 w-full">
@@ -267,66 +452,23 @@ export function WalletDialog({
 
                 {/* Transfer Crypto Options */}
                 {depositMethod === 'transfer_crypto' && (
-                  <>
-                    <div className="">
-                      <Label htmlFor="chain" className="text-[13px] text-primary-400">Select Chain</Label>
-                      <Select value={selectedChain} onValueChange={setSelectedChain}>
-                        <SelectTrigger className="mt-1 w-full">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="polygon">Polygon</SelectItem>
-                          <SelectItem value="ethereum">Ethereum</SelectItem>
-                          <SelectItem value="arbitrum">Arbitrum</SelectItem>
-                          <SelectItem value="base">Base</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <Label htmlFor="token" className="text-[13px] text-primary-400">Select Token</Label>
-                      <Select value={selectedToken} onValueChange={setSelectedToken}>
-                        <SelectTrigger className="mt-1 w-full">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {selectedChain === 'polygon' && (
-                            <>
-                              <SelectItem value="matic">Polygon Matic ($MATIC)</SelectItem>
-                              <SelectItem value="usdc">USDC</SelectItem>
-                            </>
-                          )}
-                          {selectedChain === 'ethereum' && (
-                            <>
-                              <SelectItem value="eth">Ethereum ($ETH)</SelectItem>
-                              <SelectItem value="usdc">USDC</SelectItem>
-                            </>
-                          )}
-                          {selectedChain === 'arbitrum' && (
-                            <>
-                              <SelectItem value="arb">Arbitrum ($ARB)</SelectItem>
-                              <SelectItem value="usdc">USDC</SelectItem>
-                            </>
-                          )}
-                          {selectedChain === 'base' && (
-                            <>
-                              <SelectItem value="eth">Ethereum ($ETH)</SelectItem>
-                              <SelectItem value="usdc">USDC</SelectItem>
-                            </>
-                          )}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {/* QR Code Section */}
-                    <div className="text-center space-y-3">
-                      <div className="p-4 rounded-lg">
-                        <QrCode className="size-24 mx-auto text-primary-600 mb-2" />
-                        <p className="text-sm text-primary-600">Scan QR code to transfer assets to this wallet</p>
-                        <p className="text-xs text-primary-500 font-mono mt-1">{selectedWalletAddress}</p>
+                  <div className="text-center space-y-4">
+                    <div className="p-6 rounded-lg bg-primary-50 border-2 border-dashed border-primary-200">
+                      <QrCode className="size-24 mx-auto text-primary-600 mb-3" />
+                      <h4 className="text-sm font-medium text-primary-800 mb-2">Transfer any crypto to this address</h4>
+                      <p className="text-xs text-primary-600 mb-3">
+                        Send any token supported by your wallet's chains to this address
+                      </p>
+                      <div className="bg-white rounded border p-3">
+                        <p className="text-xs text-primary-500 font-mono break-all">{selectedWalletAddress}</p>
+                      </div>
+                      <div className="flex gap-1 justify-center mt-3">
+                        {selectedAddress.chains.map((chain: string) => (
+                          <ChainBadge key={chain} chainValue={chain} size="sm" />
+                        ))}
                       </div>
                     </div>
-                  </>
+                  </div>
                 )}
 
                 {/* Use Card Options */}
@@ -337,49 +479,25 @@ export function WalletDialog({
                       <img src="/logo.png" alt="osiris" className="-translate-x-4 size-16" />
                     </div>
                     <p className="text-xl">Osiris uses a 3rd party</p>
-                    {/* <Button
-                      onClick={() => setCurrentStep('review')}
-                      className="mt-3 w-full"
-                      variant="outline2"
-                    >
-                      Continue to third party
-                    </Button> */}
                   </div>
                 )}
 
                 {/* Connect Exchange Options */}
                 {depositMethod === 'connect_exchange' && (
                   <div className="space-y-3">
-                    {!isWalletConnected ? (
-                      <div className="text-center flex flex-col items-center space-y-3 my-8">
-                        <div className="w-full flex flex-col items-center gap-3">
-                          <Icon className="size-12" name="wallet" />
-                          <p className="text-sm">
-                            Connect a wallet to add funds from your exchange
-                          </p>
-                          <ConnectKitButton
-                            onClick={() => setOpen(true)}
-                            mode="light"
-                          />
-                        </div>
-                      </div>
+                    {!isConnected ? (
+                      <CustomConnectButton />
                     ) : (
                       <>
-                        <div className="bg-green-50 p-4 rounded-lg space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm text-green-700">Connected Wallet:</span>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setIsWalletConnected(false);
-                                setConnectedWalletAddress('');
-                              }}
-                            >
-                              Disconnect
-                            </Button>
-                          </div>
-                          <p className="text-sm text-green-800 font-mono">{connectedWalletAddress}</p>
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-mono max-w-[200px] truncate">{connectedAddress}</p>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => disconnect()}
+                          >
+                            Disconnect
+                          </Button>
                         </div>
 
                         <div>
@@ -389,10 +507,11 @@ export function WalletDialog({
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="polygon">Polygon</SelectItem>
-                              <SelectItem value="ethereum">Ethereum</SelectItem>
-                              <SelectItem value="arbitrum">Arbitrum</SelectItem>
-                              <SelectItem value="base">Base</SelectItem>
+                              {supportedChainKeys.map((chainKey: string) => (
+                                <SelectItem key={chainKey} value={chainKey}>
+                                  {chainKey.charAt(0).toUpperCase() + chainKey.slice(1)}
+                                </SelectItem>
+                              ))}
                             </SelectContent>
                           </Select>
                         </div>
@@ -404,29 +523,11 @@ export function WalletDialog({
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              {selectedChain === 'polygon' && (
-                                <>
-                                  <SelectItem value="matic">Polygon Matic ($MATIC)</SelectItem>
-                                  <SelectItem value="usdc">USDC</SelectItem>
-                                </>
-                              )}
-                              {selectedChain === 'ethereum' && (
-                                <>
-                                  <SelectItem value="eth">Ethereum ($ETH)</SelectItem>
-                                  <SelectItem value="usdc">USDC</SelectItem>
-                                </>
-                              )}
-                              {selectedChain === 'arbitrum' && (
-                                <>
-                                  <SelectItem value="usdc">USDC</SelectItem>
-                                </>
-                              )}
-                              {selectedChain === 'base' && (
-                                <>
-                                  <SelectItem value="eth">Ethereum ($ETH)</SelectItem>
-                                  <SelectItem value="usdc">USDC</SelectItem>
-                                </>
-                              )}
+                              {getTopTokensForChain(selectedChain).map((token: any) => (
+                                <SelectItem key={token.value} value={token.value}>
+                                  {token.label}
+                                </SelectItem>
+                              ))}
                             </SelectContent>
                           </Select>
                         </div>
@@ -455,17 +556,11 @@ export function WalletDialog({
                   Back
                 </Button>
                 {depositMethod === 'transfer_crypto' ? (
-                  <Button
-                    onClick={handleNextStep}
-                    className="flex-1"
-                  >
+                  <Button onClick={handleNextStep} className="flex-1">
                     Continue
                   </Button>
                 ) : depositMethod === 'use_card' ? (
-                  <Button
-                    onClick={() => setCurrentStep('review')}
-                    className="flex-1"
-                  >
+                  <Button onClick={() => setCurrentStep('review')} className="flex-1">
                     Continue to Payment
                   </Button>
                 ) : (
@@ -481,6 +576,7 @@ export function WalletDialog({
             </div>
           )}
 
+          {/* Review, Processing, Success steps remain the same... */}
           {currentStep === 'review' && (
             <div className="mt-6 space-y-4 w-full">
               <div className="text-center">
@@ -508,7 +604,9 @@ export function WalletDialog({
                     </div>
                     <div className="flex justify-between">
                       <span className="text-sm text-primary-600">Token:</span>
-                      <span className="text-sm font-medium text-primary-800 capitalize">{selectedToken}</span>
+                      <span className="text-sm font-medium text-primary-800 capitalize">
+                        {selectedToken === 'custom' ? customTokenAddress : selectedToken}
+                      </span>
                     </div>
                   </>
                 )}
@@ -516,7 +614,7 @@ export function WalletDialog({
                   <div className="flex justify-between">
                     <span className="text-sm text-primary-600">Connected Wallet:</span>
                     <span className="text-sm font-medium text-primary-800 font-mono">
-                      {connectedWalletAddress.slice(0, 8)}...{connectedWalletAddress.slice(-6)}
+                      {connectedAddress?.slice(0, 8)}...{connectedAddress?.slice(-6)}
                     </span>
                   </div>
                 )}
@@ -572,11 +670,8 @@ export function WalletDialog({
               </Button>
             </div>
           )}
-
-          <div>
-          </div>
         </div>
       </DialogContent>
-    </Dialog >
+    </Dialog>
   );
 }

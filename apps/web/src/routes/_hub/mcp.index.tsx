@@ -123,7 +123,7 @@ function normalizePackage(pkg: any): Package {
   }
 
   const normalized = {
-    packageId: pkg.packageId,
+    packageId: pkg.id,
     name: pkg.name,
     description: pkg.description,
     shortDescription: pkg.shortDescription,

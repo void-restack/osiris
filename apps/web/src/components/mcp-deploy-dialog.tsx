@@ -313,18 +313,19 @@ export function McpDeployDialog({
     }
 
     try {
-      const allScopes = Object.values(selectedPermissions).flatMap(permissions =>
-        permissions.map(permission => permission.id)
-      );
-
+      const serviceConnections = requiredServices
+        .filter(service => selectedConnections[service])
+        .map(service => ({
+          connectionId: selectedConnections[service],
+          scopes: selectedPermissions[service]?.map(permission => permission.id) || []
+        }));
 
       const deploymentData = await deployMutation.mutateAsync({
         packageId: pkg.packageId,
         version: pkg.latestVersion,
         url: `${pkg?.url?.replace(/\/$/, '')}/mcp`,
-        scopes: allScopes,
         authData: {},
-        connectionIds: Object.values(selectedConnections),
+        serviceConnections: serviceConnections,
       });
 
       const deploymentId = deploymentData.deployment.deploymentId
@@ -332,11 +333,14 @@ export function McpDeployDialog({
       const mcpRedirectUri = new URL(pkg?.url as string)
       mcpRedirectUri.pathname = mcpRedirectUri.pathname.replace(/\/$/, '') + '/osiris/callback'
 
+      // Flatten scopes for authorization
+      const allScopes = serviceConnections.flatMap(sc => sc.scopes);
+
       authorizeMutation.mutate({
         clientId: pkg?.clientId ?? "",
         redirectUri: mcpRedirectUri.toString(),
         responseType: 'code',
-        scopes: allScopes,
+        scopes: [...allScopes, "osiris:auth:read", "osiris:auth:action"],
         state: deploymentId || '',
         deploymentId: deploymentId,
       })

@@ -12,8 +12,6 @@ const config = createConfig(
             [polygon.id]: http(),
             [arbitrum.id]: http(),
             [base.id]: http(),
-            [optimism.id]: http(),
-            [sepolia.id]: http(),
         },
         walletConnectProjectId: "766497721a9517233aeace3c8e268dd6",
         appName: "Osiris",

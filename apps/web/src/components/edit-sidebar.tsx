@@ -1,4 +1,4 @@
-import { X, Eye, EyeOff, Copy, Loader2, CopyIcon, CopyCheck } from "lucide-react";
+import { X, Eye, EyeOff, Copy, Loader2 } from "lucide-react";
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -34,7 +34,6 @@ import { useQuery } from "@tanstack/react-query";
 import { hubQueries } from "@/lib/queries";
 import { PermissionSelector, type Permission } from "./ui/permission-selector";
 import { getScopeDisplayName } from "@/lib/scope-definitions";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
 import { WalletDialog } from "./wallet-dialog";
 
 const BLOCKCHAIN_OPTIONS = {
@@ -55,6 +54,7 @@ const BLOCKCHAIN_OPTIONS = {
     }
   }
 };
+
 
 export function EditConnectionSidebar() {
   const { selectedConnection, selectedServiceClient, closeEditSidebar, isEditSidebarOpen } = useAppStore();
@@ -296,12 +296,9 @@ export function EditConnectionSidebar() {
               disabled={isWalletConnection(selectedConnection)}
               title={isWalletConnection(selectedConnection) ? "Wallet names cannot be changed" : ""}
             />
-            {isWalletConnection(selectedConnection) && (
-              <p className="text-xs text-primary-400">
-                Wallet names cannot be changed after creation
-              </p>
-            )}
           </div>
+
+          <div className="border-t border-t-primary-100 border-dashed" />
 
           {isDatabaseConnection(selectedConnection) && (
             <DatabaseFields
@@ -630,9 +627,9 @@ const WalletFields = ({
   return (
     <>
       <div className="space-y-[6px]">
-        <Label className="text-[13px] text-primary-400">
+        {/* <Label className="text-[13px] text-primary-400">
           Wallet Addresses ({formData.addresses.length})
-        </Label>
+        </Label> */}
         <div className="space-y-3">
           {formData.addresses.map((address, index) => (
             <WalletDialog
@@ -649,8 +646,8 @@ const WalletFields = ({
 
         {!showAddAddress && (
           <Button
-            variant="outline"
-            size="sm"
+            variant="outline2"
+            size="default"
             onClick={() => setShowAddAddress(true)}
             className="w-full mt-2"
           >
@@ -673,8 +670,6 @@ const WalletFields = ({
     </>
   );
 };
-
-
 
 const AddAddressForm = ({
   newAddress,

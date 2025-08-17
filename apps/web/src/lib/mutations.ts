@@ -864,14 +864,21 @@ export const useDeployPackageMutation = () => {
       packageId: string;
       version: string;
       url: string;
-      name?: string;
-      scopes: string[];
       authData: any;
-      connectionIds: string[];
+      serviceConnections: Array<{
+        connectionId: string;
+        scopes: string[];
+      }>;
     }) => {
       const response = await api("/packages/deploy", {
         method: "POST",
-        body: data,
+        body: {
+          packageId: data.packageId,
+          version: data.version,
+          url: data.url,
+          authData: data.authData,
+          serviceConnections: data.serviceConnections,
+        },
         schema: responseSchema(
           z.object({
             deployment: z.any(),
