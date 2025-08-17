@@ -29,13 +29,11 @@ export function PermissionSelector({
   const [searchQuery, setSearchQuery] = useState("");
   const selectedsContainerRef = useRef<HTMLDivElement>(null);
 
-  // Stable initial selected IDs to prevent re-render loops
   const initialSelectedIds = useMemo(
     () => initialSelected.map(p => p.id).sort().join('|'),
     [initialSelected]
   );
 
-  // Only update when initial selection actually changes
   useEffect(() => {
     setSelectedPermissions([...initialSelected]);
   }, [initialSelectedIds]);

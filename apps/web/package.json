@@ -29,6 +29,7 @@
   "dependencies": {
     "@codemirror/lang-json": "^6.0.2",
     "@codemirror/theme-one-dark": "^6.1.3",
+    "@heliofi/checkout-react": "^2.3.4",
     "@hookform/resolvers": "^5.1.1",
     "@modelcontextprotocol/sdk": "^1.17.1",
     "@radix-ui/react-dialog": "^1.1.14",

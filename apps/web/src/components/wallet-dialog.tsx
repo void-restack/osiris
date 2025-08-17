@@ -1,9 +1,9 @@
-// Updated WalletDialog with proper wagmi integration
 import { useMemo, useState, useCallback, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAccount, useDisconnect } from "wagmi";
 import { ConnectKitButton } from "connectkit";
 import { Loader2, Copy, CopyIcon, MoveDownLeft, MoveDownRight, CheckCircle, QrCode, RefreshCw, Wallet, X } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,6 +23,8 @@ import { Icon } from "./ui/icon";
 import { ChainBadge } from "@/utils/chain-icons";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { ScrollArea } from "./ui/scroll-area";
+import { useAuth } from "@/hooks/use-auth";
+import { toast } from "sonner";
 
 interface WalletDialogProps {
   address: any;
@@ -61,6 +63,8 @@ export function WalletDialog({
   const [customTokenAddress, setCustomTokenAddress] = useState('');
   const [fundAmount, setFundAmount] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+
+  const { user } = useAuth();
 
   // Wagmi hooks
   const { address: connectedAddress, isConnected } = useAccount();
@@ -119,6 +123,8 @@ export function WalletDialog({
 
     return topTokens[selectedChain] || [];
   }, []);
+
+
 
   // Custom Connect Button Component using ConnectKitButton render props
   const CustomConnectButton = () => (
@@ -207,15 +213,38 @@ export function WalletDialog({
   const handleConfirmFunds = async () => {
     if (depositMethod === 'use_card') {
       try {
-        await helioDepositMutation.mutateAsync({
+        const response = await helioDepositMutation.mutateAsync({
           amount: fundAmount,
           paymentMethod: "helio_web3",
-          userEmail: undefined,
-          chargeType: "charge"
+          userEmail: user?.email,
+          chargeType: "paylink"
         });
-        setCurrentStep('success');
+
+        console.log(response, "HELIO RESPONSE");
+
+        let paymentUrl = null;
+
+        if (response?.paymentUrl) {
+          // For charge type
+          paymentUrl = response.paymentUrl;
+        } else if (response?.payLinkId) {
+          // For paylink type - construct URL
+          paymentUrl = `https://app.hel.io/pay/${response.payLinkId}`;
+        }
+
+        if (paymentUrl) {
+          window.open(paymentUrl, '_blank');
+          toast.success('Redirecting to payment page...');
+          setTimeout(() => {
+            handleCloseDialog();
+          }, 2000);
+        } else {
+          console.log("No paymentUrl or payLinkId found:", response);
+          toast.error('Payment initialization failed');
+        }
       } catch (error) {
         console.error('Payment failed:', error);
+        toast.error('Payment failed. Please try again.');
         return;
       }
     } else {
@@ -479,6 +508,23 @@ export function WalletDialog({
                       <img src="/logo.png" alt="osiris" className="-translate-x-4 size-16" />
                     </div>
                     <p className="text-xl">Osiris uses a 3rd party</p>
+
+                    <div className="w-full space-y-3">
+                      <Label htmlFor="card-amount" className="text-[13px] text-primary-400">Amount (USD)</Label>
+                      <Input
+                        id="card-amount"
+                        type="number"
+                        placeholder="0.00"
+                        value={fundAmount}
+                        onChange={(e) => setFundAmount(e.target.value)}
+                        className="w-full"
+                        min="0.01"
+                        step="0.01"
+                      />
+                      <p className="text-xs text-primary-500 text-center">
+                        Enter the amount you want to add to your wallet
+                      </p>
+                    </div>
                   </div>
                 )}
 
@@ -560,7 +606,11 @@ export function WalletDialog({
                     Continue
                   </Button>
                 ) : depositMethod === 'use_card' ? (
-                  <Button onClick={() => setCurrentStep('review')} className="flex-1">
+                  <Button
+                    onClick={() => setCurrentStep('review')}
+                    className="flex-1"
+                    disabled={!fundAmount || parseFloat(fundAmount) <= 0}
+                  >
                     Continue to Payment
                   </Button>
                 ) : (
@@ -576,12 +626,14 @@ export function WalletDialog({
             </div>
           )}
 
+
+
           {/* Review, Processing, Success steps remain the same... */}
           {currentStep === 'review' && (
             <div className="mt-6 space-y-4 w-full">
               <div className="text-center">
-                <h3 className="text-lg font-medium text-primary-800">Review Transaction</h3>
-                <p className="text-sm text-primary-500">Please review your transaction details</p>
+                <h3 className="text-lg font-medium text-primary-800">Review Payment</h3>
+                <p className="text-sm text-primary-500">Please review your payment details</p>
               </div>
 
               <div className="bg-primary-50 p-4 rounded-lg space-y-2">
@@ -590,12 +642,18 @@ export function WalletDialog({
                   <span className="text-sm font-medium text-primary-800">${fundAmount}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-sm text-primary-600">Deposit Method:</span>
+                  <span className="text-sm text-primary-600">Payment Method:</span>
                   <span className="text-sm font-medium text-primary-800 capitalize">
                     {depositMethod === 'transfer_crypto' ? 'Transfer Crypto' :
-                      depositMethod === 'use_card' ? 'Use Card' : 'Connect Exchange'}
+                      depositMethod === 'use_card' ? 'Credit/Debit Card' : 'Connect Exchange'}
                   </span>
                 </div>
+                {depositMethod === 'use_card' && (
+                  <div className="flex justify-between">
+                    <span className="text-sm text-primary-600">Email:</span>
+                    <span className="text-sm font-medium text-primary-800">{user?.email}</span>
+                  </div>
+                )}
                 {depositMethod === 'transfer_crypto' && (
                   <>
                     <div className="flex justify-between">
@@ -635,7 +693,18 @@ export function WalletDialog({
                   className="flex-1"
                   disabled={depositMethod === 'use_card' && helioDepositMutation.isPending}
                 >
-                  {depositMethod === 'use_card' ? 'Process Payment' : 'Confirm Transaction'}
+                  {depositMethod === 'use_card' ? (
+                    helioDepositMutation.isPending ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      'Proceed to Payment'
+                    )
+                  ) : (
+                    'Confirm Transaction'
+                  )}
                 </Button>
               </div>
             </div>

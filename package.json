@@ -17,6 +17,7 @@
     "dev:docs": "bun run --filter docs dev"
   },
   "dependencies": {
+    "@heliofi/checkout-react": "^3.0.0",
     "@radix-ui/react-slot": "^1.2.3",
     "@tanstack/react-query": "^5.81.5",
     "@tanstack/react-query-devtools": "^5.81.5",
