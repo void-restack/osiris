@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from "react";
-import { Loader2, CheckCircle, AlertCircle, X } from "lucide-react";
+import { Loader2, CheckCircle, AlertCircle, X, Copy, ExternalLink } from "lucide-react";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -25,6 +25,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/original-tabs";
 import { PermissionSelector, type Permission } from "@/components/ui/permission-selector";
 import { userQueries, hubQueries, packageQueries } from "@/lib/queries";
 import { useDeployPackageMutation, useCreateServiceConnectionMutation, useAuthorizeFrontendMutation, useCreateSecretSharingMutation, useCreateWalletMutation } from "@/lib/mutations";
@@ -83,8 +84,6 @@ function ServiceSection({
     [serviceName, authScopes]
   );
 
-  console.log("permissions", permissions);
-
   const handleServicePermissionSelect = useCallback(
     (perms: Permission[]) => onPermissionSelect(serviceName, perms),
     [serviceName, onPermissionSelect]
@@ -126,6 +125,8 @@ function ServiceSection({
             <div className="mb-6">
               <p className="text-sm font-medium text-primary-800 mb-3">Select permissions to grant:</p>
               <PermissionSelector
+                context="deploy-dialog"
+                key={`deploy-${serviceName}`}
                 permissions={permissions}
                 placeholder={`Search ${serviceName} permissions...`}
                 onSelectionChange={handleServicePermissionSelect}
@@ -271,6 +272,7 @@ export function McpDeployDialog({
   const [selectedConnections, setSelectedConnections] = useState<Record<string, string>>({});
   const [deploymentName, setDeploymentName] = useState(`${pkg.name} deployment`);
   const [connectingService, setConnectingService] = useState<string | null>(null);
+  const [copiedText, setCopiedText] = useState<string | null>(null);
 
   const authorizeMutation = useAuthorizeFrontendMutation()
   const deployMutation = useDeployPackageMutation();
@@ -288,6 +290,21 @@ export function McpDeployDialog({
     const allowedServices = Object.keys(authScopes?.serviceClientMap || {});
     return allowedServices.includes(connection.service_clients.name);
   }) || [];
+
+  const copyToClipboard = async (text: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedText(label);
+      setTimeout(() => setCopiedText(null), 2000);
+      toast.success(`${label} copied to clipboard`);
+    } catch (err) {
+      toast.error('Failed to copy to clipboard');
+    }
+  };
+
+  const mcpDeploymentUrl = deployMutation.data?.deployment ?
+    `${pkg?.url?.replace(/\/$/, '')}/mcp?deploymentId=${deployMutation.data.deployment.deploymentId}` :
+    `${pkg?.url?.replace(/\/$/, '')}/mcp`;
 
   const handleDeploy = async () => {
     const requiredServices = Object.keys(authScopes?.serviceClientMap || {});
@@ -313,6 +330,7 @@ export function McpDeployDialog({
     }
 
     try {
+      // Create serviceConnections array with connectionId and scopes
       const serviceConnections = requiredServices
         .filter(service => selectedConnections[service])
         .map(service => ({
@@ -437,11 +455,207 @@ export function McpDeployDialog({
       statusText = "Failed";
     }
 
+    if (isSuccess) {
+      return (
+        <div className="w-full px-4">
+          <div className="flex flex-col text-center mb-6">
+            <h3 className="flex items-center justify-center gap-2 text-lg font-medium">
+              <CheckCircle className="size-5 text-green-600" />
+              {pkg.name} Deployed Successfully!
+            </h3>
+            <span className="text-sm text-primary-400">
+              Your MCP package is now live and ready to connect
+            </span>
+          </div>
+
+          <Tabs defaultValue="cursor" className="w-full">
+            <TabsList className="grid w-full grid-cols-5">
+              <TabsTrigger value="cursor">Cursor</TabsTrigger>
+              <TabsTrigger value="claude">Claude</TabsTrigger>
+              <TabsTrigger value="vscode">VS Code</TabsTrigger>
+              <TabsTrigger value="json">JSON</TabsTrigger>
+              <TabsTrigger value="code">Code</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="cursor" className="space-y-4">
+              <div className="text-sm">
+                <h4 className="font-medium mb-2">One-click install in Cursor</h4>
+                <Button
+                  onClick={() => {
+                    const cursorUrl = `cursor://mcp/add?url=${encodeURIComponent(mcpDeploymentUrl)}&name=${encodeURIComponent(pkg.name)}`;
+                    window.open(cursorUrl, '_blank');
+                  }}
+                  className="w-full mb-2"
+                >
+                  <ExternalLink className="size-4 mr-2" />
+                  Install in Cursor
+                </Button>
+                <p className="text-xs text-primary-400">
+                  This will open Cursor and automatically add the MCP server to your configuration.
+                </p>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="claude" className="space-y-4">
+              <div className="text-sm space-y-3">
+                <div>
+                  <h4 className="font-medium mb-2">Claude Desktop</h4>
+                  <ol className="list-decimal list-inside space-y-1 text-xs">
+                    <li>Find "Add Connector" in the chat bar</li>
+                    <li>Click on "Add Custom Connector" in the "Manage connector" page</li>
+                    <li>Enter the MCP URL and name:</li>
+                  </ol>
+                  <div className="mt-2 p-2 bg-gray-100 rounded-[6px] relative">
+                    <code className="text-xs">{mcpDeploymentUrl}</code>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="absolute top-1 right-1 h-6 w-6 p-0"
+                      onClick={() => copyToClipboard(mcpDeploymentUrl, 'MCP URL')}
+                    >
+                      <Copy className="size-3" />
+                    </Button>
+                  </div>
+                </div>
+                <div>
+                  <h4 className="font-medium mb-2">Claude Code</h4>
+                  <div className="p-2 bg-gray-100 rounded-[6px] relative">
+                    <code className="text-xs">claude mcp add --transport http {pkg.name} {mcpDeploymentUrl}</code>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="absolute top-1 right-1 h-6 w-6 p-0"
+                      onClick={() => copyToClipboard(`claude mcp add --transport http ${pkg.name} ${mcpDeploymentUrl}`, 'Claude Code command')}
+                    >
+                      <Copy className="size-3" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="vscode" className="space-y-4">
+              <div className="text-sm">
+                <h4 className="font-medium mb-2">One-click install in VS Code</h4>
+                <Button
+                  onClick={() => {
+                    const vscodeUrl = `vscode://mcp/add?url=${encodeURIComponent(mcpDeploymentUrl)}&name=${encodeURIComponent(pkg.name)}`;
+                    window.open(vscodeUrl, '_blank');
+                  }}
+                  className="w-full mb-2"
+                >
+                  <ExternalLink className="size-4 mr-2" />
+                  Install in VS Code
+                </Button>
+                <p className="text-xs text-primary-400">
+                  This will open VS Code and automatically add the MCP server to your configuration.
+                </p>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="json" className="space-y-4 overflow-hidden">
+              <div className="text-sm">
+                <h4 className="font-medium mb-2">MCP Configuration</h4>
+                <p className="text-xs text-primary-400 mb-2">Add this to your MCP configuration file:</p>
+                <div className="p-3 bg-gray-100 rounded-[6px] relative">
+                  <pre className="text-xs text-wrap">
+                    {`{
+  "mcpServers": {
+    "${pkg.name}": {
+      "type": "streamable-http",
+      "url": "${mcpDeploymentUrl}"
+    }
+  }
+}`}
+                  </pre>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="absolute top-2 right-2 h-6 w-6 p-0"
+                    onClick={() => copyToClipboard(`{
+  "mcpServers": {
+    "${pkg.name}": {
+      "type": "streamable-http",
+      "url": "${mcpDeploymentUrl}"
+    }
+  }
+}`, 'JSON configuration')}
+                  >
+                    <Copy className="size-3" />
+                  </Button>
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="code" className="space-y-4 overflow-hidden">
+              <div className="text-sm">
+                <h4 className="font-medium mb-2">TypeScript Integration</h4>
+                <p className="text-xs text-primary-400 mb-2">Use this code to connect programmatically:</p>
+                <div className="p-3 bg-gray-100 rounded-[6px] relative max-h-64 overflow-y-auto">
+                  <pre className="text-xs text-wrap">
+                    {`import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js"
+
+// Construct server URL with authentication
+const url = new URL("${mcpDeploymentUrl}")
+url.searchParams.set("deploymentId", "${deployMutation.data?.deployment?.deploymentId || ''}")
+const serverUrl = url.toString()
+
+const transport = new StreamableHTTPClientTransport(serverUrl)
+
+// Create MCP client
+import { Client } from "@modelcontextprotocol/sdk/client/index.js"
+
+const client = new Client({
+  name: "My Osiris Client",
+  version: "1.0.0"
+})
+await client.connect(transport)
+
+// List available tools
+const tools = await client.listTools()
+console.log(\`Available tools: \${tools.map(t => t.name).join(", ")}\`)`}
+                  </pre>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="absolute top-2 right-2 h-6 w-6 p-0"
+                    onClick={() => copyToClipboard(`import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js"
+
+// Construct server URL with authentication
+const url = new URL("${mcpDeploymentUrl}")
+url.searchParams.set("deploymentId", "${deployMutation.data?.deployment?.deploymentId || ''}")
+const serverUrl = url.toString()
+
+const transport = new StreamableHTTPClientTransport(serverUrl)
+
+// Create MCP client
+import { Client } from "@modelcontextprotocol/sdk/client/index.js"
+
+const client = new Client({
+  name: "My Osiris Client",
+  version: "1.0.0"
+})
+await client.connect(transport)
+
+// List available tools
+const tools = await client.listTools()
+console.log(\`Available tools: \${tools.map(t => t.name).join(", ")}\`)`, 'TypeScript code')}
+                  >
+                    <Copy className="size-3" />
+                  </Button>
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </div>
+      );
+    }
+
     return (
       <div className="w-full flex flex-col justify-center items-center mt-8 mb-12 text-[18px]">
         <div className="flex flex-col text-center mb-8">
           <h3 className="flex items-center justify-center gap-2">
-            {isPending ? 'Deploying' : isSuccess ? 'Deployed' : 'Deploy Failed'}
+            {isPending ? 'Deploying' : isError ? 'Deploy Failed' : ''}
             <div className="size-[18px] bg-blue-400 rounded flex items-center justify-center text-white text-xs font-bold">
               {pkg.name.charAt(0).toUpperCase()}
             </div>
@@ -449,8 +663,7 @@ export function McpDeployDialog({
           </h3>
           <span className="text-sm text-primary-400">
             {isPending ? 'Setting up your MCP deployment...' :
-              isSuccess ? 'Your MCP package is now live!' :
-                'Deployment encountered an error'}
+              isError ? 'Deployment encountered an error' : ''}
           </span>
         </div>
 
@@ -468,8 +681,7 @@ export function McpDeployDialog({
 
             {/* Status Indicator */}
             <div className={`h-fit text-xs border flex items-center gap-1 rounded-[6px] p-1 ${isPending ? 'border-primary-600/15 text-primary-400 bg-primary-50' :
-              isSuccess ? 'border-success-600/15 text-success-600 bg-success-50' :
-                'border-warning-600/15 text-warning-600 bg-warning-50'
+              isError ? 'border-warning-600/15 text-warning-600 bg-warning-50' : ''
               }`}>
               {statusIcon}
               {statusText}

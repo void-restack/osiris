@@ -337,6 +337,8 @@ function ServiceConsentSection({
                 <div>
                   <p className="text-sm font-medium text-primary-800 mb-3">Select permissions to grant:</p>
                   <PermissionSelector
+                    context="oauth-consent"
+                    key={`oauth-consent-${serviceName}`}
                     permissions={permissions}
                     placeholder={`Search ${serviceName} permissions...`}
                     onSelectionChange={handleServicePermissionSelect}
@@ -661,11 +663,11 @@ function RouteComponent() {
           deploymentId: deploymentId,
         })
 
-		const url = new URL(authResultOsiris.url)
-		const res = await fetch(url.toString())
-		if(res.status !== 200) {
-			throw new Error('Failed to authorize')
-		}
+        const url = new URL(authResultOsiris.url)
+        const res = await fetch(url.toString())
+        if (res.status !== 200) {
+          throw new Error('Failed to authorize')
+        }
       }
 
       const authResultFrontend = await authorizeFrontendMutation.mutateAsync({

@@ -55,7 +55,6 @@ const BLOCKCHAIN_OPTIONS = {
   }
 };
 
-
 export function EditConnectionSidebar() {
   const { selectedConnection, selectedServiceClient, closeEditSidebar, isEditSidebarOpen } = useAppStore();
   const [formData, setFormData] = useState<ConnectionFormData | null>(null);
@@ -550,6 +549,8 @@ const OAuthFields = ({
       </div>
 
       <PermissionSelector
+        context="edit-sidebar"
+        key={`edit-sidebar-${formData.clientId}`}
         permissions={availablePermissions}
         initialSelected={selectedScopes}
         onSelectionChange={onScopesChange}

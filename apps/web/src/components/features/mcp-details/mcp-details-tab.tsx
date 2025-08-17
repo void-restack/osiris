@@ -102,6 +102,8 @@ export function McpTabs() {
 			status: deployment.status,
 			createdAt: deployment.createdAt,
 			updatedAt: deployment.updatedAt,
+			userServiceConnectionMcpDeployments: deployment.userServiceConnectionMcpDeployments,
+			name: deployment.name
 		};
 	}).filter(Boolean) || [];
 

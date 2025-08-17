@@ -13,6 +13,16 @@ export interface McpServerData {
   status: "active" | "inactive" | "pending";
   createdAt: string;
   updatedAt: string;
+  userServiceConnectionMcpDeployments?: Array<{
+    connectionId: string;
+    serviceClient: {
+      type: string;
+      name: string;
+    };
+    scopes: string[];
+    policy: any;
+  }>;
+  name?: string;
 }
 
 export interface OAuthClientData {

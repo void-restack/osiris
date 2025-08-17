@@ -1,8 +1,9 @@
 import { Search, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { Checkbox } from "./checkbox";
 import { Input } from "./input";
 import { ScrollArea } from "./scroll-area";
+import { extractScopeUrl } from "@/lib/scope-utils";
 
 export type Permission = {
   id: string;
@@ -12,7 +13,9 @@ export type Permission = {
 type PermissionSelectorProps = {
   permissions: Permission[];
   placeholder?: string;
-  initialSelected?: Permission[]; onSelectionChange?: (selectedPermissions: Permission[]) => void;
+  initialSelected?: Permission[];
+  onSelectionChange?: (selectedPermissions: Permission[]) => void;
+  context?: string;
 };
 
 export function PermissionSelector({
@@ -20,51 +23,78 @@ export function PermissionSelector({
   placeholder = "Search permissions...",
   initialSelected = [],
   onSelectionChange,
+  context = "default",
 }: PermissionSelectorProps) {
-
-  const [selectedPermissions, setSelectedPermissions] = useState<Permission[]>(
-    initialSelected,
-  );
+  const [selectedPermissions, setSelectedPermissions] = useState<Permission[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const selectedsContainerRef = useRef<HTMLDivElement>(null);
 
+  // Stable initial selected IDs to prevent re-render loops
+  const initialSelectedIds = useMemo(
+    () => initialSelected.map(p => p.id).sort().join('|'),
+    [initialSelected]
+  );
+
+  // Only update when initial selection actually changes
   useEffect(() => {
-    setSelectedPermissions(initialSelected);
-  }, [JSON.stringify(initialSelected)]);
+    setSelectedPermissions([...initialSelected]);
+  }, [initialSelectedIds]);
 
-  useEffect(() => {
-    onSelectionChange?.(selectedPermissions);
-  }, [selectedPermissions, onSelectionChange]);
+  const removeSelectedPermission = useCallback((id: string) => {
+    setSelectedPermissions(prev => {
+      const newSelection = prev.filter(permission => permission.id !== id);
+      onSelectionChange?.(newSelection.map(p => ({ ...p })));
+      return newSelection;
+    });
+  }, [onSelectionChange]);
 
-  const removeSelectedPermission = (id: string) => {
-    setSelectedPermissions((prev) =>
-      prev.filter((permission) => permission.id !== id),
-    );
-  };
+  const togglePermission = useCallback((permission: Permission, checked: boolean) => {
+    setSelectedPermissions(prev => {
+      let newSelection: Permission[];
 
-  const togglePermission = (permission: Permission, checked: boolean) => {
-    if (checked) {
-      setSelectedPermissions((prev) => [...prev, permission]);
-    } else {
-      setSelectedPermissions((prev) => prev.filter((p) => p.id !== permission.id));
-    }
-  };
+      if (checked) {
+        // Check if already exists (handle scope normalization)
+        const alreadyExists = prev.some(p => {
+          const normalizedSelected = extractScopeUrl(p.id);
+          const normalizedNew = permission.id;
+          return normalizedSelected === normalizedNew || p.id === permission.id;
+        });
 
-  const isPermissionSelected = (permissionId: string) => {
-    return selectedPermissions.some(
-      (permission) => permission.id === permissionId,
-    );
-  };
+        newSelection = alreadyExists ? prev : [...prev, { ...permission }];
+      } else {
+        // Remove permission (handle scope normalization)
+        newSelection = prev.filter(p => {
+          const normalizedSelected = extractScopeUrl(p.id);
+          const normalizedTarget = permission.id;
+          return normalizedSelected !== normalizedTarget && p.id !== permission.id;
+        });
+      }
 
-  const filteredPermissions = permissions.filter((permission) => {
-    if (!searchQuery.trim()) return true;
+      onSelectionChange?.(newSelection.map(p => ({ ...p })));
+      return newSelection;
+    });
+  }, [onSelectionChange]);
+
+  const isPermissionSelected = useCallback((permissionId: string) => {
+    return selectedPermissions.some(permission => {
+      const normalizedSelected = extractScopeUrl(permission.id);
+      return normalizedSelected === permissionId || permission.id === permissionId;
+    });
+  }, [selectedPermissions]);
+
+  const filteredPermissions = useMemo(() => {
+    if (!searchQuery.trim()) return permissions;
 
     const query = searchQuery.toLowerCase();
-    return (
+    return permissions.filter(permission =>
       permission.label.toLowerCase().includes(query) ||
       permission.id.toLowerCase().includes(query)
     );
-  });
+  }, [permissions, searchQuery]);
+
+  const sanitizeId = useCallback((id: string) =>
+    id.replace(/[^a-zA-Z0-9-_]/g, '-'), []
+  );
 
   useEffect(() => {
     if (selectedsContainerRef.current) {
@@ -73,7 +103,7 @@ export function PermissionSelector({
         behavior: "smooth",
       });
     }
-  }, [selectedPermissions]);
+  }, [selectedPermissions.length]);
 
   if (permissions.length === 0) {
     return (
@@ -138,23 +168,26 @@ export function PermissionSelector({
       <ScrollArea className="h-full max-h-72 overflow-y-scroll">
         <div className="space-y-4 px-3">
           {filteredPermissions.length > 0 ? (
-            filteredPermissions.map((permission) => (
-              <div key={permission.id} className="flex items-center space-x-3">
-                <Checkbox
-                  id={`checkbox-${permission.id}`}
-                  checked={isPermissionSelected(permission.id)}
-                  onCheckedChange={(checked) =>
-                    togglePermission(permission, checked as boolean)
-                  }
-                />
-                <label
-                  htmlFor={`checkbox-${permission.id}`}
-                  className="flex-1 text-[13px] cursor-pointer leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                >
-                  <span>{permission.label}</span>
-                </label>
-              </div>
-            ))
+            filteredPermissions.map((permission) => {
+              const checked = isPermissionSelected(permission.id);
+              const checkboxId = `checkbox-${context}-${sanitizeId(permission.id)}`;
+
+              return (
+                <div key={permission.id} className="flex items-center space-x-3">
+                  <Checkbox
+                    id={checkboxId}
+                    checked={checked}
+                    onCheckedChange={(checked) => togglePermission(permission, checked as boolean)}
+                  />
+                  <label
+                    htmlFor={checkboxId}
+                    className="flex-1 text-[13px] cursor-pointer leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    <span>{permission.label}</span>
+                  </label>
+                </div>
+              );
+            })
           ) : (
             <div className="py-8 text-center text-muted-foreground">
               <Search className="mx-auto mb-2 h-8 w-8 opacity-50" />

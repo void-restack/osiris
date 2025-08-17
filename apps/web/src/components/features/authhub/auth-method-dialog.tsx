@@ -288,6 +288,8 @@ export function AuthMethodDialog({
     <>
       {Object.keys(method.scopeDefinitions).length > 0 ? (
         <PermissionSelector
+          context="auth-method-dialog"
+          key={`auth-method-dialog-${method.clientId}`}
           permissions={Object.entries(method.scopeDefinitions).map(([scope, label]) => ({
             id: scope,
             label: getScopeDisplayName(scope) || (label as string) || scope
