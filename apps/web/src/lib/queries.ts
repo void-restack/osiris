@@ -23,6 +23,9 @@ export const userQueries = {
         const response = await api("/users", {
           schema: responseSchema(userSchema),
         });
+        // if (response.status === "FAILED") {
+        //   throw new Error(response.error);
+        // }
         return response.data;
       },
       retry: false,
@@ -81,16 +84,11 @@ export const packageQueries = {
   detail: (id: string) => [...packageQueries.details(), id] as const,
   userInstalled: () => [...packageQueries.all(), "user-installed"] as const,
   userDeployments: () => [...packageQueries.all(), "user-deployments"] as const,
-  deployment: (id: string) => [...packageQueries.userDeployments(), id] as const,
-  deploymentAuth: (deploymentId: string) => [...packageQueries.all(), "deployment-auth", deploymentId],
+  deployment: (id: string) =>
+    [...packageQueries.userDeployments(), id] as const,
   githubRepos: () => [...packageQueries.all(), "github-repos"] as const,
   popular: () => [...packageQueries.all(), "popular"] as const,
   authScopes: (packageId: string) => [...packageQueries.all(), "auth-scopes", packageId] as const,
-  weeklyDownloads: (packageId: string, params: {
-    startDate: string;
-    endDate: string;
-  }) => [...packageQueries.all(), "weekly-downloads", packageId, params],
-  actions: (packageId?: string) => [...packageQueries.all(), "actions", packageId],
 
   listOptions: (filters: {
     publisherId?: string;
@@ -149,6 +147,7 @@ export const packageQueries = {
         if (response.status === "FAILED") {
           throw new Error(response.error);
         }
+
         return response;
       },
       staleTime: 2 * 60 * 1000,
@@ -223,7 +222,7 @@ export const packageQueries = {
         if (response.status === "FAILED") {
           throw new Error(response.error);
         }
-        return response.data;
+        return response.data; // Not response.data.data
       },
       staleTime: 1 * 60 * 1000,
       enabled: enabled,
@@ -293,19 +292,6 @@ export const packageQueries = {
         return response.data;
       },
     }),
-
-  deploymentAuthOptions: (deploymentId: string) => queryOptions({
-    queryKey: packageQueries.deploymentAuth(deploymentId),
-    queryFn: async () => {
-      const response = await api(`/packages/packages/user/deployments/${deploymentId}/auth`, {
-        schema: responseSchema(z.any()),
-      });
-      if (response.status === "FAILED") {
-        throw new Error(response.error);
-      }
-      return response.data;
-    },
-  }),
 
   userDeploymentsForPackage: (packageId: string) =>
     [...packageQueries.userDeployments(), "package", packageId] as const,
@@ -435,6 +421,13 @@ export const packageQueries = {
       staleTime: 5 * 60 * 1000,
     }),
 
+  weeklyDownloads: (packageId: string, params: {
+    startDate: string;
+    endDate: string;
+  }) => [...packageQueries.all(), "weekly-downloads", packageId, params],
+
+  actions: (packageId?: string) => [...packageQueries.all(), "actions", packageId],
+
   weeklyDownloadsOptions: (packageId: string, params: {
     startDate: string;
     endDate: string;
@@ -509,6 +502,7 @@ export const packageQueries = {
   mcpToolsOptions: (serverUrl: string) => queryOptions({
     queryKey: [...packageQueries.all(), "mcp-tools", serverUrl],
     queryFn: async () => {
+
       if (!serverUrl || serverUrl.trim() === '') {
         return { tools: [] };
       }
@@ -569,7 +563,7 @@ export const creditQueries = {
         }
         return response.data;
       },
-      staleTime: 30 * 1000,
+      staleTime: 30 * 1000, // 30 seconds - frequently updated
     }),
 
   transactionsOptions: (params?: {
@@ -721,7 +715,7 @@ export const creditQueries = {
         }
         return response.data;
       },
-      staleTime: 10 * 60 * 1000,
+      staleTime: 10 * 60 * 1000, // 10 minutes - rarely changes
     }),
 
   cashoutsOptions: (params?: { limit?: number; offset?: number }) =>
@@ -849,11 +843,12 @@ export const knowledgeQueries = {
     limit?: number;
     topK?: number;
   }) => [...knowledgeQueries.all(), "search", ...(filters ? Object.entries(filters) : [])] as const,
-  sources: (baseId: string) => [...knowledgeQueries.base(baseId), "sources"] as const,
-  units: (baseId: string) => [...knowledgeQueries.base(baseId), "units"] as const,
+  sources: (baseId: string) =>
+    [...knowledgeQueries.base(baseId), "sources"] as const,
+  units: (baseId: string) =>
+    [...knowledgeQueries.base(baseId), "units"] as const,
   installed: (knowledgeBaseId: string) => [...knowledgeQueries.all(), "installed", knowledgeBaseId] as const,
   allInstalled: () => [...knowledgeQueries.all(), "all-installed"] as const,
-  myBases: (params?: { limit?: number; page?: number }) => [...knowledgeQueries.all(), "my-bases", params] as const,
 
   searchOptions: (filters?: {
     name?: string;
@@ -885,6 +880,8 @@ export const knowledgeQueries = {
         if (filters?.name) searchParams.set("name", filters.name);
 
         const endpoint = `/knowledge-base/search?${searchParams}`;
+        console.log('Knowledge base search endpoint:', endpoint);
+        console.log('Search filters:', filters);
 
         const response = await api(endpoint, {
           schema: z.object({
@@ -898,6 +895,8 @@ export const knowledgeQueries = {
             }),
           }),
         });
+
+        console.log('Knowledge base search response:', response);
 
         if (response.status === "FAILED") {
           throw new Error(response.error);
@@ -1016,7 +1015,7 @@ export const knowledgeQueries = {
         }
         return response.data;
       },
-      staleTime: 30 * 1000,
+      staleTime: 30 * 1000, // 30 seconds - processing status changes frequently
     }),
 
   unitsOptions: (baseId: string) =>
@@ -1099,7 +1098,7 @@ export const knowledgeQueries = {
         const allInstalledBases: any[] = [];
         let currentPage = 1;
         let hasMorePages = true;
-        const limit = 20;
+        const limit = 20; // Use a reasonable limit per page
 
         while (hasMorePages) {
           try {
@@ -1125,8 +1124,10 @@ export const knowledgeQueries = {
               };
             };
 
+            // Add the data from this page
             allInstalledBases.push(...response.data);
 
+            // Check if there are more pages
             if (currentPage >= response.pagination.totalPages) {
               hasMorePages = false;
             } else {
@@ -1151,6 +1152,8 @@ export const knowledgeQueries = {
       },
       staleTime: 2 * 60 * 1000,
     }),
+
+  myBases: (params?: { limit?: number; page?: number }) => [...knowledgeQueries.all(), "my-bases", params] as const,
 
   myBasesOptions: (params?: { limit?: number; page?: number }) =>
     queryOptions({
@@ -1189,8 +1192,20 @@ export const hubQueries = {
   userAuthConnection: (id: string) => [...hubQueries.userAuth(), id] as const,
   oauthClients: () => [...hubQueries.all(), "oauth-clients"] as const,
   oauthClient: (id: string) => [...hubQueries.oauthClients(), id] as const,
-  assetBalances: (userServiceConnectionId: string) => [...hubQueries.all(), "asset-balances", userServiceConnectionId],
-  popularAuth: () => [...hubQueries.all(), "popular-auth"] as const,
+  assetBalances: (walletId: string) => [...hubQueries.all(), "asset-balances", walletId],
+
+  assetBalancesOptions: (walletId: string) => queryOptions({
+    queryKey: hubQueries.assetBalances(walletId),
+    queryFn: async () => {
+      const response = await api(`/hub/defi/balances/${walletId}`, {
+        schema: responseSchema(z.any()), // Define proper schema based on API response
+      });
+      if (response.status === "FAILED") {
+        throw new Error(response.error);
+      }
+      return response.data;
+    },
+  }),
 
   authMethodsOptions: (filters?: { name?: string; type?: string }) =>
     queryOptions({
@@ -1229,7 +1244,7 @@ export const hubQueries = {
         }
         return response.data;
       },
-      staleTime: 10 * 60 * 1000,
+      staleTime: 10 * 60 * 1000, // 10 minutes - rarely changes
     }),
 
   generateOsirisUrlOptions: (params: {
@@ -1248,27 +1263,6 @@ export const hubQueries = {
           state: params.state ?? "",
         },
         schema: responseSchema(z.object({ url: z.string().url() })),
-      });
-      if (response.status === "FAILED") {
-        throw new Error(response.error);
-      }
-      return response.data;
-    },
-  }),
-
-  assetBalancesOptions: (userServiceConnectionId: string) => queryOptions({
-    queryKey: hubQueries.assetBalances(userServiceConnectionId),
-    queryFn: async () => {
-      const response = await api(`/hub/defi/balances/${userServiceConnectionId}`, {
-        schema: responseSchema(z.object({
-          userServiceConnectionId: z.string(),
-          walletAddresses: z.array(z.string()),
-          balances: z.array(z.object({
-            total: z.number(),
-            wallet: z.string(),
-            chains: z.array(z.any())
-          }))
-        })),
       });
       if (response.status === "FAILED") {
         throw new Error(response.error);
@@ -1438,6 +1432,9 @@ export const hubQueries = {
       staleTime: 5 * 60 * 1000,
     }),
 
+
+  popularAuth: () => [...hubQueries.all(), "popular-auth"] as const,
+
   popularAuthOptions: () =>
     queryOptions({
       queryKey: hubQueries.popularAuth(),
@@ -1464,7 +1461,7 @@ export const hubQueries = {
               userId: z.string().uuid(),
               clientId: z.string().uuid(),
               uniqueId: z.string(),
-              credentials: z.record(z.any()),
+              credentials: z.record(z.any()), // Unencrypted credentials
               metadata: z.record(z.any()),
               scopes: z.array(z.string()),
               name: z.string().nullable(),
@@ -1478,6 +1475,6 @@ export const hubQueries = {
         }
         return response.data;
       },
-      enabled: enabled,
+      enabled: enabled, // Only fetch when explicitly requested
     }),
 };

@@ -46,16 +46,8 @@ export const useCreateUserMutation = () => {
       }
       return response.data;
     },
-    onMutate: () => {
-      toast.loading("Creating user...", { id: "create-user" });
-    },
     onSuccess: (data) => {
       queryClient.setQueryData(userQueries.me(), data.user);
-      toast.success("User created successfully", { id: "create-user" });
-    },
-    onError: (error) => {
-      console.error("Failed to create user:", error);
-      toast.error(`Failed to create user: ${error.message}`, { id: "create-user" });
     },
   });
 };
@@ -77,23 +69,8 @@ export const useUpdateUserMutation = () => {
       }
       return response.data;
     },
-    onMutate: async (newData) => {
-      await queryClient.cancelQueries({ queryKey: userQueries.me() });
-      const previousData = queryClient.getQueryData(userQueries.me());
-      queryClient.setQueryData(userQueries.me(), (old: any) => ({ ...old, ...newData }));
-      return { previousData };
-    },
     onSuccess: (data) => {
       queryClient.setQueryData(userQueries.me(), data);
-      toast.success("User updated successfully");
-    },
-    onError: (error, _, context) => {
-      queryClient.setQueryData(userQueries.me(), context?.previousData);
-      console.error("Failed to update user:", error);
-      toast.error(`Failed to update user: ${error.message}`);
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: userQueries.me() });
     },
   });
 };
@@ -106,17 +83,9 @@ export const useDeleteUserMutation = () => {
       const response = await api("/users", { method: "DELETE" });
       return response;
     },
-    onMutate: () => {
-      toast.loading("Deleting account...", { id: "delete-user" });
-    },
     onSuccess: () => {
       queryClient.clear();
-      toast.success("Account deleted successfully", { id: "delete-user" });
       window.location.href = "/";
-    },
-    onError: (error) => {
-      console.error("Failed to delete user:", error);
-      toast.error(`Failed to delete account: ${error.message}`, { id: "delete-user" });
     },
   });
 };
@@ -132,17 +101,13 @@ export const useDisconnectOAuthMutation = () => {
       });
       return response;
     },
-    onSuccess: (_, provider) => {
-      queryClient.invalidateQueries({ queryKey: userQueries.authProviders() });
-      toast.success(`Disconnected ${provider} successfully`);
-    },
-    onError: (error, provider) => {
-      console.error(`Failed to disconnect ${provider}:`, error);
-      toast.error(`Failed to disconnect ${provider}: ${error.message}`);
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: userQueries.all() });
     },
   });
 };
 
+// Upload Files
 export const useUploadFilesMutation = () => {
   return useMutation({
     mutationFn: async (data: {
@@ -166,20 +131,30 @@ export const useUploadFilesMutation = () => {
       }
       return response.data;
     },
-    onMutate: () => {
-      toast.loading("Uploading files...", { id: "upload-files" });
-    },
-    onSuccess: (data) => {
-      toast.success(`Uploaded ${data.length} files successfully`, { id: "upload-files" });
-    },
-    onError: (error) => {
-      console.error("Failed to upload files:", error);
-      toast.error(`Failed to upload files: ${error.message}`, { id: "upload-files" });
-    },
   });
 };
 
 // ===== AUTH MUTATIONS =====
+// export const useLoginMutation = () => {
+//   return useMutation({
+//     mutationFn: async (provider: "google" | "github") => {
+//       const response = await api("/users/auth/url", {
+//         method: "GET",
+//         params: { type: provider },
+//         schema: responseSchema(z.object({ url: z.string().url() })),
+//       });
+//       if (response.status === "FAILED") {
+//         throw new Error(response.error);
+//       }
+//       return response.data;
+//     },
+//     onSuccess: (data) => {
+//       // Redirect to OAuth URL
+//       window.location.href = data.url;
+//     },
+//   });
+// };
+
 export const useLoginMutation = () => {
   return useMutation({
     mutationFn: async (data: {
@@ -197,11 +172,8 @@ export const useLoginMutation = () => {
       return response.data;
     },
     onSuccess: (data) => {
+      // Redirect to OAuth URL
       window.location.href = data.url;
-    },
-    onError: (error) => {
-      console.error("Failed to generate login URL:", error);
-      toast.error(`Login failed: ${error.message}`);
     },
   });
 };
@@ -212,18 +184,11 @@ export const useLogoutMutation = () => {
   return useMutation({
     mutationFn: async () => {
       await api("/users/auth/revoke-refresh", { method: "POST" });
-    },
-    onMutate: () => {
-      toast.loading("Signing out...", { id: "logout" });
+      // document.cookie = 'refresh_token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
     },
     onSuccess: () => {
       queryClient.clear();
-      toast.success("Signed out successfully", { id: "logout" });
       window.location.href = "/";
-    },
-    onError: (error) => {
-      console.error("Failed to logout:", error);
-      toast.error(`Logout failed: ${error.message}`, { id: "logout" });
     },
   });
 };
@@ -245,12 +210,13 @@ export const useRefreshTokenMutation = () => {
       }
       return response.data;
     },
-    onError: (error) => {
-      console.error("Failed to refresh token:", error);
+    onSuccess: (data) => {
+      // Token is now handled by cookies
     },
   });
 };
 
+// OAuth Token Exchange
 export const useExchangeTokenMutation = () => {
   return useMutation({
     mutationFn: async (data: {
@@ -276,13 +242,10 @@ export const useExchangeTokenMutation = () => {
       }
       return response.data;
     },
-    onError: (error) => {
-      console.error("Failed to exchange token:", error);
-      toast.error(`Token exchange failed: ${error.message}`);
-    },
   });
 };
 
+// Revoke Token
 export const useRevokeTokenMutation = () => {
   return useMutation({
     mutationFn: async (data: { token: string; tokenTypeHint?: string }) => {
@@ -292,17 +255,10 @@ export const useRevokeTokenMutation = () => {
       });
       return response;
     },
-    onSuccess: () => {
-      toast.success("Token revoked successfully");
-    },
-    onError: (error) => {
-      console.error("Failed to revoke token:", error);
-      toast.error(`Failed to revoke token: ${error.message}`);
-    },
   });
 };
 
-// ===== HUB MUTATIONS =====
+// Add Wallet
 export const useAddWalletMutation = () => {
   const queryClient = useQueryClient();
 
@@ -329,14 +285,8 @@ export const useAddWalletMutation = () => {
       }
       return response.data;
     },
-    onSuccess: (_, variables) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: hubQueries.userAuth() });
-      queryClient.invalidateQueries({ queryKey: hubQueries.userAuthConnection(variables.id) });
-      toast.success("Wallet added successfully");
-    },
-    onError: (error) => {
-      console.error("Failed to add wallet:", error);
-      toast.error(`Failed to add wallet: ${error.message}`);
     },
   });
 };
@@ -367,10 +317,6 @@ export const useCreateServiceConnectionMutation = () => {
     onSuccess: (data) => {
       window.location.href = data.url;
     },
-    onError: (error) => {
-      console.error("Failed to create service connection:", error);
-      toast.error(`Failed to create service connection: ${error.message}`);
-    },
   });
 };
 
@@ -385,14 +331,8 @@ export const useDisconnectServiceMutation = () => {
       });
       return response;
     },
-    onSuccess: (_, userServiceConnectionId) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: hubQueries.userAuth() });
-      queryClient.invalidateQueries({ queryKey: hubQueries.userAuthConnection(userServiceConnectionId) });
-      toast.success("Service disconnected successfully");
-    },
-    onError: (error) => {
-      console.error("Failed to disconnect service:", error);
-      toast.error(`Failed to disconnect service: ${error.message}`);
     },
   });
 };
@@ -422,16 +362,8 @@ export const useCreateSecretSharingMutation = () => {
       }
       return response.data;
     },
-    onMutate: () => {
-      toast.loading("Creating secret...", { id: "create-secret" });
-    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: hubQueries.userAuth() });
-      toast.success("Secret created successfully", { id: "create-secret" });
-    },
-    onError: (error) => {
-      console.error("Failed to create secret:", error);
-      toast.error(`Failed to create secret: ${error.message}`, { id: "create-secret" });
     },
   });
 };
@@ -460,11 +392,6 @@ export const useUpdateSecretSharingMutation = () => {
         queryKey: hubQueries.userAuthConnection(variables.id),
       });
       queryClient.invalidateQueries({ queryKey: hubQueries.userAuth() });
-      toast.success("Secret updated successfully");
-    },
-    onError: (error) => {
-      console.error("Failed to update secret:", error);
-      toast.error(`Failed to update secret: ${error.message}`);
     },
   });
 };
@@ -493,19 +420,8 @@ export const useCreateWalletMutation = () => {
       }
       return response.data;
     },
-    onMutate: () => {
-      toast.loading("Creating wallet...", { id: "create-wallet" });
-    },
-    onSuccess: (data) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: hubQueries.userAuth() });
-      if (data.connectionId) {
-        queryClient.invalidateQueries({ queryKey: hubQueries.userAuthConnection(data.connectionId) });
-      }
-      toast.success("Wallet created successfully", { id: "create-wallet" });
-    },
-    onError: (error) => {
-      console.error("Failed to create wallet:", error);
-      toast.error(`Failed to create wallet: ${error.message}`, { id: "create-wallet" });
     },
   });
 };
@@ -529,11 +445,6 @@ export const useUpdateWalletMutation = () => {
       queryClient.invalidateQueries({
         queryKey: hubQueries.userAuthConnection(variables.id),
       });
-      toast.success("Wallet updated successfully");
-    },
-    onError: (error) => {
-      console.error("Failed to update wallet:", error);
-      toast.error(`Failed to update wallet: ${error.message}`);
     },
   });
 };
@@ -569,11 +480,6 @@ export const useAddWalletAccountMutation = () => {
         queryKey: hubQueries.userAuthConnection(variables.id),
       });
       queryClient.invalidateQueries({ queryKey: hubQueries.userAuth() });
-      toast.success("Wallet account added successfully");
-    },
-    onError: (error) => {
-      console.error("Failed to add wallet account:", error);
-      toast.error(`Failed to add wallet account: ${error.message}`);
     },
   });
 };
@@ -609,16 +515,8 @@ export const useCreateOAuthClientMutation = () => {
       }
       return response.data;
     },
-    onMutate: () => {
-      toast.loading("Creating OAuth client...", { id: "create-oauth-client" });
-    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: hubQueries.oauthClients() });
-      toast.success("OAuth client created successfully", { id: "create-oauth-client" });
-    },
-    onError: (error) => {
-      console.error("Failed to create OAuth client:", error);
-      toast.error(`Failed to create OAuth client: ${error.message}`, { id: "create-oauth-client" });
     },
   });
 };
@@ -645,12 +543,10 @@ export const useUpdateOAuthClientMutation = () => {
       return response.data;
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: hubQueries.oauthClient(variables.clientId) });
-      toast.success("OAuth client updated successfully");
-    },
-    onError: (error) => {
-      console.error("Failed to update OAuth client:", error);
-      toast.error(`Failed to update OAuth client: ${error.message}`);
+      queryClient.invalidateQueries({ queryKey: hubQueries.oauthClients() });
+      queryClient.invalidateQueries({
+        queryKey: hubQueries.oauthClient(variables.clientId),
+      });
     },
   });
 };
@@ -721,6 +617,8 @@ export const useRegenerateOAuthSecretMutation = () => {
   });
 };
 
+
+
 // OAuth Authorization
 export const useAuthorizeOsirisMutation = () => {
   return useMutation({
@@ -751,16 +649,13 @@ export const useAuthorizeOsirisMutation = () => {
       return response.data;
     },
     onSuccess: (data) => {
+      // Handle the authorization success
       console.log('Authorization successful:', data);
-      toast.success("Authorization successful");
-    },
-    onError: (error) => {
-      console.error("Authorization failed:", error);
-      toast.error(`Authorization failed: ${error.message}`);
     },
   });
 };
 
+// Frontend OAuth Authorization
 export const useAuthorizeFrontendMutation = () => {
   return useMutation({
     mutationFn: async (data: {
@@ -790,16 +685,13 @@ export const useAuthorizeFrontendMutation = () => {
       return response.data;
     },
     onSuccess: (data) => {
+      // Handle the authorization success
       console.log('Authorization successful:', data);
-      toast.success("Authorization successful");
-    },
-    onError: (error) => {
-      console.error("Authorization failed:", error);
-      toast.error(`Authorization failed: ${error.message}`);
     },
   });
 };
 
+// MCP Action Execution
 export const useExecuteMcpActionMutation = () => {
   return useMutation({
     mutationFn: async (data: {
@@ -818,10 +710,6 @@ export const useExecuteMcpActionMutation = () => {
         },
       );
       return response;
-    },
-    onError: (error) => {
-      console.error("MCP action failed:", error);
-      toast.error(`Action failed: ${error.message}`);
     },
   });
 };
@@ -863,16 +751,8 @@ export const useCreatePackageMutation = () => {
       }
       return response.data;
     },
-    onMutate: () => {
-      toast.loading("Creating package...", { id: "create-package" });
-    },
-    onSuccess: (data) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: packageQueries.lists() });
-      toast.success(`Package "${data.package.name}" created successfully`, { id: "create-package" });
-    },
-    onError: (error) => {
-      console.error("Failed to create package:", error);
-      toast.error(`Failed to create package: ${error.message}`, { id: "create-package" });
     },
   });
 };
@@ -914,14 +794,11 @@ export const useUpdatePackageMutation = () => {
       }
       return response.data;
     },
-    onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: packageQueries.detail(variables.packageId) });
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: packageQueries.lists() });
-      toast.success(`Package "${data.package.name}" updated successfully`);
-    },
-    onError: (error) => {
-      console.error("Failed to update package:", error);
-      toast.error(`Failed to update package: ${error.message}`);
+      queryClient.invalidateQueries({
+        queryKey: packageQueries.detail(variables.packageId),
+      });
     },
   });
 };
@@ -940,14 +817,8 @@ export const useDeletePackageMutation = () => {
       }
       return response.data;
     },
-    onSuccess: (data, packageId) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: packageQueries.lists() });
-      queryClient.removeQueries({ queryKey: packageQueries.detail(packageId) });
-      toast.success(data.message || "Package deleted successfully");
-    },
-    onError: (error) => {
-      console.error("Failed to delete package:", error);
-      toast.error(`Failed to delete package: ${error.message}`);
     },
   });
 };
@@ -976,17 +847,11 @@ export const useInstallPackageMutation = () => {
       }
       return response.data;
     },
-    onMutate: () => {
-      toast.loading("Installing package...", { id: "install-package" });
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: packageQueries.userInstalled() });
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: packageQueries.userInstalled(),
+      });
       queryClient.invalidateQueries({ queryKey: creditQueries.balance() });
-      toast.success("Package installed successfully", { id: "install-package" });
-    },
-    onError: (error) => {
-      console.error("Failed to install package:", error);
-      toast.error(`Installation failed: ${error.message}`, { id: "install-package" });
     },
   });
 };
@@ -1019,17 +884,11 @@ export const useDeployPackageMutation = () => {
       }
       return response.data;
     },
-    onMutate: () => {
-      toast.loading("Deploying package...", { id: "deploy-package" });
-    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: packageQueries.userDeployments() });
+      queryClient.invalidateQueries({
+        queryKey: packageQueries.userDeployments(),
+      });
       queryClient.invalidateQueries({ queryKey: creditQueries.balance() });
-      toast.success("Package deployed successfully", { id: "deploy-package" });
-    },
-    onError: (error) => {
-      console.error("Failed to deploy package:", error);
-      toast.error(`Deployment failed: ${error.message}`, { id: "deploy-package" });
     },
   });
 };
@@ -1051,16 +910,9 @@ export const useUpdateDeploymentMutation = () => {
       return response.data;
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: packageQueries.deployment(variables.deploymentId) });
-      queryClient.invalidateQueries({ queryKey: packageQueries.userDeployments() });
-      // if (variables.packageId) {
-      //   queryClient.invalidateQueries({ queryKey: packageQueries.userDeploymentsForPackage(variables.packageId) });
-      // }
-      toast.success("Deployment updated successfully");
-    },
-    onError: (error) => {
-      console.error("Failed to update deployment:", error);
-      toast.error(`Failed to update deployment: ${error.message}`);
+      queryClient.invalidateQueries({
+        queryKey: packageQueries.deployment(variables.deploymentId),
+      });
     },
   });
 };
@@ -1084,13 +936,9 @@ export const useUpdateDeploymentPolicyMutation = () => {
       return response.data;
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: packageQueries.deployment(variables.deploymentId) });
-      queryClient.invalidateQueries({ queryKey: packageQueries.userDeployments() });
-      toast.success("Deployment policy updated successfully");
-    },
-    onError: (error) => {
-      console.error("Failed to update deployment policy:", error);
-      toast.error(`Failed to update policy: ${error.message}`);
+      queryClient.invalidateQueries({
+        queryKey: packageQueries.deployment(variables.deploymentId),
+      });
     },
   });
 };
@@ -1111,10 +959,6 @@ export const useValidatePolicyMutation = () => {
       }
       return response.data;
     },
-    onError: (error) => {
-      console.error("Policy validation failed:", error);
-      toast.error(`Policy validation failed: ${error.message}`);
-    },
   });
 };
 
@@ -1129,10 +973,6 @@ export const useGetRecentTransactionsMutation = () => {
         throw new Error(response.error);
       }
       return response.data;
-    },
-    onError: (error) => {
-      console.error("Failed to get recent transactions:", error);
-      toast.error(`Failed to get transactions: ${error.message}`);
     },
   });
 };
@@ -1177,17 +1017,9 @@ export const useHelioDepositMutation = () => {
       }
       return response.data;
     },
-    onMutate: () => {
-      toast.loading("Creating deposit...", { id: "helio-deposit" });
-    },
-    onSuccess: (data) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: creditQueries.balance() });
       queryClient.invalidateQueries({ queryKey: creditQueries.deposits() });
-      toast.success(`Deposit of $${data.amount} created successfully`, { id: "helio-deposit" });
-    },
-    onError: (error) => {
-      console.error("Failed to create Helio deposit:", error);
-      toast.error(`Deposit failed: ${error.message}`, { id: "helio-deposit" });
     },
   });
 };
@@ -1213,17 +1045,9 @@ export const useStripeDepositMutation = () => {
       }
       return response.data;
     },
-    onMutate: () => {
-      toast.loading("Creating Stripe deposit...", { id: "stripe-deposit" });
-    },
-    onSuccess: (data) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: creditQueries.balance() });
       queryClient.invalidateQueries({ queryKey: creditQueries.deposits() });
-      toast.success(`Deposit of $${data.amount} created successfully`, { id: "stripe-deposit" });
-    },
-    onError: (error) => {
-      console.error("Failed to create Stripe deposit:", error);
-      toast.error(`Deposit failed: ${error.message}`, { id: "stripe-deposit" });
     },
   });
 };
@@ -1255,17 +1079,9 @@ export const useCashoutMutation = () => {
       }
       return response.data;
     },
-    onMutate: () => {
-      toast.loading("Processing cashout...", { id: "cashout" });
-    },
-    onSuccess: (data) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: creditQueries.balance() });
       queryClient.invalidateQueries({ queryKey: creditQueries.cashouts() });
-      toast.success(`Cashout of $${data.creditAmount} initiated successfully`, { id: "cashout" });
-    },
-    onError: (error) => {
-      console.error("Failed to process cashout:", error);
-      toast.error(`Cashout failed: ${error.message}`, { id: "cashout" });
     },
   });
 };
@@ -1294,17 +1110,8 @@ export const useCreateKnowledgeBaseMutation = () => {
       }
       return response.data;
     },
-    onMutate: () => {
-      toast.loading("Creating knowledge base...", { id: "create-kb" });
-    },
-    onSuccess: (data) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: knowledgeQueries.bases() });
-      queryClient.invalidateQueries({ queryKey: knowledgeQueries.my() });
-      toast.success(`Knowledge base "${data.name}" created successfully`, { id: "create-kb" });
-    },
-    onError: (error) => {
-      console.error("Failed to create knowledge base:", error);
-      toast.error(`Failed to create knowledge base: ${error.message}`, { id: "create-kb" });
     },
   });
 };
@@ -1337,17 +1144,10 @@ export const useAddKnowledgeSourceMutation = () => {
       }
       return response.data;
     },
-    onMutate: () => {
-      toast.loading("Adding source...", { id: "add-source" });
-    },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: knowledgeQueries.sources(variables.knowledgeBaseId) });
-      queryClient.invalidateQueries({ queryKey: knowledgeQueries.base(variables.knowledgeBaseId) });
-      toast.success("Source added successfully", { id: "add-source" });
-    },
-    onError: (error) => {
-      console.error("Failed to add knowledge source:", error);
-      toast.error(`Failed to add source: ${error.message}`, { id: "add-source" });
+      queryClient.invalidateQueries({
+        queryKey: knowledgeQueries.sources(variables.knowledgeBaseId),
+      });
     },
   });
 };
@@ -1373,13 +1173,8 @@ export const useAddKnowledgeUnitMutation = () => {
       }
       return response.data;
     },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: knowledgeQueries.units(data.knowledgeBaseId) });
-      toast.success(`Knowledge unit "${data.name}" added successfully`);
-    },
-    onError: (error) => {
-      console.error("Failed to add knowledge unit:", error);
-      toast.error(`Failed to add knowledge unit: ${error.message}`);
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: knowledgeQueries.all() });
     },
   });
 };
@@ -1401,13 +1196,8 @@ export const useRetryKnowledgeSourceMutation = () => {
       }
       return response.data;
     },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: knowledgeQueries.sources(data.knowledgeBaseId) });
-      toast.success("Source processing restarted");
-    },
-    onError: (error) => {
-      console.error("Failed to retry knowledge source:", error);
-      toast.error(`Failed to retry source: ${error.message}`);
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: knowledgeQueries.all() });
     },
   });
 };
@@ -1434,13 +1224,8 @@ export const useUpdateKnowledgeUnitMutation = () => {
       }
       return response.data;
     },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: knowledgeQueries.units(data.knowledgeBaseId) });
-      toast.success("Knowledge unit updated successfully");
-    },
-    onError: (error) => {
-      console.error("Failed to update knowledge unit:", error);
-      toast.error(`Failed to update knowledge unit: ${error.message}`);
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: knowledgeQueries.all() });
     },
   });
 };
@@ -1459,13 +1244,8 @@ export const useDeleteKnowledgeUnitMutation = () => {
       }
       return response.data;
     },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: knowledgeQueries.units(data.knowledgeBaseId) });
-      toast.success("Knowledge unit deleted successfully");
-    },
-    onError: (error) => {
-      console.error("Failed to delete knowledge unit:", error);
-      toast.error(`Failed to delete knowledge unit: ${error.message}`);
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: knowledgeQueries.all() });
     },
   });
 };
@@ -1488,18 +1268,13 @@ export const useRateKnowledgeBaseMutation = () => {
       }
       return response.data;
     },
-    onSuccess: (data, variables) => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
         queryKey: knowledgeQueries.base(variables.knowledgeBaseId),
       });
       queryClient.invalidateQueries({
         queryKey: knowledgeQueries.bases(),
       });
-      toast.success(`Rated ${variables.rating} stars successfully`);
-    },
-    onError: (error) => {
-      console.error("Failed to rate knowledge base:", error);
-      toast.error(`Failed to rate knowledge base: ${error.message}`);
     },
   });
 };
@@ -1522,18 +1297,13 @@ export const useBuyKnowledgeBaseMutation = () => {
       }
       return response.data;
     },
-    onMutate: () => {
-      toast.loading("Installing knowledge base...", { id: "install-kb" });
-    },
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: knowledgeQueries.installed(variables) });
-      queryClient.invalidateQueries({ queryKey: knowledgeQueries.allInstalled() });
-      queryClient.invalidateQueries({ queryKey: creditQueries.balance() });
-      toast.success("Knowledge base installed successfully", { id: "install-kb" });
+      toast.success("Installed knowledge base");
     },
     onError: (error) => {
-      console.error("Failed to install knowledge base:", error);
-      toast.error(`Installation failed: ${error.message}`, { id: "install-kb" });
+      console.error("Failed to purchase knowledge base:", error);
+      toast.error(error.message);
     },
   });
 };
