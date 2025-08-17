@@ -333,7 +333,9 @@ export function WalletDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="size-10 rounded-full bg-primary-200" />
+              <div className="size-10 rounded-full">
+                <img src={`https://api.dicebear.com/9.x/pixel-art/svg?seed=${selectedWalletAddress}`} alt="token" className="w-full h-full rounded-full" />
+              </div>
               <div className="flex flex-col gap-1">
                 {allWalletAddresses.length > 1 ? (
                   <Select value={selectedWalletAddress} onValueChange={setSelectedWalletAddress}>
@@ -474,7 +476,7 @@ export function WalletDialog({
                     <SelectContent>
                       <SelectItem value="transfer_crypto">Transfer Crypto</SelectItem>
                       <SelectItem value="use_card">Use Card</SelectItem>
-                      <SelectItem value="connect_exchange">Connect Exchange</SelectItem>
+                      <SelectItem value="connect_exchange">Connect Wallet</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -483,7 +485,17 @@ export function WalletDialog({
                 {depositMethod === 'transfer_crypto' && (
                   <div className="text-center space-y-4">
                     <div className="p-6 rounded-lg bg-primary-50 border-2 border-dashed border-primary-200">
-                      <QrCode className="size-24 mx-auto text-primary-600 mb-3" />
+                      <div className="size-24 mx-auto mb-3 flex items-center justify-center">
+                        <img 
+                          src={`https://api.qrserver.com/v1/create-qr-code/?size=96x96&data=${
+                            selectedAddress.chains.some((chain: any) => chain.includes('solana')) 
+                              ? `solana:${selectedWalletAddress}`
+                              : `${selectedWalletAddress}`
+                          }`}
+                          alt="QR Code for wallet address"
+                          className="size-24"
+                        />
+                      </div>
                       <h4 className="text-sm font-medium text-primary-800 mb-2">Transfer any crypto to this address</h4>
                       <p className="text-xs text-primary-600 mb-3">
                         Send any token supported by your wallet's chains to this address
