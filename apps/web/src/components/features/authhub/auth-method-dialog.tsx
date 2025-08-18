@@ -231,7 +231,7 @@ export function AuthMethodDialog({
 
         case 'embedded_wallet':
           if (!authHubName.trim()) {
-            toast.error("Auth Hub Name is required");
+            toast.error("Authentication Hub Name is required");
             setConnectionState({ status: 'idle' });
             return;
           }
@@ -668,7 +668,7 @@ export function AuthMethodDialog({
           </div>
 
           <div className="flex flex-col space-y-1.5 px-4 text-[13px] text-primary-400">
-            <label htmlFor="auth_hub_name">Auth Hub Name</label>
+            <label htmlFor="auth_hub_name">Authentication Hub Name</label>
             <Input
               type="text"
               value={authHubName}
@@ -839,7 +839,7 @@ export function AuthMethodDialog({
           </div>
 
           <div className="flex flex-col space-y-1.5 mt-6 px-4 text-[13px] text-primary-400">
-            <label htmlFor="auth_hub_name">Auth Hub Name</label>
+            <label htmlFor="auth_hub_name">Authentication Hub Name</label>
             <Input
               type="text"
               disabled

@@ -233,7 +233,7 @@ export function AuthTable({
                 <div className="flex w-full gap-4 md:items-center md:justify-between flex-col md:flex-row border-b border-b-primary-100 pb-4">
                     <div className="flex items-center gap-2">
                         <span className="text-xl text-primary-800 font-medium whitespace-nowrap">
-                            Auth Hub
+                            Authentication Hub
                         </span>
                         {isFetching && !isLoading && (
                             <div className="flex items-center gap-1">

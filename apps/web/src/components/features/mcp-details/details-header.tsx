@@ -46,8 +46,8 @@ export function McpDetailsHeader() {
       <div className="-mt-6 flex justify-between px-6">
         <div className="w-full gap-y-2">
           <h1 className="text-primary-800 text-xl">{packageData?.name || "Browser Base"}</h1>
-          <p className="text-primary-300 whitespace-nowrap max-w-xs" title={packageData?.publisherId || ""}>
-            {packageData?.publisherId || ""}
+          <p className="text-primary-300 whitespace-nowrap max-w-xs" title={packageData?.shortDescription || ""}>
+            {packageData?.shortDescription || ""}
           </p>
         </div>
         <div className="flex items-center gap-4">

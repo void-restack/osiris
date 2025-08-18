@@ -45,7 +45,7 @@ const data = {
       // ],
     },
     {
-      title: "AuthHub",
+      title: "Authentication Hub",
       url: "auth",
       icon: () => <Icon name="authfile" />,
     },

@@ -707,7 +707,7 @@ function RouteComponent() {
       <div className="flex flex-1 flex-col bg-primary-25 h-full min-h-screen">
         <div className="mx-auto py-8 max-w-[520px] w-full px-4 space-y-6">
           <div className="text-center py-8">
-            <h1 className="text-2xl font-semibold text-gray-900 mb-2">{packageDetails?.name} wants to access your Auth Hub.</h1>
+            <h1 className="text-2xl font-semibold text-gray-900 mb-2">{packageDetails?.name} wants to access your Authentication Hub.</h1>
             <p className="text-sm text-gray-600">Sign in with your account to continue</p>
           </div>
 
@@ -773,7 +773,7 @@ function RouteComponent() {
               <div className="text-center space-y-2">
                 <InfoIcon className="h-8 w-8 text-blue-500 mx-auto" />
                 <h3 className="text-sm font-medium text-blue-800">Account Required</h3>
-                <p className="text-xs text-blue-600">You need to create an account on Osiris to authorize third-party applications to access your Auth Hub.</p>
+                <p className="text-xs text-blue-600">You need to create an account on Osiris to authorize third-party applications to access your Authentication Hub.</p>
               </div>
             </CardContent>
           </Card>
@@ -786,7 +786,7 @@ function RouteComponent() {
     <div className="flex flex-1 flex-col bg-primary-25 h-full min-h-screen">
       <div className="mx-auto py-8 max-w-[520px] w-full px-4 space-y-6">
         <div className="text-center py-8">
-          <h1 className="text-2xl font-semibold text-gray-900 mb-2">{packageDetails?.name} wants to access your Auth Hub.</h1>
+          <h1 className="text-2xl font-semibold text-gray-900 mb-2">{packageDetails?.name} wants to access your Authentication Hub.</h1>
         </div>
 
         <Card>

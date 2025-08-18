@@ -151,52 +151,66 @@ export function McpCapabilitiesList({ data }: { data: Capability[] }) {
 	});
 
 	return (
-		<div className="rounded-md border border-primary-50">
-			<Table>
-				<TableHeader>
-					{table.getHeaderGroups().map((headerGroup) => (
-						<TableRow className="" key={headerGroup.id}>
-							{headerGroup.headers.map((header, _index) => {
-								return (
-									<TableHead key={header.id}>
-										{header.isPlaceholder
-											? null
-											: flexRender(
-												header.column.columnDef.header,
-												header.getContext(),
-											)}
-									</TableHead>
-								);
-							})}
-						</TableRow>
-					))}
-				</TableHeader>
-				<TableBody>
-					{table.getRowModel().rows?.length ? (
-						table.getRowModel().rows.map((row) => (
-							<TableRow
-								key={row.id}
-								data-state={row.getIsSelected() && "selected"}
-							>
-								{row.getVisibleCells().map((cell, _index) => (
-									<TableCell key={cell.id}>
-										{flexRender(cell.column.columnDef.cell, cell.getContext())}
-									</TableCell>
-								))}
+		<div className="rounded-md relative border border-primary-50 h-[400px] overflow-hidden">
+			<div className="h-full overflow-auto">
+				<Table>
+					<TableHeader className="sticky top-0 bg-white z-10">
+						{table.getHeaderGroups().map((headerGroup) => (
+							<TableRow className="" key={headerGroup.id}>
+								{headerGroup.headers.map((header, _index) => {
+									return (
+										<TableHead key={header.id}>
+											{header.isPlaceholder
+												? null
+												: flexRender(
+													header.column.columnDef.header,
+													header.getContext(),
+												)}
+										</TableHead>
+									);
+								})}
 							</TableRow>
-						))
-					) : (
-						<TableRow>
-							<TableCell colSpan={columns.length} className="h-24 text-center">
-								<div className="flex flex-col items-center gap-2">
-									<p className="text-primary-600 font-medium">No tools available</p>
-									<p className="text-primary-400 text-sm">This MCP server doesn't provide any tools</p>
-								</div>
-							</TableCell>
-						</TableRow>
-					)}
-				</TableBody>
-			</Table>
+						))}
+					</TableHeader>
+					<TableBody>
+						{data?.length ? (
+							data.map((item, index) => {
+								const row = table.getRowModel().rows[index] || {
+									id: item.id,
+									original: item,
+									getIsSelected: () => false,
+									getVisibleCells: () => columns.map((col, cellIndex) => ({
+										id: `${item.id}-${cellIndex}`,
+										column: { columnDef: col },
+										getContext: () => ({ row: { original: item } })
+									}))
+								};
+								return (
+									<TableRow
+										key={row.id}
+										data-state={row.getIsSelected && row.getIsSelected() && "selected"}
+									>
+										{row.getVisibleCells().map((cell, _index) => (
+											<TableCell key={cell.id}>
+												{flexRender(cell.column.columnDef.cell, cell.getContext())}
+											</TableCell>
+										))}
+									</TableRow>
+								);
+							})
+						) : (
+							<TableRow>
+								<TableCell colSpan={columns.length} className="h-24 text-center">
+									<div className="flex flex-col items-center gap-2">
+										<p className="text-primary-600 font-medium">No tools available</p>
+										<p className="text-primary-400 text-sm">This MCP server doesn't provide any tools</p>
+									</div>
+								</TableCell>
+							</TableRow>
+						)}
+					</TableBody>
+				</Table>
+			</div>
 		</div>
 	);
 }

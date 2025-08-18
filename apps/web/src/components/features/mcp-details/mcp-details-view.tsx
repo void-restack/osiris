@@ -61,8 +61,8 @@ export function McpDetailsView() {
 				</div>
 				<div className="flex items-center justify-between">
 					<p>Publisher</p>
-					<p className="text-right truncate max-w-32" title={packageData.publisherId || "Unknown"}>
-						{packageData.publisherId ? String(packageData.publisherId).slice(0, 4) + "..." + String(packageData.publisherId).slice(-4) : "Unknown"}
+					<p className="text-right truncate max-w-32" title={(packageData.publisher.name ?? packageData.publisherId) || "Unknown"}>
+						{(packageData.publisher.name === "super_admin" ? "Osiris" : packageData.publisher.name) ?? (packageData.publisherId ? String(packageData.publisherId).slice(0, 4) + "..." + String(packageData.publisherId).slice(-4) : "Unknown")}
 					</p>
 				</div>
 				<div className="flex items-center justify-between">

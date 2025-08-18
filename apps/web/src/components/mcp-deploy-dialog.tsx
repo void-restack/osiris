@@ -354,7 +354,7 @@ export function McpDeployDialog({
       // Flatten scopes for authorization
       const allScopes = serviceConnections.flatMap(sc => sc.scopes);
 
-      authorizeMutation.mutate({
+      const data = await authorizeMutation.mutateAsync({
         clientId: pkg?.clientId ?? "",
         redirectUri: mcpRedirectUri.toString(),
         responseType: 'code',
@@ -362,6 +362,12 @@ export function McpDeployDialog({
         state: deploymentId || '',
         deploymentId: deploymentId,
       })
+
+	  const url = new URL(data.url)
+	  const res = await fetch(url.toString())
+	  if (res.status !== 200) {
+		throw new Error('Failed to authorize')
+	  }
 
       // Show success message
       toast.success('Package deployed successfully!');
