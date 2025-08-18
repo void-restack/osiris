@@ -363,11 +363,11 @@ export function McpDeployDialog({
         deploymentId: deploymentId,
       })
 
-	  const url = new URL(data.url)
-	  const res = await fetch(url.toString())
-	  if (res.status !== 200) {
-		throw new Error('Failed to authorize')
-	  }
+      const url = new URL(data.url)
+      const res = await fetch(url.toString())
+      if (res.status !== 200) {
+        throw new Error('Failed to authorize')
+      }
 
       // Show success message
       toast.success('Package deployed successfully!');
@@ -488,7 +488,11 @@ export function McpDeployDialog({
                 <h4 className="font-medium mb-2">One-click install in Cursor</h4>
                 <Button
                   onClick={() => {
-                    const cursorUrl = `cursor://mcp/add?url=${encodeURIComponent(mcpDeploymentUrl)}&name=${encodeURIComponent(pkg.name)}`;
+                    const configObj = {
+                      type: "http",
+                      url: mcpDeploymentUrl
+                    };
+                    const cursorUrl = `cursor://anysphere.cursor-deeplink/mcp/install?name=${encodeURIComponent(pkg.name)}&config=${encodeURIComponent(btoa(JSON.stringify(configObj)))}`;
                     window.open(cursorUrl, '_blank');
                   }}
                   className="w-full mb-2"
@@ -545,7 +549,12 @@ export function McpDeployDialog({
                 <h4 className="font-medium mb-2">One-click install in VS Code</h4>
                 <Button
                   onClick={() => {
-                    const vscodeUrl = `vscode://mcp/add?url=${encodeURIComponent(mcpDeploymentUrl)}&name=${encodeURIComponent(pkg.name)}`;
+                    const configObj = {
+                      name: pkg.name,
+                      type: "http",
+                      url: mcpDeploymentUrl
+                    };
+                    const vscodeUrl = `vscode:mcp/install?${encodeURIComponent(JSON.stringify(configObj))}`;
                     window.open(vscodeUrl, '_blank');
                   }}
                   className="w-full mb-2"
