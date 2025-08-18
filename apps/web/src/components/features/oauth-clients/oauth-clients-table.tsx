@@ -1,5 +1,4 @@
 import { type ColumnDef } from "@tanstack/react-table";
-import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -13,7 +12,6 @@ import { OAuthClientsGridView } from "./oauth-clients-grid-view";
 import { CreateOAuthClientDialog } from "./create-oauth-client-dialog";
 import {
     MoreHorizontal,
-    Eye,
     Edit,
     Trash2,
     RefreshCw,
