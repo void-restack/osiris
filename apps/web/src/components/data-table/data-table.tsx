@@ -1,7 +1,7 @@
 import { flexRender, type Table as TanstackTable } from "@tanstack/react-table";
 import type * as React from "react";
 
-// import { DataTablePagination } from "@/components/data-table/data-table-pagination";
+import { DataTablePagination } from "@/components/data-table/data-table-pagination";
 import {
 	Table,
 	TableBody,
@@ -31,6 +31,12 @@ export function DataTable<TData>({
 			{...props}
 		>
 			{children}
+			<div className="flex flex-col gap-2.5">
+				<DataTablePagination table={table} />
+				{actionBar &&
+					table.getFilteredSelectedRowModel().rows.length > 0 &&
+					actionBar}
+			</div>
 			<div className="w-full overflow-x-auto rounded-md border">
 				<Table className="w-full">
 					<TableHeader>

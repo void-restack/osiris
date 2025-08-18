@@ -2,12 +2,34 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, Suspense, useState } from "react";
 import { useSuspenseQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
+import { type ColumnDef } from "@tanstack/react-table";
 import { Autocomplete } from "@/components/ui/autocomplete";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import { packageQueries, userQueries } from "@/lib/queries";
 import { getAuthState } from "@/lib/auth-utils";
-import type { Package } from "@/types";
+import type { Package, PackageList } from "@/types";
 import { PackagesTable } from "@/components/features/packages-table/packages-table";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
+import { usePackagesTable } from "@/hooks/use-packages-table";
+import { gridViewColumns } from "@/components/features/packages-table/packages-grid-view";
+import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header";
+import {
+  Download,
+  Clock,
+  Cpu,
+  MoreHorizontal,
+  Eye,
+  Share2,
+} from "lucide-react";
+import { toast } from "sonner";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const searchSchema = z.object({
   publisherId: z.string().optional(),
@@ -16,6 +38,10 @@ const searchSchema = z.object({
   page: z.coerce.number().optional(),
   perPage: z.coerce.number().optional()
 });
+
+const PACKAGE_TYPES = [
+  { label: "MCP Package", value: "mcp", icon: Cpu },
+] as const;
 
 function McpPageSkeleton() {
   return (
@@ -87,7 +113,6 @@ export const Route = createFileRoute("/_hub/mcp/")({
 });
 
 function normalizePackage(pkg: any): Package {
-
   if (pkg.type && pkg.url && pkg.packageId) {
     const normalized = {
       packageId: pkg.packageId,
@@ -138,51 +163,12 @@ function normalizePackage(pkg: any): Package {
 }
 
 function RouteComponent() {
-  // const search = Route.useSearch();
-  // const { auth } = Route.useLoaderData();
-  const [packagesTable, setPackagesTable] = useState<any>(null);
   const queryClient = useQueryClient();
-
-  // const { data: packageData, isPending } = useQuery({
-  //   ...packageQueries.listOptions({
-  //     publisherId: search?.publisherId,
-  //     name: search?.name,
-  //     search: search?.name || search?.description || search?.search,
-  //     page: search?.page || 1,
-  //     limit: Math.min(search?.perPage || 10, 10),
-  //   }),
-  // });
-
-  // const { data: userInstalled } = useQuery({
-  //   ...packageQueries.userInstalledOptions(auth.isAuthenticated),
-  //   enabled: auth.isAuthenticated,
-  // });
-
-  // const { data: userDeployments } = useQuery({
-  //   ...packageQueries.userDeploymentsOptions(auth.isAuthenticated),
-  //   enabled: auth.isAuthenticated,
-  // });
+  const [viewMode, setViewMode] = useState<"table" | "grid">("grid");
 
   const { data: popularPackages } = useSuspenseQuery(
     packageQueries.popularOptions()
   );
-
-  // const packages = useMemo(() => {
-  //   if (!packageData?.data) return [];
-
-  //   const allPackages = packageData.data;
-  //   const normalizedPackages: Package[] = allPackages.map(normalizePackage);
-
-  //   const installedMap = new Map(
-  //     auth.isAuthenticated && userInstalled ? userInstalled.map((item: any) => [item.packageId, item]) : []
-  //   );
-
-  //   const deployedMap = new Map(
-  //     auth.isAuthenticated && userDeployments ? userDeployments.map((item: any) => [item.package.packageId, item]) : []
-  //   );
-
-  //   return normalizedPackages;
-  // }, [packageData, userInstalled, userDeployments, auth.isAuthenticated]);
 
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -213,6 +199,229 @@ function RouteComponent() {
   const normalizedPopularPackages = useMemo(() => {
     return (popularPackages?.data || []).map(normalizePackage);
   }, [popularPackages]);
+
+  // Action handlers for table
+  const handleInstall = (pkg: PackageList) => {
+    const name = pkg.name || (pkg as any).packageName;
+    toast.success(`Installing ${name}...`);
+  };
+
+  const handleShare = (pkg: PackageList) => {
+    const url = pkg.url || (pkg as any).packageUrl;
+    navigator.clipboard.writeText(url);
+    toast.success("Package URL copied to clipboard");
+  };
+
+  // Define table columns here in the main component
+  const tableColumns = useMemo<ColumnDef<PackageList>[]>(
+    () => [
+      {
+        id: "search",
+        accessorKey: "name",
+        enableColumnFilter: true,
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title="Package" />
+        ),
+        cell: ({ row }) => {
+          const pkg = row.original;
+          return (
+            <div className="flex items-center gap-3 min-w-0">
+              <Avatar className="size-8 rounded-md shrink-0">
+                <AvatarImage
+                  src={pkg.iconUrl || (pkg as any).packageIconUrl || undefined}
+                  alt={pkg.name || (pkg as any).packageName}
+                />
+                <AvatarFallback className="rounded-md text-xs font-medium bg-primary-100 text-primary-700">
+                  {(pkg.name || (pkg as any).packageName)?.charAt(0).toUpperCase() || 'P'}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex flex-col min-w-0 max-w-[250px] lg:max-w-[300px]">
+                <span className="font-medium text-sm text-primary-800 truncate">
+                  {pkg.name || (pkg as any).packageName}
+                </span>
+              </div>
+            </div>
+          );
+        },
+        enableSorting: false,
+        meta: {
+          variant: "text",
+          label: "Package name",
+          placeholder: "Search packages...",
+        },
+      },
+      {
+        id: "description",
+        accessorKey: "description",
+        enableColumnFilter: false,
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title="Description" />
+        ),
+        cell: ({ row }) => {
+          const pkg = row.original;
+          return (
+            <p className="text-xs text-primary-400 max-w-[200px] w-full truncate">
+              {pkg.shortDescription || pkg.description || (pkg as any).packageDescription}
+            </p>
+          );
+        },
+      },
+      {
+        id: "type",
+        accessorKey: "type",
+        enableColumnFilter: true,
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title="Type" />
+        ),
+        cell: ({ row }) => {
+          const type = row.getValue("type") as string;
+          const typeConfig = PACKAGE_TYPES.find(t => t.value === type);
+
+          return (
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary" className="capitalize text-xs">
+                {typeConfig?.label}
+              </Badge>
+            </div>
+          );
+        },
+        enableSorting: false,
+        meta: {
+          variant: "multiSelect",
+          label: "Package type",
+          options: PACKAGE_TYPES.map(type => ({
+            label: type.label,
+            value: type.value,
+            icon: type.icon
+          })),
+        },
+      },
+      {
+        id: "version",
+        accessorKey: "latestVersion",
+        enableColumnFilter: false,
+        enableSorting: false,
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title="Version" />
+        ),
+        cell: ({ row }) => {
+          const pkg = row.original;
+          const version = pkg.latestVersion || (pkg as any).packageLatestVersion;
+          return (
+            <Badge variant="outline" className="font-mono text-xs">
+              v{version}
+            </Badge>
+          );
+        },
+      },
+      {
+        id: "pricing",
+        accessorFn: (row) => row.paymentConfig ? "Paid" : "Free",
+        enableColumnFilter: true,
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title="Pricing" />
+        ),
+        cell: ({ row }) => {
+          const paymentConfig = row.original.paymentConfig;
+          return (
+            <Badge variant="secondary" className="text-xs uppercase">
+              {paymentConfig ? "Paid" : "Free"}
+            </Badge>
+          );
+        },
+        enableSorting: false,
+        meta: {
+          variant: "select",
+          label: "Pricing",
+          options: [
+            { label: "Free", value: "Free" },
+            { label: "Paid", value: "Paid" }
+          ],
+        },
+      },
+      {
+        id: "updatedAt",
+        accessorKey: "updatedAt",
+        enableColumnFilter: false,
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title="Updated" />
+        ),
+        enableSorting: false,
+        cell: ({ row }) => {
+          const updatedAt = row.getValue("updatedAt") as string;
+          const date = new Date(updatedAt);
+          const now = new Date();
+          const diffInDays = Math.floor(
+            (now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24)
+          );
+
+          return (
+            <div className="flex items-center gap-1">
+              <Clock className="h-3 w-3 text-primary-400" />
+              <span className="text-sm text-primary-600">
+                {diffInDays === 0
+                  ? "Today"
+                  : diffInDays === 1
+                    ? "Yesterday"
+                    : `${diffInDays}d ago`
+                }
+              </span>
+            </div>
+          );
+        },
+      },
+      {
+        id: "actions",
+        header: () => <div className="text-right pr-2 md:pr-6">Actions</div>,
+        cell: ({ row }) => {
+          const pkg = row.original;
+          return (
+            <div className="w-full flex items-end justify-end pr-2 md:pr-6">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                    <MoreHorizontal className="h-3 w-3" />
+                    <span className="sr-only">Open menu</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem asChild>
+                    <Link to={`/mcp/${pkg.packageId}`}>
+                      <Eye className="h-3 w-3 mr-2" />
+                      View Details
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleInstall(pkg)}>
+                    <Download className="h-3 w-3 mr-2" />
+                    Deploy Package
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleShare(pkg)}>
+                    <Share2 className="h-3 w-3 mr-2" />
+                    Copy URL
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          );
+        },
+        enableSorting: false,
+        enableHiding: false,
+      },
+    ],
+    [handleInstall, handleShare]
+  );
+
+  // Determine active columns based on view mode
+  const activeColumns = useMemo(() => {
+    return viewMode === "grid" ? gridViewColumns : tableColumns;
+  }, [viewMode, tableColumns]);
+
+  // Use the packages table hook directly in this component
+  const { table, isLoading, isFetching } = usePackagesTable({
+    columns: activeColumns,
+    initialPageSize: 10,
+    customFilters: {},
+  });
 
   return (
     <div className="flex flex-1 flex-col pt-4">
@@ -276,17 +485,21 @@ function RouteComponent() {
         />
       </div>
 
-      {/* New Packages Table */}
-      <div className="px-4 md:px-6">
+      {/* Packages Table - now just a presentation component */}
+      <div className="px-4 md:px-6 mb-20">
         <PackagesTable
-          onTableReady={(table) => {
-            setPackagesTable(table);
-          }}
+          table={table}
+          isLoading={isLoading}
+          isFetching={isFetching}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
+          title="All MCPs"
         />
       </div>
 
+      {/* Bottom pagination - directly using the same table instance */}
       <div className="absolute bottom-0 border-t border-t-primary-100 flex h-12 w-full items-center overflow-hidden rounded-b-xl bg-primary-00 p-6">
-        {packagesTable && <DataTablePagination table={packagesTable} />}
+        <DataTablePagination table={table} />
       </div>
     </div>
   );
