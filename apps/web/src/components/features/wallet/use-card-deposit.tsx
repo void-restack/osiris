@@ -77,12 +77,38 @@ export function UseCardDeposit({
   };
 
   return (
-    <div className={`flex items-center flex-col gap-y-4 ${className}`}>
-      <div className="flex items-center justify-center">
+    <div className={`flex text-center flex-col gap-y-4 w-full ${className}`}>
+      <div className="flex items-center justify-center w-full">
         <img src="/helio.svg" alt="helio" className="size-14" />
         <img src="/logo.png" alt="osiris" className="-translate-x-4 size-16" />
       </div>
       <p className="text-xl">Powered by Helio</p>
+
+      <div className="flex flex-col gap-6 my-6 items-center">
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-2">
+            <div className="size-5 rounded-md bg-purple-300" />
+            <h4 className="text-sm">Your sing-in credentials are never stored</h4>
+          </div>
+          <p className="text-xs text-left text-pretty text-primary-400">All data is encrypted between osiris and helio.</p>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-2">
+            <div className="size-5 rounded-md bg-purple-300" />
+            <h4 className="text-sm">Your sing-in credentials are never stored</h4>
+          </div>
+          <p className="text-xs text-left text-pretty text-primary-400">All data is encrypted between osiris and helio.</p>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-2">
+            <div className="size-5 rounded-md bg-purple-300" />
+            <h4 className="text-sm">Your sing-in credentials are never stored</h4>
+          </div>
+          <p className="text-xs text-left text-pretty text-primary-400">All data is encrypted between osiris and helio.</p>
+        </div>
+      </div>
 
       {showAmountInput && (
         <div className="w-full space-y-3">
@@ -99,9 +125,6 @@ export function UseCardDeposit({
             min="0.01"
             step="0.01"
           />
-          {/* <p className="text-xs text-primary-500 text-center">
-            Enter the amount you want to add
-          </p> */}
         </div>
       )}
 

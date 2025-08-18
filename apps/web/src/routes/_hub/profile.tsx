@@ -370,9 +370,6 @@ function RouteComponent() {
                 <PlusIcon className="text-primary-00 size-4" />
               </button>
             </AddFundsModal>
-            {/* <div className="h-[52px] w-[30px] bg-primary-800 flex items-center justify-center rounded-[8px] inset-shadow-search-btn">
-              <PlusIcon className="text-primary-00 size-4" />
-            </div> */}
           </div>
         </div>
 

@@ -39,7 +39,7 @@ export function AddFundsModal({ children, triggerClassName }: AddFundsModalProps
             </DialogTrigger>
 
             <DialogContent
-                className="sm:max-w-[400px] w-full p-6"
+                className="sm:max-w-[400px] w-full p-4"
                 showCloseButton={false}
                 onInteractOutside={(e) => e.preventDefault()}
                 onEscapeKeyDown={(e) => e.preventDefault()}
@@ -57,7 +57,7 @@ export function AddFundsModal({ children, triggerClassName }: AddFundsModalProps
                     </DialogTitle>
                 </DialogHeader>
 
-                <div className="mt-4">
+                <div className="mt-4 w-full">
                     <UseCardDeposit
                         onSuccess={handleSuccess}
                         onError={handleError}
