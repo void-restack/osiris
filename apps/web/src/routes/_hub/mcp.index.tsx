@@ -200,7 +200,6 @@ function RouteComponent() {
     return (popularPackages?.data || []).map(normalizePackage);
   }, [popularPackages]);
 
-  // Action handlers for table
   const handleInstall = (pkg: PackageList) => {
     const name = pkg.name || (pkg as any).packageName;
     toast.success(`Installing ${name}...`);
