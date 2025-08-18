@@ -1,8 +1,9 @@
 import { useMemo, useState, useCallback, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useAccount, useDisconnect } from "wagmi";
+import { useAccount, useDisconnect, useSendTransaction, useWaitForTransactionReceipt, useEstimateGas, useGasPrice } from "wagmi";
+import { parseEther, parseUnits, formatEther } from "viem";
 import { ConnectKitButton } from "connectkit";
-import { Loader2, Copy, CopyIcon, MoveDownLeft, MoveDownRight, CheckCircle, QrCode, RefreshCw, Wallet, X } from "lucide-react";
+import { Loader2, Copy, CopyIcon, MoveDownLeft, MoveDownRight, CheckCircle, X, Unlink } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,6 +47,56 @@ const getChainKeyFromValue = (chainValue: string): string | null => {
   return chainMap[chainValue] || null;
 };
 
+// Chain icons mapping
+const getChainIcon = (chainKey: string): string => {
+  const chainIcons: Record<string, string> = {
+    ethereum: "/ethereum.svg",
+    polygon: "/polygon.svg",
+    arbitrum: "/arb.png",
+    base: "/base.svg",
+    solana: "/solana.svg"
+  };
+  return chainIcons[chainKey] || "";
+};
+
+// Token icons mapping
+const getTokenIcon = (tokenSymbol: string): string => {
+  const tokenIcons: Record<string, string> = {
+    eth: "/ethereum.svg",
+    matic: "/polygon.svg",
+    usdc: "/credit.svg",
+    usdt: "/credit.svg",
+    sol: "/solana.svg"
+  };
+  return tokenIcons[tokenSymbol.toLowerCase()] || "";
+};
+
+const getTokenDetails = (chain: string, token: string) => {
+  const tokenDetails: Record<string, Record<string, any>> = {
+    ethereum: {
+      eth: { address: "0x0000000000000000000000000000000000000000", decimals: 18, isNative: true },
+      usdc: { address: "0xA0b86a33E6e6b9b4f8d7A4f13fD6F86A2F0e0a34", decimals: 6, isNative: false },
+      usdt: { address: "0xdAC17F958D2ee523a2206206994597C13D831ec7", decimals: 6, isNative: false }
+    },
+    polygon: {
+      matic: { address: "0x0000000000000000000000000000000000000000", decimals: 18, isNative: true },
+      usdc: { address: "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359", decimals: 6, isNative: false },
+      usdt: { address: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F", decimals: 6, isNative: false }
+    },
+    arbitrum: {
+      eth: { address: "0x0000000000000000000000000000000000000000", decimals: 18, isNative: true },
+      usdc: { address: "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8", decimals: 6, isNative: false },
+      usdt: { address: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9", decimals: 6, isNative: false }
+    },
+    base: {
+      eth: { address: "0x0000000000000000000000000000000000000000", decimals: 18, isNative: true },
+      usdc: { address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", decimals: 6, isNative: false }
+    }
+  };
+
+  return tokenDetails[chain]?.[token] || null;
+};
+
 export function WalletDialog({
   address,
   index,
@@ -63,12 +114,68 @@ export function WalletDialog({
   const [customTokenAddress, setCustomTokenAddress] = useState('');
   const [fundAmount, setFundAmount] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [transactionHash, setTransactionHash] = useState<string>('');
+  const [estimatedGas, setEstimatedGas] = useState<bigint | null>(null);
+  const [gasPrice, setGasPrice] = useState<bigint | null>(null);
 
   const { user } = useAuth();
 
-  // Wagmi hooks
   const { address: connectedAddress, isConnected } = useAccount();
   const { disconnect } = useDisconnect();
+
+  const {
+    sendTransaction,
+    isPending: isSendingTransaction,
+    data: txHash,
+    error: txError
+  } = useSendTransaction();
+
+  const {
+    isLoading: isWaitingForReceipt,
+    isSuccess: isTransactionSuccess
+  } = useWaitForTransactionReceipt({
+    hash: txHash,
+  });
+
+  const { data: currentGasPrice } = useGasPrice();
+
+  const transactionForEstimation = useMemo(() => {
+    if (!connectedAddress || !selectedWalletAddress || !fundAmount || !isConnected || depositMethod !== 'connect_exchange') {
+      return null;
+    }
+
+    const tokenDetails = getTokenDetails(selectedChain, selectedToken);
+    if (!tokenDetails) return null;
+
+    if (tokenDetails.isNative) {
+      return {
+        account: connectedAddress,
+        to: selectedWalletAddress as `0x${string}`,
+        value: parseEther(fundAmount),
+      };
+    } else {
+      // For ERC20 tokens, we'd need to estimate a contract call - useWriteContract
+      return {
+        account: connectedAddress,
+        to: tokenDetails.address as `0x${string}`,
+        value: 0n,
+      };
+    }
+  }, [connectedAddress, selectedWalletAddress, fundAmount, selectedChain, selectedToken, isConnected, depositMethod]);
+
+  const { data: estimatedGasData } = useEstimateGas(transactionForEstimation || undefined);
+
+  useEffect(() => {
+    if (estimatedGasData) {
+      setEstimatedGas(estimatedGasData);
+    }
+  }, [estimatedGasData]);
+
+  useEffect(() => {
+    if (currentGasPrice) {
+      setGasPrice(currentGasPrice);
+    }
+  }, [currentGasPrice]);
 
   const helioDepositMutation = useHelioDepositMutation();
 
@@ -101,69 +208,80 @@ export function WalletDialog({
   const getTopTokensForChain = useCallback((selectedChain: string) => {
     const topTokens: Record<string, any[]> = {
       ethereum: [
-        { value: 'eth', label: 'Ethereum (ETH)', symbol: 'ETH' },
-        { value: 'usdc', label: 'USD Coin (USDC)', symbol: 'USDC' },
-        { value: 'usdt', label: 'Tether (USDT)', symbol: 'USDT' }
+        { value: 'eth', label: 'Ethereum (ETH)', symbol: 'ETH', address: '0x0000000000000000000000000000000000000000', isNative: true },
+        { value: 'usdc', label: 'USD Coin (USDC)', symbol: 'USDC', address: '0xA0b86a33E6e6b9b4f8d7A4f13fD6F86A2F0e0a34', isNative: false },
+        { value: 'usdt', label: 'Tether (USDT)', symbol: 'USDT', address: '0xdAC17F958D2ee523a2206206994597C13D831ec7', isNative: false }
       ],
       polygon: [
-        { value: 'matic', label: 'Polygon (MATIC)', symbol: 'MATIC' },
-        { value: 'usdc', label: 'USD Coin (USDC)', symbol: 'USDC' },
-        { value: 'usdt', label: 'Tether (USDT)', symbol: 'USDT' }
+        { value: 'matic', label: 'Polygon (MATIC)', symbol: 'MATIC', address: '0x0000000000000000000000000000000000000000', isNative: true },
+        { value: 'usdc', label: 'USD Coin (USDC)', symbol: 'USDC', address: '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359', isNative: false },
+        { value: 'usdt', label: 'Tether (USDT)', symbol: 'USDT', address: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F', isNative: false }
       ],
       arbitrum: [
-        { value: 'eth', label: 'Ethereum (ETH)', symbol: 'ETH' },
-        { value: 'usdc', label: 'USD Coin (USDC)', symbol: 'USDC' },
-        { value: 'usdt', label: 'Tether (USDT)', symbol: 'USDT' }
+        { value: 'eth', label: 'Ethereum (ETH)', symbol: 'ETH', address: '0x0000000000000000000000000000000000000000', isNative: true },
+        { value: 'usdc', label: 'USD Coin (USDC)', symbol: 'USDC', address: '0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8', isNative: false },
+        { value: 'usdt', label: 'Tether (USDT)', symbol: 'USDT', address: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9', isNative: false }
       ],
       base: [
-        { value: 'eth', label: 'Ethereum (ETH)', symbol: 'ETH' },
-        { value: 'usdc', label: 'USD Coin (USDC)', symbol: 'USDC' }
+        { value: 'eth', label: 'Ethereum (ETH)', symbol: 'ETH', address: '0x0000000000000000000000000000000000000000', isNative: true },
+        { value: 'usdc', label: 'USD Coin (USDC)', symbol: 'USDC', address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', isNative: false }
       ]
     };
 
     return topTokens[selectedChain] || [];
   }, []);
 
-
-
-  // Custom Connect Button Component using ConnectKitButton render props
   const CustomConnectButton = () => (
     <ConnectKitButton.Custom>
-      {({ isConnected, isConnecting, show, hide, address, ensName, chain }) => {
+      {({ isConnected, isConnecting, show }) => {
         return (
-          <div className="text-center flex flex-col items-center space-y-3 my-8">
-            <div className="w-full flex flex-col items-center gap-3">
-              <Icon className="size-12" name="wallet" />
+          <div className="text-center flex flex-col items-center my-8">
+            <div className="w-full flex flex-col items-center">
+              <div className="flex items-center w-full justify-center mb-6">
+                <div className="size-14 rounded-md bg-blue-300 shadow-xl" />
+                <div className="size-14 rounded-md bg-purple-300 -ml-3 shadow-xl" />
+                <div className="size-14 rounded-md bg-red-300 -ml-3 shadow-xl" />
+                <div className="size-14 rounded-md bg-green-300 -ml-3 shadow-xl" />
+              </div>
               {isConnected ? (
                 <>
-                  <div className="bg-green-50 p-4 rounded-lg space-y-2 w-full">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-green-700">Connected Wallet:</span>
+                  <div className="flex items-start flex-col justify-between border border-primary-100 rounded-lg py-2 border-dashed">
+                    <span className="px-2 text-sm text-primary-400 border-b border-b-primary-100 pb-1 border-dashed w-full">Connected Wallet</span>
+                    <div className="px-2 flex items-center justify-between w-full pt-1">
+                      <p className="text-sm font-mono max-w-[200px] truncate">{connectedAddress}</p>
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => disconnect()}
                       >
-                        Disconnect
+                        <Unlink className="text-danger-500 size-4" />
                       </Button>
                     </div>
-                    <p className="text-sm text-green-800 font-mono">
-                      {ensName ?? `${address?.slice(0, 8)}...${address?.slice(-6)}`}
-                    </p>
-                    {chain && (
-                      <p className="text-xs text-green-600">
-                        Connected to {chain.name}
-                      </p>
-                    )}
                   </div>
                 </>
               ) : (
-                <>
-                  <p className="text-sm">Connect a wallet to add funds from your exchange</p>
+                <div className="flex flex-col gap-4">
+                  <div className="text-xl text-pretty">Connect a wallet to add funds</div>
+                  <div className="flex flex-col items-start space-y-1">
+                    <div className="flex items-center gap-2">
+                      <Icon name="user-shield" className="size-4" />
+                      <h4 className="text-sm">Some title here</h4>
+                    </div>
+                    <p className="text-sm text-primary-400">Transfers cannot be made without your approval.</p>
+                  </div>
+
+                  <div className="flex flex-col items-start space-y-1">
+                    <div className="flex items-center gap-2">
+                      <Icon name="shield-check" className="size-4" />
+                      <h4 className="text-sm">Some title here</h4>
+                    </div>
+                    <p className="text-sm text-primary-400">Transfers cannot be made without your approval.</p>
+                  </div>
+
                   <Button
                     onClick={show}
                     disabled={isConnecting}
-                    className="bg-blue-500 hover:bg-blue-600 text-white"
+                    className="inset-shadow-search-btn w-full font-light"
                   >
                     {isConnecting ? (
                       <>
@@ -174,7 +292,7 @@ export function WalletDialog({
                       'Connect Wallet'
                     )}
                   </Button>
-                </>
+                </div>
               )}
             </div>
           </div>
@@ -194,6 +312,7 @@ export function WalletDialog({
     setSelectedChain(supportedChainKeys[0] || 'polygon');
     setSelectedToken('matic');
     setCustomTokenAddress('');
+    setTransactionHash('');
   };
 
   const handleCloseDialog = () => {
@@ -203,11 +322,49 @@ export function WalletDialog({
     setDepositMethod('transfer_crypto');
     setFundAmount('');
     setCustomTokenAddress('');
+    setTransactionHash('');
   };
 
   const handleNextStep = () => {
     if (currentStep === 'amount') setCurrentStep('review');
     else if (currentStep === 'review') setCurrentStep('processing');
+  };
+
+  // Handle actual blockchain transaction
+  const handleSendTransaction = async () => {
+    if (!connectedAddress || !selectedWalletAddress || !fundAmount) {
+      toast.error('Missing required information');
+      return;
+    }
+
+    try {
+      const tokenDetails = getTokenDetails(selectedChain, selectedToken);
+      if (!tokenDetails) {
+        toast.error('Token details not found');
+        return;
+      }
+
+      let transaction;
+
+      if (tokenDetails.isNative) {
+        // Native token transfer
+        transaction = {
+          to: selectedWalletAddress as `0x${string}`,
+          value: parseEther(fundAmount),
+        };
+      } else {
+        // ERC20 token transfer - this would need a contract interaction
+        // For now, we'll show an error since we need writeContract for ERC20s
+        toast.error('ERC20 transfers require contract interaction - please use native tokens for now');
+        return;
+      }
+
+      await sendTransaction(transaction);
+
+    } catch (error) {
+      console.error('Transaction failed:', error);
+      toast.error('Transaction failed. Please try again.');
+    }
   };
 
   const handleConfirmFunds = async () => {
@@ -220,15 +377,11 @@ export function WalletDialog({
           chargeType: "paylink"
         });
 
-        console.log(response, "HELIO RESPONSE");
-
         let paymentUrl = null;
 
         if (response?.paymentUrl) {
-          // For charge type
           paymentUrl = response.paymentUrl;
         } else if (response?.payLinkId) {
-          // For paylink type - construct URL
           paymentUrl = `https://app.hel.io/pay/${response.payLinkId}`;
         }
 
@@ -239,7 +392,6 @@ export function WalletDialog({
             handleCloseDialog();
           }, 2000);
         } else {
-          console.log("No paymentUrl or payLinkId found:", response);
           toast.error('Payment initialization failed');
         }
       } catch (error) {
@@ -247,7 +399,12 @@ export function WalletDialog({
         toast.error('Payment failed. Please try again.');
         return;
       }
+    } else if (depositMethod === 'connect_exchange') {
+      // Start the actual blockchain transaction
+      setCurrentStep('processing');
+      await handleSendTransaction();
     } else {
+      // Transfer crypto - just show processing
       setCurrentStep('processing');
       setIsProcessing(true);
       setTimeout(() => {
@@ -257,12 +414,42 @@ export function WalletDialog({
     }
   };
 
+  // Handle transaction status changes
+  useEffect(() => {
+    if (txHash) {
+      setTransactionHash(txHash);
+      toast.success('Transaction submitted! Waiting for confirmation...');
+    }
+  }, [txHash]);
+
+  useEffect(() => {
+    if (isTransactionSuccess && currentStep === 'processing') {
+      setCurrentStep('success');
+      toast.success('Transaction confirmed!');
+    }
+  }, [isTransactionSuccess, currentStep]);
+
+  useEffect(() => {
+    if (txError) {
+      toast.error('Transaction failed: ' + txError.message);
+      setCurrentStep('review'); // Go back to review step
+    }
+  }, [txError]);
+
   // Reset chain selection when supportedChainKeys change
   useEffect(() => {
     if (!supportedChainKeys.includes(selectedChain) && supportedChainKeys.length > 0) {
       setSelectedChain(supportedChainKeys[0]);
     }
   }, [supportedChainKeys, selectedChain]);
+
+  // Reset token when chain changes
+  useEffect(() => {
+    const tokens = getTopTokensForChain(selectedChain);
+    if (tokens.length > 0 && !tokens.find(t => t.value === selectedToken)) {
+      setSelectedToken(tokens[0].value);
+    }
+  }, [selectedChain, selectedToken, getTopTokensForChain]);
 
   return (
     <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -481,17 +668,18 @@ export function WalletDialog({
                   </Select>
                 </div>
 
+                <div className="border-t border-t-primary-100 border-dashed" />
+
                 {/* Transfer Crypto Options */}
                 {depositMethod === 'transfer_crypto' && (
                   <div className="text-center space-y-4">
                     <div className="p-6 rounded-lg bg-primary-50 border-2 border-dashed border-primary-200">
                       <div className="size-24 mx-auto mb-3 flex items-center justify-center">
-                        <img 
-                          src={`https://api.qrserver.com/v1/create-qr-code/?size=96x96&data=${
-                            selectedAddress.chains.some((chain: any) => chain.includes('solana')) 
-                              ? `solana:${selectedWalletAddress}`
-                              : `${selectedWalletAddress}`
-                          }`}
+                        <img
+                          src={`https://api.qrserver.com/v1/create-qr-code/?size=96x96&data=${selectedAddress.chains.some((chain: any) => chain.includes('solana'))
+                            ? `solana:${selectedWalletAddress}`
+                            : `${selectedWalletAddress}`
+                            }`}
                           alt="QR Code for wallet address"
                           className="size-24"
                         />
@@ -533,9 +721,9 @@ export function WalletDialog({
                         min="0.01"
                         step="0.01"
                       />
-                      <p className="text-xs text-primary-500 text-center">
+                      {/* <p className="text-xs text-primary-500 text-center">
                         Enter the amount you want to add to your wallet
-                      </p>
+                      </p> */}
                     </div>
                   </div>
                 )}
@@ -547,15 +735,18 @@ export function WalletDialog({
                       <CustomConnectButton />
                     ) : (
                       <>
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm font-mono max-w-[200px] truncate">{connectedAddress}</p>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => disconnect()}
-                          >
-                            Disconnect
-                          </Button>
+                        <div className="flex items-start flex-col justify-between border border-primary-100 rounded-lg py-2 border-dashed">
+                          <span className="px-2 text-sm text-primary-400 border-b border-b-primary-100 pb-1 border-dashed w-full">Connected Wallet</span>
+                          <div className="px-2 flex items-center justify-between w-full pt-1">
+                            <p className="text-sm font-mono max-w-[200px] truncate">{connectedAddress}</p>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => disconnect()}
+                            >
+                              <Unlink className="text-danger-500 size-4" />
+                            </Button>
+                          </div>
                         </div>
 
                         <div>
@@ -567,7 +758,15 @@ export function WalletDialog({
                             <SelectContent>
                               {supportedChainKeys.map((chainKey: string) => (
                                 <SelectItem key={chainKey} value={chainKey}>
-                                  {chainKey.charAt(0).toUpperCase() + chainKey.slice(1)}
+                                  <div className="flex items-center gap-2">
+                                    <Avatar className="size-5 rounded-full">
+                                      <AvatarImage src={getChainIcon(chainKey)} alt={chainKey} />
+                                      <AvatarFallback className="text-xs">
+                                        {chainKey.charAt(0).toUpperCase()}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <span>{chainKey.charAt(0).toUpperCase() + chainKey.slice(1)}</span>
+                                  </div>
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -583,7 +782,15 @@ export function WalletDialog({
                             <SelectContent>
                               {getTopTokensForChain(selectedChain).map((token: any) => (
                                 <SelectItem key={token.value} value={token.value}>
-                                  {token.label}
+                                  <div className="flex items-center gap-2">
+                                    <Avatar className="size-5 rounded-full">
+                                      <AvatarImage src={getTokenIcon(token.symbol)} alt={token.symbol} />
+                                      <AvatarFallback className="text-xs">
+                                        {token.symbol.charAt(0)}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <span>{token.label}</span>
+                                  </div>
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -638,9 +845,7 @@ export function WalletDialog({
             </div>
           )}
 
-
-
-          {/* Review, Processing, Success steps remain the same... */}
+          {/* Review Step */}
           {currentStep === 'review' && (
             <div className="mt-6 space-y-4 w-full">
               <div className="text-center">
@@ -681,12 +886,38 @@ export function WalletDialog({
                   </>
                 )}
                 {depositMethod === 'connect_exchange' && (
-                  <div className="flex justify-between">
-                    <span className="text-sm text-primary-600">Connected Wallet:</span>
-                    <span className="text-sm font-medium text-primary-800 font-mono">
-                      {connectedAddress?.slice(0, 8)}...{connectedAddress?.slice(-6)}
-                    </span>
-                  </div>
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-primary-600">Connected Wallet:</span>
+                      <span className="text-sm font-medium text-primary-800 font-mono">
+                        {connectedAddress?.slice(0, 8)}...{connectedAddress?.slice(-6)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-primary-600">Chain:</span>
+                      <div className="flex items-center gap-1">
+                        <Avatar className="size-4 rounded-full">
+                          <AvatarImage src={getChainIcon(selectedChain)} alt={selectedChain} />
+                          <AvatarFallback className="text-xs">
+                            {selectedChain.charAt(0).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="text-sm font-medium text-primary-800 capitalize">{selectedChain}</span>
+                      </div>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-primary-600">Token:</span>
+                      <div className="flex items-center gap-1">
+                        <Avatar className="size-4 rounded-full">
+                          <AvatarImage src={getTokenIcon(selectedToken)} alt={selectedToken} />
+                          <AvatarFallback className="text-xs">
+                            {selectedToken.charAt(0).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="text-sm font-medium text-primary-800 uppercase">{selectedToken}</span>
+                      </div>
+                    </div>
+                  </>
                 )}
                 <div className="flex justify-between">
                   <span className="text-sm text-primary-600">Target Wallet:</span>
@@ -703,7 +934,10 @@ export function WalletDialog({
                 <Button
                   onClick={handleConfirmFunds}
                   className="flex-1"
-                  disabled={depositMethod === 'use_card' && helioDepositMutation.isPending}
+                  disabled={
+                    (depositMethod === 'use_card' && helioDepositMutation.isPending) ||
+                    (depositMethod === 'connect_exchange' && isSendingTransaction)
+                  }
                 >
                   {depositMethod === 'use_card' ? (
                     helioDepositMutation.isPending ? (
@@ -713,6 +947,15 @@ export function WalletDialog({
                       </>
                     ) : (
                       'Proceed to Payment'
+                    )
+                  ) : depositMethod === 'connect_exchange' ? (
+                    isSendingTransaction ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Sending...
+                      </>
+                    ) : (
+                      'Send Transaction'
                     )
                   ) : (
                     'Confirm Transaction'
@@ -726,8 +969,19 @@ export function WalletDialog({
             <div className="mt-6 text-center space-y-4 w-full">
               <Loader2 className="size-12 animate-spin mx-auto text-primary-600" />
               <div>
-                <h3 className="text-lg font-medium text-primary-800">Processing Transaction</h3>
-                <p className="text-sm text-primary-500">Please wait while we process your transaction...</p>
+                <h3 className="text-lg font-medium text-primary-800">
+                  {depositMethod === 'connect_exchange' ? 'Processing Transaction' : 'Processing Payment'}
+                </h3>
+                <p className="text-sm text-primary-500">
+                  {depositMethod === 'connect_exchange'
+                    ? 'Please wait while your transaction is confirmed on the blockchain...'
+                    : 'Please wait while we process your transaction...'}
+                </p>
+                {transactionHash && (
+                  <p className="text-xs text-primary-400 font-mono mt-2 break-all">
+                    Tx: {transactionHash}
+                  </p>
+                )}
               </div>
             </div>
           )}
@@ -740,10 +994,15 @@ export function WalletDialog({
                 <p className="text-sm text-primary-500">Your funds have been added successfully.</p>
               </div>
 
-              <div className="bg-green-50 p-4 rounded-lg">
+              <div className="bg-green-50 p-4 rounded-lg space-y-2">
                 <div className="text-sm text-green-800">
                   <strong>Amount Added:</strong> ${fundAmount}
                 </div>
+                {transactionHash && (
+                  <div className="text-xs text-green-700 font-mono break-all">
+                    <strong>Transaction:</strong> {transactionHash}
+                  </div>
+                )}
               </div>
 
               <Button onClick={handleBackToWallet} className="w-full">

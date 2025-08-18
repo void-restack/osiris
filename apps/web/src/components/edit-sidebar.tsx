@@ -34,7 +34,7 @@ import { useQuery } from "@tanstack/react-query";
 import { hubQueries } from "@/lib/queries";
 import { PermissionSelector, type Permission } from "./ui/permission-selector";
 import { getScopeDisplayName } from "@/lib/scope-definitions";
-import { WalletDialog } from "./wallet-dialog";
+import { WalletDialog } from "./features/wallet/wallet-dialog";
 
 const BLOCKCHAIN_OPTIONS = {
   EVM: {

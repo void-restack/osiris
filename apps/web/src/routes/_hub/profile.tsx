@@ -21,6 +21,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Download, Clock, Cpu, MoreHorizontal, Eye, Share2 } from "lucide-react"
 import { toast } from "sonner"
 import { gridViewColumns } from '@/components/features/packages-table/packages-grid-view'
+import { AddFundsModal } from '@/components/features/wallet/add-funds-modal'
 
 export const Route = createFileRoute('/_hub/profile')({
   component: RouteComponent,
@@ -57,15 +58,12 @@ const PACKAGE_TYPES = [
 ] as const;
 
 function RouteComponent() {
-  // These queries will already be cached from the loader
   const { data: user, isPending: userLoading } = useQuery(userQueries.meOptions());
   const { data: creditBalance, isPending: creditLoading } = useQuery(creditQueries.balanceOptions());
 
-  // State for different table instances
   const [oauthClientsTable, setOauthClientsTable] = useState<any>(null);
   const [viewMode, setViewMode] = useState<"table" | "grid">("grid");
 
-  // Track active tab
   const [activeTab, setActiveTab] = useState<string>("oauth-clients");
 
   const formatCredits = (credits: string) => {
@@ -74,7 +72,6 @@ function RouteComponent() {
     return formattedCredits;
   };
 
-  // Package table handlers
   const handleInstall = (pkg: PackageList) => {
     const name = pkg.name || (pkg as any).packageName;
     toast.success(`Installing ${name}...`);
@@ -86,7 +83,6 @@ function RouteComponent() {
     toast.success("Package URL copied to clipboard");
   };
 
-  // Package table columns
   const columns = useMemo<ColumnDef<PackageList>[]>(
     () => [
       {
@@ -298,7 +294,6 @@ function RouteComponent() {
     customFilters,
   });
 
-  // Get the current active table based on the selected tab
   const getCurrentTable = () => {
     switch (activeTab) {
       case "mcps":
@@ -367,9 +362,17 @@ function RouteComponent() {
                 </>
               )}
             </div>
-            <div className="h-[52px] w-[30px] bg-primary-800 flex items-center justify-center rounded-[8px] inset-shadow-search-btn">
+            <AddFundsModal>
+              <button
+                className="h-[52px] w-[30px] bg-primary-800 flex items-center justify-center rounded-[8px] inset-shadow-search-btn cursor-pointer hover:bg-primary-700 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+                aria-label="Add Funds"
+              >
+                <PlusIcon className="text-primary-00 size-4" />
+              </button>
+            </AddFundsModal>
+            {/* <div className="h-[52px] w-[30px] bg-primary-800 flex items-center justify-center rounded-[8px] inset-shadow-search-btn">
               <PlusIcon className="text-primary-00 size-4" />
-            </div>
+            </div> */}
           </div>
         </div>
 

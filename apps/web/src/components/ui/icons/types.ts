@@ -3,9 +3,11 @@
 export const iconNames = [
   "warning",
   "wallet",
+  "user-shield",
   "trash",
   "swipe",
   "support",
+  "shield-check",
   "settings",
   "home",
   "google",

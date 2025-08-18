@@ -20,6 +20,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
 import { creditQueries } from "@/lib/queries";
 import { Skeleton } from "./ui/skeleton";
+import { AddFundsModal } from "./features/wallet/add-funds-modal";
 
 const data = {
   navMain: [
@@ -79,13 +80,11 @@ const data = {
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { isAuthenticated } = useAuth();
 
-  // Fetch credits balance if authenticated
   const { data: creditsData, isLoading: creditsLoading } = useQuery({
     ...creditQueries.balanceOptions(),
     enabled: isAuthenticated,
   });
 
-  // Format credits for display
   const formatCredits = (credits: string) => {
     const numCredits = parseFloat(credits);
     const dollars = numCredits.toFixed(2);
@@ -138,14 +137,16 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               )}
               <ExternalLink className="size-4 text-primary-300 hover:text-primary-800" />
             </div>
-            <Button
-              variant="outline"
-              className="w-full text-primary-400"
-              icon={Wallet}
-              iconPlacement="right"
-            >
-              Add Funds
-            </Button>
+            <AddFundsModal>
+              <Button
+                variant="outline"
+                className="w-full text-primary-400"
+                icon={Wallet}
+                iconPlacement="right"
+              >
+                Add Funds
+              </Button>
+            </AddFundsModal>
           </div>
         )}
       </SidebarFooter>

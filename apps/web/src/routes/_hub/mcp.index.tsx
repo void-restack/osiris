@@ -95,10 +95,8 @@ export const Route = createFileRoute("/_hub/mcp/")({
   loader: async ({ context: { queryClient } }) => {
     const auth = await getAuthState(queryClient);
 
-    // Always fetch popular packages for autocomplete (public data)
     await queryClient.ensureQueryData(packageQueries.popularOptions());
 
-    // Only fetch user-specific data if authenticated
     if (auth.isAuthenticated) {
       // Fetch user's installed MCPs
       await queryClient.ensureQueryData(packageQueries.userInstalledOptions());
@@ -211,7 +209,6 @@ function RouteComponent() {
     toast.success("Package URL copied to clipboard");
   };
 
-  // Define table columns here in the main component
   const tableColumns = useMemo<ColumnDef<PackageList>[]>(
     () => [
       {
@@ -410,12 +407,10 @@ function RouteComponent() {
     [handleInstall, handleShare]
   );
 
-  // Determine active columns based on view mode
   const activeColumns = useMemo(() => {
     return viewMode === "grid" ? gridViewColumns : tableColumns;
   }, [viewMode, tableColumns]);
 
-  // Use the packages table hook directly in this component
   const { table, isLoading, isFetching } = usePackagesTable({
     columns: activeColumns,
     initialPageSize: 10,
@@ -484,7 +479,7 @@ function RouteComponent() {
         />
       </div>
 
-      {/* Packages Table - now just a presentation component */}
+      {/* Packages Table */}
       <div className="px-4 md:px-6 mb-20">
         <PackagesTable
           table={table}
@@ -496,7 +491,7 @@ function RouteComponent() {
         />
       </div>
 
-      {/* Bottom pagination - directly using the same table instance */}
+      {/* Bottom pagination */}
       <div className="absolute bottom-0 border-t border-t-primary-100 flex h-12 w-full items-center overflow-hidden rounded-b-xl bg-primary-00 p-6">
         <DataTablePagination table={table} />
       </div>
