@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, ShieldCheck, Lock, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -103,28 +103,28 @@ export function UseCardDeposit({
       <p className="text-xl">Powered by Helio</p>
 
       <div className="flex flex-col gap-6 my-6 items-center">
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-2">
-            <div className="size-5 rounded-md bg-purple-300" />
-            <h4 className="text-sm">Your sing-in credentials are never stored</h4>
+        <div className="flex flex-col gap-2 w-full">
+          <div className="flex items-center gap-2 ">
+            <ShieldCheck className="size-5" />
+            <h4 className="text-sm">PCI DSS Level 1</h4>
           </div>
-          <p className="text-xs text-left text-pretty text-primary-400">All data is encrypted between osiris and helio.</p>
+          <p className="text-xs text-left text-pretty text-primary-400">Card details never touch osiris (Helio is pci-dss level 1 secure)</p>
         </div>
 
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2 w-full">
           <div className="flex items-center gap-2">
-            <div className="size-5 rounded-md bg-purple-300" />
-            <h4 className="text-sm">Your sing-in credentials are never stored</h4>
+            <Lock className="size-5" />
+            <h4 className="text-sm">End-to-End Encryption</h4>
           </div>
-          <p className="text-xs text-left text-pretty text-primary-400">All data is encrypted between osiris and helio.</p>
+          <p className="text-xs text-left text-pretty text-primary-400">All data is end-to-end encrypted between osiris and helio</p>
         </div>
 
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2 w-full">
           <div className="flex items-center gap-2">
-            <div className="size-5 rounded-md bg-purple-300" />
-            <h4 className="text-sm">Your sing-in credentials are never stored</h4>
+            <ArrowRight className="size-5" />
+            <h4 className="text-sm">Direct USDC Transfer</h4>
           </div>
-          <p className="text-xs text-left text-pretty text-primary-400">All data is encrypted between osiris and helio.</p>
+          <p className="text-xs text-left text-pretty text-primary-400">Funds settle as usdc directly into your wallet once payment is approved</p>
         </div>
       </div>
 
@@ -136,7 +136,7 @@ export function UseCardDeposit({
           <Input
             id="card-amount"
             type="number"
-            placeholder="1.00 - 10,000.00"
+            placeholder="Enter amount"
             value={fundAmount}
             onChange={(e) => handleAmountChange(e.target.value)}
             className="w-full"
@@ -144,9 +144,6 @@ export function UseCardDeposit({
             max="10000"
             step="0.01"
           />
-          <p className="text-xs text-primary-400 text-center">
-            Min: $1.00 | Max: $10,000.00
-          </p>
         </div>
       )}
 

@@ -637,14 +637,20 @@ function RouteComponent() {
           return
         }
 
+        // Create serviceConnections array with connectionId and scopes for each service
+        const serviceConnections = Object.entries(selectedAuthConnections)
+          .filter(([serviceName, connectionId]) => connectionId && selectedPermissions[serviceName])
+          .map(([serviceName, connectionId]) => ({
+            connectionId: connectionId,
+            scopes: selectedPermissions[serviceName]?.map(permission => permission.id) || []
+          }));
+
         const deploymentResult = await deployPackageMutation.mutateAsync({
           packageId: package_id as string,
           version: packageDetails?.latestVersion || '1.0.0',
           url: `${packageDetails?.url?.replace(/\/$/, '')}/mcp`,
-          scopes: selectedScopes,
           authData: {},
-          name: `${packageDetails?.name} OAuth`,
-          connectionIds: Object.values(selectedAuthConnections),
+          serviceConnections: serviceConnections,
         })
 
         deploymentId = deploymentResult.deployment.deploymentId
