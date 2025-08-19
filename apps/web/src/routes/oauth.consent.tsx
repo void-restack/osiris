@@ -400,10 +400,11 @@ function ServiceConsentSection({
 }
 
 function RouteComponent() {
-  const { client_id, redirect_uri, state, scope, response_type, package_id, type } = Route.useSearch()
+  const { client_id, redirect_uri, state, scopes, response_type, package_id, type } = Route.useSearch()
   const { auth } = Route.useLoaderData() as { auth: { isAuthenticated: boolean; user: any | null } }
+  console.log(scopes)
   const isAuthenticated = auth.isAuthenticated
-  const scopes = scope ? scope.split(' ') : []
+  const scopesArray = scopes ? scopes.split(' ') : []
 
   const [selectedDeploymentId, setSelectedDeploymentId] = useState<string>('')
   const [selectedAuthConnections, setSelectedAuthConnections] = useState<Record<string, string>>({})
@@ -639,11 +640,13 @@ function RouteComponent() {
 
         // Create serviceConnections array with connectionId and scopes for each service
         const serviceConnections = Object.entries(selectedAuthConnections)
-          .filter(([serviceName, connectionId]) => connectionId && selectedPermissions[serviceName])
+          .filter(([serviceName, connectionId]) => connectionId)
           .map(([serviceName, connectionId]) => ({
             connectionId: connectionId,
             scopes: selectedPermissions[serviceName]?.map(permission => permission.id) || []
           }));
+
+        console.log("SERVVICE CONN", serviceConnections, "selectedAuthConnections", selectedAuthConnections)
 
         const deploymentResult = await deployPackageMutation.mutateAsync({
           packageId: package_id as string,
@@ -659,12 +662,14 @@ function RouteComponent() {
       const mcpRedirectUri = new URL(packageDetails?.url as string)
       mcpRedirectUri.pathname = mcpRedirectUri.pathname.replace(/\/$/, '') + '/osiris/callback'
 
+      console.log("SCOPES", scopesArray)
+
       if (type === 'agent') {
         const authResultOsiris = await authorizeFrontendMutation.mutateAsync({
           clientId: packageDetails?.clientId,
           redirectUri: mcpRedirectUri.toString(),
           responseType: 'code',
-          scopes: scopes,
+          scopes: [...scopesArray, "osiris:auth:read", "osiris:auth:action"],
           state: deploymentId || '',
           deploymentId: deploymentId,
         })
@@ -680,9 +685,8 @@ function RouteComponent() {
         clientId: client_id,
         redirectUri: redirect_uri,
         responseType: response_type ?? 'code',
-        scopes: scopes,
-        state: state || '',
-        deploymentId: deploymentId,
+        scopes: scopesArray,
+        state: String(state) || '',
       })
       const url = new URL(authResultFrontend.url)
       url.searchParams.set(
@@ -729,7 +733,7 @@ function RouteComponent() {
                 )}
                 <div className="flex flex-col">
                   <CardTitle className="text-primary-800">{packageDetails?.name}</CardTitle>
-                  <p className="text-[13px] text-primary-300 mt-1">{packageDetails?.description}</p>
+                  <p className="text-[13px] text-primary-300 mt-1">{packageDetails?.shortDescription}</p>
                   <div className="flex items-center gap-3 mt-2 text-xs text-primary-400">
                     <span>v{packageDetails?.latestVersion}</span>
                     <span>•</span>
@@ -807,7 +811,7 @@ function RouteComponent() {
               )}
               <div className="flex flex-col">
                 <CardTitle className="text-primary-800">{packageDetails?.name}</CardTitle>
-                <p className="text-[13px] text-primary-300 mt-1">{packageDetails?.description}</p>
+                <p className="text-[13px] text-primary-300 mt-1">{packageDetails?.shortDescription}</p>
                 <div className="flex items-center gap-3 mt-2 text-xs text-primary-400">
                   <span>v{packageDetails?.latestVersion}</span>
                   <span>•</span>

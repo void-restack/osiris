@@ -330,7 +330,6 @@ export function McpDeployDialog({
     }
 
     try {
-      // Create serviceConnections array with connectionId and scopes
       const serviceConnections = requiredServices
         .filter(service => selectedConnections[service])
         .map(service => ({
