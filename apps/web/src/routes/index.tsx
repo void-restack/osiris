@@ -52,40 +52,6 @@ function HomeComponent() {
             <img src="/homepage.svg" className="absolute bottom-0 -right-2" />
           </div>
 
-          <div>
-            <div className="flex items-center justify-between w-full mb-6">
-              <div className="flex flex-col">
-                <h2 className="text-xl font-medium">Trending Knowledge Bases</h2>
-                <span className="text-primary-400 text-sm">Discover the most popular knowledge bases on Osiris</span>
-              </div>
-
-              <Link to="/knowledge" className="flex items-center gap-1 text-[16px] text-primary-400">
-                View More <ArrowRight className="size-4" />
-              </Link>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 w-full lg:grid-cols-3 gap-6">
-              {knowledgeBasesData?.data ? (
-                knowledgeBasesData.data.slice(0, 3).map((kb: any) => (
-                  <KnowledgeBaseCard
-                    key={kb.knowledgeBaseId}
-                    {...kb}
-                  />
-                ))
-              ) : (
-                // Loading skeleton
-                Array.from({ length: 3 }).map((_, i) => (
-                  <div key={i} className="flex flex-col gap-y-4 relative animate-pulse">
-                    <div className="relative h-[120px] bg-primary-100 rounded-[8px]" />
-                    <div className="px-3">
-                      <div className="h-4 bg-primary-100 rounded mb-2" />
-                      <div className="h-3 bg-primary-100 rounded w-3/4" />
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
           {/* Trending MCPs Section */}
           <div className="mt-16">
             <div className="flex items-center justify-between w-full mb-6">
@@ -162,6 +128,42 @@ function HomeComponent() {
               )}
             </div>
           </div>
+
+          <div>
+            <div className="flex items-center justify-between w-full mb-6">
+              <div className="flex flex-col">
+                <h2 className="text-xl font-medium">Trending Knowledge Bases</h2>
+                <span className="text-primary-400 text-sm">Discover the most popular knowledge bases on Osiris</span>
+              </div>
+
+              <Link to="/knowledge" className="flex items-center gap-1 text-[16px] text-primary-400">
+                View More <ArrowRight className="size-4" />
+              </Link>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 w-full lg:grid-cols-3 gap-6">
+              {knowledgeBasesData?.data ? (
+                knowledgeBasesData.data.slice(0, 3).map((kb: any) => (
+                  <KnowledgeBaseCard
+                    key={kb.knowledgeBaseId}
+                    {...kb}
+                  />
+                ))
+              ) : (
+                // Loading skeleton
+                Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="flex flex-col gap-y-4 relative animate-pulse">
+                    <div className="relative h-[120px] bg-primary-100 rounded-[8px]" />
+                    <div className="px-3">
+                      <div className="h-4 bg-primary-100 rounded mb-2" />
+                      <div className="h-3 bg-primary-100 rounded w-3/4" />
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+
         </div>
       </div>
     </HubLayout>

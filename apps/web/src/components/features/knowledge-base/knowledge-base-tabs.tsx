@@ -23,11 +23,11 @@ export function KnowledgeHubTabs({ knowledgeBaseId }: {
 	return (
 		<Tabs value={searchParams} defaultValue="Units" className="flex w-full flex-col gap-y-8">
 			<TabsList className="flex h-12 w-full justify-start border-b border-b-primary-100 px-6 py-0">
-				<TabsTrigger value="Units" onClick={() => setSearchParams("Units")}>
-					<ICONS.units /> Units
-				</TabsTrigger>
 				<TabsTrigger value="Source" onClick={() => setSearchParams("Source")}>
 					<ICONS.source /> Source
+				</TabsTrigger>
+				<TabsTrigger value="Units" onClick={() => setSearchParams("Units")}>
+					<ICONS.units /> Units
 				</TabsTrigger>
 				{searchParams === 'Units' && (
 					<UnitsFilters
@@ -44,15 +44,15 @@ export function KnowledgeHubTabs({ knowledgeBaseId }: {
 					/>
 				)}
 			</TabsList>
+			<TabsContent className="px-6" value={"Source"}>
+				<SourcesTable />
+			</TabsContent>
 			<TabsContent className="px-6" value={"Units"}>
-				<UnitsCardsList 
+				<UnitsCardsList
 					knowledgeBaseId={knowledgeBaseId}
 					filters={filters}
 					sortConfig={sortConfig}
 				/>
-			</TabsContent>
-			<TabsContent className="px-6" value={"Source"}>
-				<SourcesTable />
 			</TabsContent>
 		</Tabs>
 	);
