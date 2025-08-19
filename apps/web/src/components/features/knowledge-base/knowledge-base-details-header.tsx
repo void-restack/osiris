@@ -32,8 +32,8 @@ export function KnowledgeBaseDetailsHeader({ kb }: { kb: KnowledgeBase }) {
       </div>
       <div className="-mt-6 flex flex-col gap-4 md:flex-row justify-between px-6">
         <div className="w-full gap-y-2">
-          <h1 className="text-primary-800 text-xl">{kb.name} <span className="text-primary-300 text-sm ml-3">last updated: {formatRelativeTime(kb.updatedAt)}</span></h1>
-          
+          <h1 className="text-primary-800 text-xl">{kb.name} </h1>
+          <p className="text-primary-300 text-xs">last updated: {formatRelativeTime(kb.updatedAt)}</p>
           <p className="text-primary-300">{kb.description}</p>
         </div>
         <div className="flex flex-col md:flex-row items-center gap-4">
