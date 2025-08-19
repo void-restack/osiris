@@ -43,6 +43,24 @@ export function UseCardDeposit({
       return;
     }
 
+    const amountValue = parseFloat(amountToUse);
+
+    // Validate minimum amount ($1)
+    if (amountValue < 1) {
+      const error = "Minimum deposit amount is $1";
+      toast.error(error);
+      onError?.(error);
+      return;
+    }
+
+    // Validate maximum amount ($10,000)
+    if (amountValue > 10000) {
+      const error = "Maximum deposit amount is $10,000";
+      toast.error(error);
+      onError?.(error);
+      return;
+    }
+
     try {
       const response = await helioDepositMutation.mutateAsync({
         amount: amountToUse,
@@ -118,13 +136,17 @@ export function UseCardDeposit({
           <Input
             id="card-amount"
             type="number"
-            placeholder="0.00"
+            placeholder="1.00 - 10,000.00"
             value={fundAmount}
             onChange={(e) => handleAmountChange(e.target.value)}
             className="w-full"
-            min="0.01"
+            min="1"
+            max="10000"
             step="0.01"
           />
+          <p className="text-xs text-primary-400 text-center">
+            Min: $1.00 | Max: $10,000.00
+          </p>
         </div>
       )}
 
