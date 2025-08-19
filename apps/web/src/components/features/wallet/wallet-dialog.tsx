@@ -87,7 +87,13 @@ export function WalletDialog({
   }, [selectedAddress.chains, walletBalance]);
 
   const handleAddFunds = () => {
+    setIsDialogOpen(true);
     setCurrentStep('amount');
+  };
+
+  const handleWithdrawFunds = () => {
+    // TODO: Implement withdraw functionality
+    toast.info('Withdraw functionality coming soon!');
   };
 
   const handleBackToWallet = () => {
@@ -195,6 +201,27 @@ export function WalletDialog({
           </div>
         </div>
       </DialogTrigger>
+
+      <div className="flex items-center gap-2 w-full">
+        <Button
+          className="w-full px-2 py-0.5"
+          variant="outline"
+          icon={MoveDownLeft}
+          iconPlacement="left"
+          onClick={handleAddFunds}
+        >
+          Add Funds
+        </Button>
+        <Button
+          className="w-full px-2 py-0.5"
+          variant="outline"
+          icon={MoveDownRight}
+          iconPlacement="right"
+          onClick={handleWithdrawFunds}
+        >
+          Withdraw Funds
+        </Button>
+      </div>
 
       <DialogContent
         showCloseButton={false}
