@@ -827,7 +827,18 @@ export const creditQueries = {
 
 export const knowledgeQueries = {
   all: (filters?: { search?: string; page?: number; limit?: number }) => ["knowledge", ...(filters ? Object.entries(filters) : [])] as const,
-  bases: (filters?: { search?: string; page?: number; limit?: number }) => [...knowledgeQueries.all(), "bases", ...(filters ? Object.entries(filters) : [])] as const,
+  bases: (filters?: { 
+    search?: string; 
+    name?: string;
+    tags?: string;
+    sortBy?: 'name' | 'rating' | 'credits' | 'installs' | 'price' | 'recent';
+    sortOrder?: 'asc' | 'desc';
+    isPublic?: boolean;
+    startPrice?: number;
+    endPrice?: number;
+    page?: number; 
+    limit?: number;
+  }) => [...knowledgeQueries.all(), "bases", ...(filters ? Object.entries(filters) : [])] as const,
   base: (id: string) => [...knowledgeQueries.bases(), id] as const,
   my: (filters?: { search?: string; page?: number; limit?: number }) => [...knowledgeQueries.all(), "my", ...(filters ? Object.entries(filters) : [])] as const,
   search: (filters?: {
@@ -906,12 +917,30 @@ export const knowledgeQueries = {
       staleTime: 2 * 60 * 1000,
     }),
 
-  basesOptions: (filters?: { search?: string; page?: number; limit?: number }) =>
+  basesOptions: (filters?: { 
+    search?: string; 
+    name?: string;
+    tags?: string;
+    sortBy?: 'name' | 'rating' | 'credits' | 'installs' | 'price' | 'recent';
+    sortOrder?: 'asc' | 'desc';
+    isPublic?: boolean;
+    startPrice?: number;
+    endPrice?: number;
+    page?: number; 
+    limit?: number;
+  }) =>
     queryOptions({
       queryKey: knowledgeQueries.bases(filters),
       queryFn: async () => {
         const searchParams = new URLSearchParams();
         if (filters?.search) searchParams.set("search", filters.search);
+        if (filters?.name) searchParams.set("name", filters.name);
+        if (filters?.tags) searchParams.set("tags", filters.tags);
+        if (filters?.sortBy) searchParams.set("sortBy", filters.sortBy);
+        if (filters?.sortOrder) searchParams.set("sortOrder", filters.sortOrder);
+        if (filters?.isPublic !== undefined) searchParams.set("isPublic", String(filters.isPublic));
+        if (filters?.startPrice !== undefined) searchParams.set("startPrice", String(filters.startPrice));
+        if (filters?.endPrice !== undefined) searchParams.set("endPrice", String(filters.endPrice));
         if (filters?.page) searchParams.set("page", String(filters.page));
         if (filters?.limit) searchParams.set("limit", String(filters.limit));
 
