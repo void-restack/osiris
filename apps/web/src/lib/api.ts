@@ -299,7 +299,7 @@ export type { ApiResponse, ApiOptions };
 //     ensureRefreshTokenCookie();
 //   }
 
-//   const token = localStorage.getItem("access_token") ?? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI3YWRlMzM4Ni04Y2VkLTQyNjEtYjUxNC03MzY1ZGZlNzczZmUiLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3NTU1MDU4OTcsImV4cCI6MTc1NTU5MjI5N30.LO7uvBLmUY0hc4j1yw5dSarRCnNYtwsmxqZHAzomjw4';
+//   const token = localStorage.getItem("access_token") ?? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI3YWRlMzM4Ni04Y2VkLTQyNjEtYjUxNC03MzY1ZGZlNzczZmUiLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3NTU1OTg3MTEsImV4cCI6MTc1NTY4NTExMX0.wBzbhUee0A3RAcVEn76ilIBmXshUqruzgGqT2YTAEY8';
 //   const requestHeaders: Record<string, string> = {
 //     ...headers,
 //   };
