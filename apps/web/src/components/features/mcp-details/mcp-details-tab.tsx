@@ -37,7 +37,6 @@ export function McpTabs() {
 
 	const serverUrl = packageData?.url || '';
 
-	console.log(serverUrl && !/\/mcp(\/|$)/.test(serverUrl) ? `${serverUrl}/mcp` : serverUrl, "SERVER URL")
 	const { data: mcpTools } = useQuery({
 		...packageQueries.mcpToolsOptions(serverUrl && !/\/mcp(\/|$)/.test(serverUrl) ? `${serverUrl}/mcp` : serverUrl),
 		enabled: !!serverUrl, // Only run query if serverUrl exists

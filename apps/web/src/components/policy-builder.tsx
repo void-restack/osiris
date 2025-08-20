@@ -375,10 +375,17 @@ const setNestedProperty = (obj: Record<string, unknown>, path: string, value: un
 
 const cleanEmptyObjects = (obj: unknown): unknown => {
     if (Array.isArray(obj)) {
-        return obj.map(cleanEmptyObjects).filter(item =>
-            item !== null && item !== undefined &&
-            (typeof item !== 'object' || Object.keys(item as object).length > 0)
-        );
+        return obj.map(cleanEmptyObjects).filter((item, index) => {
+            // Special case: preserve empty objects in arrays that represent "allow all" policies
+            if (typeof item === 'object' && item !== null && Object.keys(item as object).length === 0) {
+                // Check if this is likely an "allow all" policy context
+                // If we're in an array context and the item is an empty object, preserve it
+                return true;
+            }
+
+            return item !== null && item !== undefined &&
+                (typeof item !== 'object' || Object.keys(item as object).length > 0);
+        });
     }
 
     if (obj && typeof obj === 'object') {
@@ -1405,9 +1412,23 @@ export default function PolicyBuilder({ value, onChange }: PolicyBuilderProps): 
     const [activeTab, setActiveTab] = useState<string>('interactive');
     const [isJsonValid, setIsJsonValid] = useState<boolean>(true);
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
-    const [internalJson, setInternalJson] = useState<string>(() =>
-        value || '{\n  "allow": [],\n  "deny": []\n}'
-    );
+    const [isAllowAllPolicy, setIsAllowAllPolicy] = useState<boolean>(false);
+    const [internalJson, setInternalJson] = useState<string>(() => {
+        // Check if the initial value is an "allow all" policy
+        if (value) {
+            try {
+                const parsed = JSON.parse(value) as PolicyObject;
+                const isAllowAll = parsed.allow?.some(rule => Object.keys(rule).length === 0);
+                if (isAllowAll) {
+                    // Set the flag immediately for "allow all" policies
+                    setTimeout(() => setIsAllowAllPolicy(true), 0);
+                }
+            } catch {
+                // If parsing fails, use default
+            }
+        }
+        return value || '{\n  "allow": [{}],\n  "deny": []\n}';
+    });
 
     // Clean invalid properties from policy based on method
     const cleanInvalidProperties = useCallback((policy: PolicyObject): PolicyObject => {
@@ -1415,6 +1436,11 @@ export default function PolicyBuilder({ value, onChange }: PolicyBuilderProps): 
 
         (['allow', 'deny'] as const).forEach(type => {
             cleaned[type] = (policy[type] || []).map(rule => {
+                // Preserve empty objects that represent "allow all"
+                if (Object.keys(rule).length === 0) {
+                    return rule;
+                }
+
                 const cleanedRule = { ...rule };
                 const method = String(rule.method || '');
 
@@ -1495,8 +1521,28 @@ export default function PolicyBuilder({ value, onChange }: PolicyBuilderProps): 
     const rulesToPolicy = useCallback((rulesArray: PolicyRule[]): PolicyObject => {
         const policy: PolicyObject = { allow: [], deny: [] };
 
+        // If there are no rules and the original value was "allow all", preserve it
+        if (rulesArray.length === 0 && lastExternalValue.current) {
+            try {
+                const originalPolicy = JSON.parse(lastExternalValue.current) as PolicyObject;
+                const isAllowAll = originalPolicy.allow?.some(rule => Object.keys(rule).length === 0);
+                if (isAllowAll) {
+                    return originalPolicy; // Return the original "allow all" policy
+                }
+            } catch (error) {
+                // If parsing fails, continue with normal conversion
+            }
+        }
+
         rulesArray.forEach(rule => {
-            if (!rule.method && rule.fields.length === 0 && !rule.argsField) return;
+            // Special case: preserve empty objects that represent "allow all"
+            if (!rule.method && rule.fields.length === 0 && !rule.argsField) {
+                // If this is an allow rule with no constraints, it represents "allow all"
+                if (rule.type === 'allow') {
+                    policy[rule.type].push({});
+                }
+                return;
+            }
 
             const policyRule: Record<string, unknown> = {};
 
@@ -1578,7 +1624,7 @@ export default function PolicyBuilder({ value, onChange }: PolicyBuilderProps): 
         });
 
         return policy;
-    }, [convertLogicalConstraintValue]);
+    }, [convertLogicalConstraintValue, lastExternalValue.current]);
 
     // Convert policy to rules (memoized)
     const policyToRules = useCallback((policy: PolicyObject): PolicyRule[] => {
@@ -1587,6 +1633,21 @@ export default function PolicyBuilder({ value, onChange }: PolicyBuilderProps): 
 
         (['allow', 'deny'] as const).forEach(type => {
             (policy[type] || []).forEach(policyRule => {
+                // Handle empty objects that represent "allow all"
+                if (Object.keys(policyRule).length === 0) {
+                    const rule: PolicyRule = {
+                        id: ruleId++,
+                        type,
+                        name: `${type.charAt(0).toUpperCase() + type.slice(1)} group ${newRules.filter(r => r.type === type).length + 1}`,
+                        method: '',
+                        chain: '',
+                        fields: [],
+                        argsField: null
+                    };
+                    newRules.push(rule);
+                    return;
+                }
+
                 const rule: PolicyRule = {
                     id: ruleId++,
                     type,
@@ -1667,11 +1728,17 @@ export default function PolicyBuilder({ value, onChange }: PolicyBuilderProps): 
     // Debounced onChange callback
     const debouncedOnChange = useMemo(
         () => debounce((newValue: string) => {
+            // Only block onChange for "allow all" policies when we have no rules
+            // This prevents the initial conversion that loses the {} object, but allows user modifications
+            if (isAllowAllPolicy && rules.length === 0) {
+                return;
+            }
+
             if (onChange && !isInternalUpdate.current) {
                 onChange(newValue);
             }
         }, 300),
-        [onChange]
+        [onChange, isAllowAllPolicy, rules.length]
     );
 
     // Handle external value changes
@@ -1682,12 +1749,29 @@ export default function PolicyBuilder({ value, onChange }: PolicyBuilderProps): 
 
             try {
                 const parsed = JSON.parse(value) as PolicyObject;
-                const cleaned = cleanInvalidProperties(parsed);
-                const newRules = policyToRules(cleaned);
-                setRules(newRules);
-                // Clear unsaved changes when external value is updated
-                setHasUnsavedChanges(false);
-            } catch {
+
+                // Check if this is an "allow all" policy
+                const isAllowAll = parsed.allow?.some(rule => Object.keys(rule).length === 0);
+
+                if (isAllowAll) {
+                    // For "allow all" policies, don't convert to rules at all
+                    // Keep the original structure completely intact
+                    setIsAllowAllPolicy(true);
+                    setRules([]);
+                    setHasUnsavedChanges(false);
+                    // Don't trigger any further processing for "allow all" policies
+                    // Also prevent any onChange calls to preserve the original structure
+                    isInternalUpdate.current = true;
+                    return;
+                } else {
+                    // For regular policies, convert to rules as usual
+                    setIsAllowAllPolicy(false);
+                    const cleaned = cleanInvalidProperties(parsed);
+                    const newRules = policyToRules(cleaned);
+                    setRules(newRules);
+                    setHasUnsavedChanges(false);
+                }
+            } catch (error) {
                 // Keep existing rules if JSON is invalid
             }
         }
@@ -1695,6 +1779,23 @@ export default function PolicyBuilder({ value, onChange }: PolicyBuilderProps): 
 
     // Update JSON from rules (only in interactive mode) - but don't trigger onChange automatically
     useEffect(() => {
+        // Only block conversion if this is an "allow all" policy AND we have no rules
+        // This prevents the initial conversion that loses the {} object, but allows user modifications
+        if (isAllowAllPolicy && rules.length === 0) {
+            return;
+        }
+
+        // Additional check: if the current internalJson represents an "allow all" policy AND we have no rules, don't convert
+        try {
+            const currentPolicy = JSON.parse(internalJson) as PolicyObject;
+            const isCurrentAllowAll = currentPolicy.allow?.some(rule => Object.keys(rule).length === 0);
+            if (isCurrentAllowAll && rules.length === 0) {
+                return;
+            }
+        } catch {
+            // If parsing fails, continue with normal logic
+        }
+
         if (activeTab === 'interactive') {
             const policy = rulesToPolicy(rules);
             const newJson = JSON.stringify(policy, null, 2);
@@ -1715,7 +1816,7 @@ export default function PolicyBuilder({ value, onChange }: PolicyBuilderProps): 
                 }, 100);
             }
         }
-    }, [rules, activeTab, rulesToPolicy, onChange, debouncedOnChange]);
+    }, [rules, activeTab, rulesToPolicy, onChange, debouncedOnChange, isAllowAllPolicy, internalJson]);
 
     // Handle JSON editor changes
     const handleJsonValueChange = useCallback((newValue: string): void => {
@@ -1724,6 +1825,17 @@ export default function PolicyBuilder({ value, onChange }: PolicyBuilderProps): 
         try {
             const parsed = JSON.parse(newValue) as PolicyObject;
             setIsJsonValid(true);
+
+            // Check if this is an "allow all" policy
+            const isAllowAll = parsed.allow?.some(rule => Object.keys(rule).length === 0);
+
+            if (isAllowAll) {
+                // For "allow all" policies, preserve the original structure
+                setIsAllowAllPolicy(true);
+                setRules([]);
+                // Don't process further, just keep the original JSON
+                return;
+            }
 
             if (activeTab === 'json') {
                 const cleaned = cleanInvalidProperties(parsed);
@@ -1749,7 +1861,7 @@ export default function PolicyBuilder({ value, onChange }: PolicyBuilderProps): 
                     isInternalUpdate.current = false;
                 });
             }
-        } catch {
+        } catch (error) {
             setIsJsonValid(false);
         }
     }, [activeTab, cleanInvalidProperties, policyToRules, debouncedOnChange]);
@@ -1775,9 +1887,9 @@ export default function PolicyBuilder({ value, onChange }: PolicyBuilderProps): 
     }, []);
 
     return (
-        <div className="w-full max-w-md mx-auto rounded-md">
+        <div className="w-full mx-auto rounded-md">
             <Tabs value={activeTab} onValueChange={setActiveTab} className='gap-6'>
-                <TabsList className="w-full inset-shadow-tabs h-10 p-1 max-w-[416px]">
+                <TabsList className="w-full inset-shadow-tabs h-10 p-1">
                     <TabsTrigger value="interactive" className='font-normal data-[state=active]:text-primary-800 text-primary-400'>
                         Interactive <Icon name='swipe' />
                         {/* {hasUnsavedChanges && activeTab !== 'interactive' && (

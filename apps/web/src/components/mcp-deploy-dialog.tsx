@@ -35,6 +35,7 @@ import { getInitials } from "@/lib/utils";
 import { getReadableScopes } from "@/lib/scope-utils";
 import { getScopeDisplayName } from "@/lib/scope-definitions";
 import type { PackageWithUserStatus } from "@/types";
+import PolicyBuilder from "@/components/policy-builder";
 
 interface McpDeployDialogProps {
   package: PackageWithUserStatus;
@@ -273,6 +274,7 @@ export function McpDeployDialog({
   const [deploymentName, setDeploymentName] = useState(`${pkg.name} deployment`);
   const [connectingService, setConnectingService] = useState<string | null>(null);
   const [copiedText, setCopiedText] = useState<string | null>(null);
+  const [policyJson, setPolicyJson] = useState<string>('{\n  "allow": [{}],\n  "deny": []\n}');
 
   const authorizeMutation = useAuthorizeFrontendMutation()
   const deployMutation = useDeployPackageMutation();
@@ -317,6 +319,9 @@ export function McpDeployDialog({
 
     const servicesWithScopes = requiredServices.filter(service => {
       const mcpRequiredScopes = authScopes?.serviceClientMap?.[service] || [];
+      const authMethod = authMethods?.find((method: any) => method.name === service);
+      // Skip scope validation for embedded wallet services
+      if (authMethod?.type === 'embedded_wallet') return false;
       return mcpRequiredScopes.length > 0;
     });
 
@@ -329,13 +334,36 @@ export function McpDeployDialog({
       return;
     }
 
+    // Validate policy JSON if there are embedded wallet services
+    const hasEmbeddedWalletServices = requiredServices.some(service => {
+      const authMethod = authMethods?.find((method: any) => method.name === service);
+      return authMethod?.type === 'embedded_wallet';
+    });
+
+    if (hasEmbeddedWalletServices) {
+      try {
+        JSON.parse(policyJson);
+      } catch {
+        toast.error('Invalid policy JSON format');
+        return;
+      }
+    }
+
     try {
       const serviceConnections = requiredServices
         .filter(service => selectedConnections[service])
-        .map(service => ({
-          connectionId: selectedConnections[service],
-          scopes: selectedPermissions[service]?.map(permission => permission.id) || []
-        }));
+        .map(service => {
+          const authMethod = authMethods?.find((method: any) => method.name === service);
+          const isEmbeddedWallet = authMethod?.type === 'embedded_wallet';
+
+          return {
+            connectionId: selectedConnections[service],
+            ...(isEmbeddedWallet
+              ? { policy: JSON.parse(policyJson) }
+              : { scopes: selectedPermissions[service]?.map(permission => permission.id) || [] }
+            )
+          };
+        });
 
       const deploymentData = await deployMutation.mutateAsync({
         packageId: pkg.packageId,
@@ -351,7 +379,7 @@ export function McpDeployDialog({
       mcpRedirectUri.pathname = mcpRedirectUri.pathname.replace(/\/$/, '') + '/osiris/callback'
 
       // Flatten scopes for authorization
-      const allScopes = serviceConnections.flatMap(sc => sc.scopes);
+      const allScopes = serviceConnections.flatMap(sc => 'scopes' in sc ? sc.scopes : []);
 
       const data = await authorizeMutation.mutateAsync({
         clientId: pkg?.clientId ?? "",
@@ -383,6 +411,7 @@ export function McpDeployDialog({
     setTimeout(() => {
       setSelectedPermissions({});
       setSelectedConnections({});
+      setPolicyJson('{\n  "allow": [{}],\n  "deny": []\n}');
       deployMutation.reset();
     }, 300);
   };
@@ -440,6 +469,43 @@ export function McpDeployDialog({
           ))}
         </ScrollArea>
       </div>
+
+      {/* Policy Builder for Embedded Wallet Services */}
+      {authScopes?.serviceClients?.some((serviceClient: any) => {
+        const method = authMethods?.find((m: any) => m.name === serviceClient.name);
+        return method?.type === 'embedded_wallet';
+      }) && (
+          <div className="pt-4 border-t border-primary-100">
+            <div className="space-y-3">
+              <div>
+                <h4 className="text-sm font-medium text-primary-800">Access Policies</h4>
+                <p className="text-xs text-primary-400">Define access rules and constraints for wallet operations</p>
+              </div>
+
+              {/* Policy Status Message */}
+              {(() => {
+                try {
+                  const policy = JSON.parse(policyJson);
+                  const isAllowAll = policy.allow?.some((rule: any) => Object.keys(rule).length === 0);
+                  return isAllowAll ? (
+                    <div className="p-3 bg-blue-25 border border-blue-200 rounded-lg">
+                      <p className="text-sm text-blue-700">
+                        <span className="font-medium">Current Policy:</span> Allows all wallet operations
+                      </p>
+                      <p className="text-xs text-blue-600 mt-1">
+                        The policy currently grants unrestricted access. Modify below to add restrictions.
+                      </p>
+                    </div>
+                  ) : null;
+                } catch {
+                  return null;
+                }
+              })()}
+
+              <PolicyBuilder value={policyJson} onChange={setPolicyJson} />
+            </div>
+          </div>
+        )}
     </div>
   );
 

@@ -24,7 +24,18 @@ export function DynamicBreadcrumb() {
 								<BreadcrumbPage>{crumb.label}</BreadcrumbPage>
 							) : (
 								<BreadcrumbLink asChild>
-									<Link to={crumb.path}>{crumb.label}</Link>
+									<Link
+										to={crumb.path}
+										onClick={(e) => {
+											// Prevent navigation if the path is invalid
+											if (!crumb.path || crumb.path === '') {
+												e.preventDefault();
+												return;
+											}
+										}}
+									>
+										{crumb.label}
+									</Link>
 								</BreadcrumbLink>
 							)}
 						</BreadcrumbItem>

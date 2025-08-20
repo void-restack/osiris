@@ -867,7 +867,8 @@ export const useDeployPackageMutation = () => {
       authData: any;
       serviceConnections: Array<{
         connectionId: string;
-        scopes: string[];
+        scopes?: string[];
+        policy?: any;
       }>;
     }) => {
       const response = await api("/packages/deploy", {

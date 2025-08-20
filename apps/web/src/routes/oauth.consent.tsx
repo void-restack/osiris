@@ -409,7 +409,7 @@ function RouteComponent() {
   const [selectedDeploymentId, setSelectedDeploymentId] = useState<string>('')
   const [selectedAuthConnections, setSelectedAuthConnections] = useState<Record<string, string>>({})
   const [selectedPermissions, setSelectedPermissions] = useState<Record<string, Permission[]>>({})
-  const [policyJson, setPolicyJson] = useState<string>('{\n  "allow": [],\n  "deny": []\n}')
+  const [policyJson, setPolicyJson] = useState<string>('{\n  "allow": [{}],\n  "deny": []\n}');
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [deploymentSearchOpen, setDeploymentSearchOpen] = useState(false)
@@ -641,10 +641,18 @@ function RouteComponent() {
         // Create serviceConnections array with connectionId and scopes for each service
         const serviceConnections = Object.entries(selectedAuthConnections)
           .filter(([serviceName, connectionId]) => connectionId)
-          .map(([serviceName, connectionId]) => ({
-            connectionId: connectionId,
-            scopes: selectedPermissions[serviceName]?.map(permission => permission.id) || []
-          }));
+          .map(([serviceName, connectionId]) => {
+            const authMethod = authMethods?.find((method: any) => method.name === serviceName);
+            const isEmbeddedWallet = authMethod?.type === 'embedded_wallet';
+
+            return {
+              connectionId: connectionId,
+              ...(isEmbeddedWallet
+                ? { policy: policyObject }
+                : { scopes: selectedPermissions[serviceName]?.map(permission => permission.id) || [] }
+              )
+            };
+          });
 
         console.log("SERVVICE CONN", serviceConnections, "selectedAuthConnections", selectedAuthConnections)
 
@@ -977,6 +985,26 @@ function RouteComponent() {
                 <p className="text-[13px] text-primary-300 mt-1">Define access rules and constraints for wallet operations</p>
               </CardHeader>
               <CardContent>
+                {/* Policy Status Message */}
+                {(() => {
+                  try {
+                    const policy = JSON.parse(policyJson);
+                    const isAllowAll = policy.allow?.some((rule: any) => Object.keys(rule).length === 0);
+                    return isAllowAll ? (
+                      <div className="p-3 bg-blue-25 border border-blue-200 rounded-lg mb-4">
+                        <p className="text-sm text-blue-700">
+                          <span className="font-medium">Current Policy:</span> Allows all wallet operations
+                        </p>
+                        <p className="text-xs text-blue-600 mt-1">
+                          The policy currently grants unrestricted access. Modify below to add restrictions.
+                        </p>
+                      </div>
+                    ) : null;
+                  } catch {
+                    return null;
+                  }
+                })()}
+
                 <PolicyBuilder value={policyJson} onChange={setPolicyJson} />
               </CardContent>
             </Card>
