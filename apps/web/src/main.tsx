@@ -13,7 +13,7 @@ const router = createRouter({
   defaultPendingComponent: () => <FullPageLoadingScreen message="Loading page..." />,
   context: {
     queryClient: queryClient,
-    auth: undefined!, // Will be set by root route
+    auth: undefined!,
   },
   defaultPreloadStaleTime: 0,
 });

@@ -11,17 +11,22 @@ import { DataTablePagination } from '@/components/data-table/data-table-paginati
 import { OAuthClientsTable } from '@/components/features/oauth-clients/oauth-clients-table'
 import { PackagesTable } from '@/components/features/packages-table/packages-table'
 import { usePackagesTable } from '@/hooks/use-packages-table'
+import { useOAuthClientsTable } from '@/hooks/use-oauth-clients-table'
 import { useState, useMemo } from 'react'
 import { type ColumnDef } from "@tanstack/react-table"
-import type { PackageList } from "@/types"
+import type { PackageList, OAuthClient } from "@/types"
 import { Badge } from "@/components/ui/badge"
 import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header"
 import { Button } from "@/components/ui/button"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Download, Clock, Cpu, MoreHorizontal, Eye, Share2 } from "lucide-react"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
+import { Download, Clock, Cpu, MoreHorizontal, Eye, Share2, Edit, Trash2, RefreshCw, Copy } from "lucide-react"
 import { toast } from "sonner"
 import { gridViewColumns } from '@/components/features/packages-table/packages-grid-view'
 import { AddFundsModal } from '@/components/features/wallet/add-funds-modal'
+import { formatRelativeTime } from "@/lib/format"
+import { useDeleteOAuthClientMutation, useRegenerateOAuthSecretMutation } from "@/lib/mutations"
+import { useAppStore } from "@/lib/store"
+import type { OAuthClientData } from "@/lib/store"
 
 export const Route = createFileRoute('/_hub/profile')({
   component: RouteComponent,
@@ -60,9 +65,11 @@ const PACKAGE_TYPES = [
 function RouteComponent() {
   const { data: user, isPending: userLoading } = useQuery(userQueries.meOptions());
   const { data: creditBalance, isPending: creditLoading } = useQuery(creditQueries.balanceOptions());
+  const { openOAuthClientEditSidebar } = useAppStore();
 
-  const [oauthClientsTable, setOauthClientsTable] = useState<any>(null);
-  const [viewMode, setViewMode] = useState<"table" | "grid">("grid");
+  // View mode states for both tables
+  const [mcpViewMode, setMcpViewMode] = useState<"table" | "grid">("grid");
+  const [oauthViewMode, setOauthViewMode] = useState<"table" | "grid">("table");
 
   const [activeTab, setActiveTab] = useState<string>("oauth-clients");
 
@@ -83,7 +90,48 @@ function RouteComponent() {
     toast.success("Package URL copied to clipboard");
   };
 
-  const columns = useMemo<ColumnDef<PackageList>[]>(
+  // OAuth Client handlers
+  const handleCopyClientId = (clientId: string) => {
+    navigator.clipboard.writeText(clientId);
+    toast.success("Client ID copied to clipboard");
+  };
+
+  const handleCopySecret = (secret: string) => {
+    navigator.clipboard.writeText(secret);
+    toast.success("Client secret copied to clipboard");
+  };
+
+  const handleEdit = (client: OAuthClient) => {
+    const oauthClientData: OAuthClientData = {
+      clientId: client.clientId,
+      developerId: client.developerId,
+      name: client.name,
+      iconUrl: client.iconUrl,
+      redirectUris: client.redirectUris,
+      metadata: client.metadata,
+      createdAt: client.createdAt,
+      updatedAt: client.updatedAt,
+    };
+    openOAuthClientEditSidebar(oauthClientData);
+  };
+
+  const deleteClientMutation = useDeleteOAuthClientMutation();
+  const regenerateSecretMutation = useRegenerateOAuthSecretMutation();
+
+  const handleDelete = (client: OAuthClient) => {
+    if (confirm(`Are you sure you want to delete "${client.name}"? This action cannot be undone.`)) {
+      deleteClientMutation.mutate(client.clientId);
+    }
+  };
+
+  const handleRegenerateSecret = (client: OAuthClient) => {
+    if (confirm(`Are you sure you want to regenerate the client secret for "${client.name}"? The old secret will stop working.`)) {
+      regenerateSecretMutation.mutate(client.clientId);
+    }
+  };
+
+  // MCP Package columns
+  const mcpColumns = useMemo<ColumnDef<PackageList>[]>(
     () => [
       {
         id: "search",
@@ -279,31 +327,268 @@ function RouteComponent() {
     [handleInstall, handleShare]
   );
 
-  const activeColumns = useMemo(() => {
-    return viewMode === "grid" ? gridViewColumns : columns;
-  }, [viewMode, columns, gridViewColumns]);
+  // OAuth Client table columns
+  const oauthClientTableColumns = useMemo<ColumnDef<OAuthClient>[]>(
+    () => [
+      {
+        id: "name",
+        accessorKey: "name",
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title="OAuth Client" />
+        ),
+        enableSorting: false,
+        cell: ({ row }) => {
+          const client = row.original;
+          return (
+            <div
+              className="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 p-2 -m-2 rounded-md transition-colors"
+              onClick={() => handleEdit(client)}
+            >
+              <Avatar className="size-10 rounded-md">
+                <AvatarImage src={client.iconUrl || undefined} alt={client.name} />
+                <AvatarFallback className="size-10 rounded-md text-xs font-medium bg-primary-100 text-primary-700">
+                  {client.name.charAt(0).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-primary-800 truncate">
+                  {client.name}
+                </p>
+                <p className="text-xs text-primary-400 truncate">
+                  {client.clientId}
+                </p>
+              </div>
+            </div>
+          );
+        },
+      },
+      {
+        id: "redirectUris",
+        accessorKey: "redirectUris",
+        enableSorting: false,
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title="Redirect URIs" />
+        ),
+        cell: ({ row }) => {
+          const uris = row.original.redirectUris;
+          return (
+            <div className="max-w-[200px]">
+              {uris.length > 0 ? (
+                <div className="space-y-1">
+                  {uris.slice(0, 2).map((uri, index) => (
+                    <div key={index} className="text-xs text-primary-600 truncate">
+                      {uri}
+                    </div>
+                  ))}
+                  {uris.length > 2 && (
+                    <div className="text-xs text-primary-400">
+                      +{uris.length - 2} more
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <span className="text-xs text-primary-400">No redirect URIs</span>
+              )}
+            </div>
+          );
+        },
+      },
+      {
+        id: "metadata",
+        accessorKey: "metadata",
+        enableSorting: false,
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title="Description" />
+        ),
+        cell: ({ row }) => {
+          const metadata = row.original.metadata;
+          const description = metadata?.description || metadata?.purpose;
+          return (
+            <div className="max-w-[200px]">
+              {description ? (
+                <p className="text-xs text-primary-600 line-clamp-2">
+                  {description}
+                </p>
+              ) : (
+                <span className="text-xs text-primary-400">No description</span>
+              )}
+            </div>
+          );
+        },
+      },
+      {
+        id: "createdAt",
+        accessorKey: "createdAt",
+        enableSorting: false,
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title="Created" />
+        ),
+        cell: ({ row }) => {
+          return (
+            <div className="text-xs text-primary-600">
+              {formatRelativeTime(row.original.createdAt)}
+            </div>
+          );
+        },
+      },
+      {
+        id: "actions",
+        header: () => <div className="text-right pr-2">Actions</div>,
+        enableSorting: false,
+        cell: ({ row }) => {
+          const client = row.original;
+          return (
+            <div className="flex justify-end pr-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                    <MoreHorizontal className="h-4 w-4" />
+                    <span className="sr-only">Open menu</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => handleEdit(client)}>
+                    <Edit className="h-4 w-4 mr-2" />
+                    Edit Client
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => handleCopyClientId(client.clientId)}>
+                    <Copy className="h-4 w-4 mr-2" />
+                    Copy Client ID
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleRegenerateSecret(client)}>
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Regenerate Secret
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => handleDelete(client)}
+                    className="text-red-600 focus:text-red-600"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete Client
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          );
+        },
+        enableHiding: false,
+      },
+    ],
+    [deleteClientMutation, regenerateSecretMutation, handleEdit, handleCopyClientId, handleRegenerateSecret, handleDelete]
+  );
 
+  // OAuth Client grid columns (simplified for grid view)
+  const oauthClientGridColumns = useMemo<ColumnDef<OAuthClient>[]>(
+    () => [
+      {
+        id: "name",
+        accessorKey: "name",
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title="OAuth Client" />
+        ),
+        enableSorting: false,
+        cell: ({ row }) => {
+          const client = row.original;
+          return (
+            <div
+              className="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 p-2 -m-2 rounded-md transition-colors"
+              onClick={() => handleEdit(client)}
+            >
+              <Avatar className="size-10 rounded-md">
+                <AvatarImage src={client.iconUrl || undefined} alt={client.name} />
+                <AvatarFallback className="size-10 rounded-md text-xs font-medium bg-primary-100 text-primary-700">
+                  {client.name.charAt(0).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-primary-800 truncate">
+                  {client.name}
+                </p>
+                <p className="text-xs text-primary-400 truncate">
+                  {client.clientId}
+                </p>
+              </div>
+            </div>
+          );
+        },
+      },
+      {
+        id: "actions",
+        header: () => <div className="text-right pr-2">Actions</div>,
+        enableSorting: false,
+        cell: ({ row }) => {
+          const client = row.original;
+          return (
+            <div className="flex justify-end pr-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                    <MoreHorizontal className="h-4 w-4" />
+                    <span className="sr-only">Open menu</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => handleEdit(client)}>
+                    <Edit className="h-4 w-4 mr-2" />
+                    Edit Client
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => handleCopyClientId(client.clientId)}>
+                    <Copy className="h-4 w-4 mr-2" />
+                    Copy Client ID
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleRegenerateSecret(client)}>
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Regenerate Secret
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => handleDelete(client)}
+                    className="text-red-600 focus:text-red-600"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete Client
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          );
+        },
+        enableHiding: false,
+      },
+    ],
+    [handleEdit, handleCopyClientId, handleRegenerateSecret, handleDelete]
+  );
+
+  // Active columns pattern for MCP packages
+  const activeMcpColumns = useMemo(() => {
+    return mcpViewMode === "grid" ? gridViewColumns : mcpColumns;
+  }, [mcpViewMode, mcpColumns]);
+
+  // Active columns pattern for OAuth clients
+  const activeOauthColumns = useMemo(() => {
+    return oauthViewMode === "grid" ? oauthClientGridColumns : oauthClientTableColumns;
+  }, [oauthViewMode, oauthClientGridColumns, oauthClientTableColumns]);
+
+  // Custom filters for MCP packages (only show user's packages)
   const customFilters = useMemo(() => {
     if (!user?.id) return {};
     return { publisherId: user.id };
   }, [user?.id]);
 
-  const { table, isLoading, isFetching } = usePackagesTable({
-    columns: activeColumns,
+  // Create table instances at parent level
+  const { table: mcpTable, isLoading: mcpLoading, isFetching: mcpFetching } = usePackagesTable({
+    columns: activeMcpColumns,
     initialPageSize: 10,
     customFilters,
   });
 
-  const getCurrentTable = () => {
-    switch (activeTab) {
-      case "mcps":
-        return table;
-      case "oauth-clients":
-        return oauthClientsTable;
-      default:
-        return null;
-    }
-  };
+  const { table: oauthTable, isLoading: oauthLoading, isFetching: oauthFetching } = useOAuthClientsTable({
+    columns: activeOauthColumns,
+    initialPageSize: 10,
+  });
 
   return (
     <div className='h-full'>
@@ -392,9 +677,12 @@ function RouteComponent() {
             {user?.id ? (
               <div>
                 <OAuthClientsTable
+                  table={oauthTable}
+                  isLoading={oauthLoading}
+                  isFetching={oauthFetching}
+                  viewMode={oauthViewMode}
+                  onViewModeChange={setOauthViewMode}
                   title="My OAuth Clients"
-                  onTableReady={setOauthClientsTable}
-                  showPagination={false}
                 />
               </div>
             ) : (
@@ -408,11 +696,11 @@ function RouteComponent() {
           <TabsContent value="mcps" className="mt-2">
             {user?.id ? (
               <PackagesTable
-                table={table}
-                isLoading={isLoading}
-                isFetching={isFetching}
-                viewMode={viewMode}
-                onViewModeChange={setViewMode}
+                table={mcpTable}
+                isLoading={mcpLoading}
+                isFetching={mcpFetching}
+                viewMode={mcpViewMode}
+                onViewModeChange={setMcpViewMode}
                 title="Developed MCPs"
               />
             ) : (
@@ -443,7 +731,8 @@ function RouteComponent() {
       </div>
 
       <div className="absolute bottom-0 border-t border-t-primary-100 flex h-12 w-full items-center overflow-hidden rounded-b-xl bg-primary-00 p-6">
-        {getCurrentTable() && <DataTablePagination table={getCurrentTable()} />}
+        {activeTab === "mcps" && <DataTablePagination table={mcpTable} />}
+        {activeTab === "oauth-clients" && <DataTablePagination table={oauthTable} />}
       </div>
     </div>
   )

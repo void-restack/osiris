@@ -492,7 +492,7 @@ function RouteComponent() {
       </div>
 
       {/* Bottom pagination */}
-      <div className="absolute bottom-0 border-t border-t-primary-100 flex h-12 w-full items-center overflow-hidden rounded-b-xl bg-primary-00 p-6">
+      <div className="absolute bottom-0 z-40 border-t border-t-primary-100 flex h-12 w-full items-center overflow-hidden rounded-b-xl bg-primary-00 p-6">
         <DataTablePagination table={table} />
       </div>
     </div>

@@ -1,15 +1,26 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
+import { type ColumnDef } from "@tanstack/react-table";
 import { Autocomplete } from "@/components/ui/autocomplete";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { hubQueries, userQueries } from "@/lib/queries";
 import { getAuthState } from "@/lib/auth-utils";
 import type { ServiceClient } from "@/types/auth";
 import { AuthTable } from "@/components/features/authhub/auth-table";
 import { AuthMethodDialog } from "@/components/features/authhub/auth-method-dialog";
+import { useAuthTable } from "@/hooks/use-auth-table";
+import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header";
+import {
+  Clock,
+  User,
+  Cpu,
+  Wrench,
+  BookOpen,
+} from "lucide-react";
 
 const searchSchema = z.object({
   type: z.enum(['oauth', 'secret_sharing', 'embedded_wallet']).optional(),
@@ -17,6 +28,12 @@ const searchSchema = z.object({
   success: z.coerce.boolean().optional(),
   userServiceConnectionId: z.string().uuid().optional()
 });
+
+const AUTH_TYPES = [
+  { label: "OAuth", value: "oauth", icon: Cpu },
+  { label: "Secret Sharing", value: "secret_sharing", icon: Wrench },
+  { label: "Embedded Wallet", value: "embedded_wallet", icon: BookOpen },
+] as const;
 
 export const Route = createFileRoute("/_hub/auth/")({
   component: () => (
@@ -84,7 +101,6 @@ function RouteComponent() {
   const navigate = useNavigate();
   const search = Route.useSearch();
   const { auth } = Route.useLoaderData();
-  const [authTable, setAuthTable] = useState<any>(null);
   const [callbackDialogOpen, setCallbackDialogOpen] = useState(false);
   const [callbackMethod, setCallbackMethod] = useState<ServiceClient | null>(null);
   const queryClient = useQueryClient();
@@ -122,6 +138,159 @@ function RouteComponent() {
     setSearchQuery(query);
     return searchResults || [];
   };
+
+  // Define table columns at the parent level
+  const tableColumns = useMemo<ColumnDef<ServiceClient>[]>(
+    () => [
+      {
+        id: "search",
+        accessorKey: "name",
+        enableColumnFilter: true,
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} className="text-sm" title="Auth Method" />
+        ),
+        cell: ({ row }) => {
+          const auth = row.original;
+          return (
+            <div className="flex items-center gap-3">
+              <Avatar className="size-8 rounded-md shrink-0">
+                <AvatarImage src={auth.iconUrl || undefined} alt={auth.name} />
+                <AvatarFallback className="rounded-md text-xs font-medium bg-primary-100 text-primary-700">
+                  {auth.name?.charAt(0).toUpperCase() || 'A'}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex flex-col">
+                <span className="text-sm font-medium text-primary-800">{auth.name.toString().toWellFormed()}</span>
+              </div>
+            </div>
+          );
+        },
+        enableSorting: false,
+        meta: {
+          variant: "text",
+          label: "Auth method name",
+          placeholder: "Search auth methods...",
+        },
+      },
+      {
+        id: "description",
+        accessorKey: "description",
+        enableColumnFilter: false,
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title="Description" />
+        ),
+        cell: ({ row }) => {
+          const auth = row.original;
+          return (
+            <p className="text-xs text-primary-400 max-w-[120px] line-clamp-1 truncate">{auth.description}</p>
+          );
+        },
+        enableSorting: false,
+      },
+      {
+        id: "type",
+        accessorKey: "type",
+        enableColumnFilter: true,
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title="Type" />
+        ),
+        cell: ({ row }) => {
+          const type = AUTH_TYPES.find(
+            (type) => type.value === row.original.type,
+          );
+          if (!type) return null;
+          return (
+            <Badge variant="secondary" className="text-xs">
+              {type.label}
+            </Badge>
+          );
+        },
+        enableSorting: false,
+        meta: {
+          variant: "select",
+          label: "Auth type",
+          options: AUTH_TYPES.map((type) => ({
+            label: type.label,
+            value: type.value,
+            icon: type.icon
+          })),
+        },
+      },
+      {
+        id: "scopes",
+        accessorKey: "supportedScopes",
+        enableColumnFilter: false,
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title="Scopes" />
+        ),
+        cell: ({ row }) => {
+          const scopes = row.original.supportedScopes;
+          if (!scopes || scopes.length === 0) {
+            return <span className="text-xs text-primary-400">-</span>;
+          }
+          return (
+            <div className="flex items-center gap-1">
+              <User className="h-3 w-3 text-primary-400" />
+              <span className="text-sm font-medium">{scopes.length}</span>
+            </div>
+          );
+        },
+        enableSorting: false,
+      },
+      {
+        id: "updatedAt",
+        accessorKey: "updatedAt",
+        enableColumnFilter: false,
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title="Updated" />
+        ),
+        enableSorting: false,
+        cell: ({ row }) => {
+          const updatedAt = row.getValue("updatedAt") as string;
+          const date = new Date(updatedAt);
+          const now = new Date();
+          const diffInDays = Math.floor(
+            (now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24)
+          );
+
+          return (
+            <div className="flex items-center gap-1">
+              <Clock className="h-3 w-3 text-primary-400" />
+              <span className="text-sm text-primary-600">
+                {diffInDays === 0
+                  ? "Today"
+                  : diffInDays === 1
+                    ? "Yesterday"
+                    : `${diffInDays}d ago`
+                }
+              </span>
+            </div>
+          );
+        },
+      },
+      {
+        id: "actions",
+        header: () => <div className="text-sm text-right mr-2 md:mr-6">Actions</div>,
+        cell: ({ row }) => {
+          const auth = row.original;
+          return (
+            <div className="flex items-center justify-end mr-2 md:mr-6">
+              <AuthMethodDialog method={auth} />
+            </div>
+          );
+        },
+        enableSorting: false,
+        enableHiding: false,
+      },
+    ],
+    []
+  );
+
+  // Create table instance at parent level (same pattern as mcp.index.tsx)
+  const { table, isLoading, isFetching } = useAuthTable({
+    columns: tableColumns,
+    initialPageSize: 10,
+  });
 
   return (
     <div>
@@ -189,17 +358,18 @@ function RouteComponent() {
           />
         </div>
 
-        {/* New Auth Table */}
-        <div className="px-4 md:px-6">
+        {/* Auth Table - pass table instance as prop */}
+        <div className="px-4 md:px-6 mb-20">
           <AuthTable
-            onTableReady={(table) => {
-              setAuthTable(table);
-            }}
+            table={table}
+            isLoading={isLoading}
+            isFetching={isFetching}
           />
         </div>
 
-        <div className="absolute bottom-0 flex h-12 w-full items-center overflow-hidden rounded-b-xl bg-primary-100 p-6">
-          {authTable && <DataTablePagination table={authTable} />}
+        {/* Bottom pagination - same pattern as mcp.index.tsx */}
+        <div className="absolute bottom-0 border-t border-t-primary-100 flex h-12 w-full items-center overflow-hidden rounded-b-xl bg-primary-00 p-6 z-40">
+          <DataTablePagination table={table} />
         </div>
       </div>
 

@@ -53,7 +53,7 @@ function HomeComponent() {
           </div>
 
           {/* Trending MCPs Section */}
-          <div className="mt-16">
+          <div>
             <div className="flex items-center justify-between w-full mb-6">
               <div className="flex flex-col">
                 <h2 className="text-xl font-medium">Trending MCP Packages</h2>
@@ -129,7 +129,7 @@ function HomeComponent() {
             </div>
           </div>
 
-          <div>
+          <div className="mt-16">
             <div className="flex items-center justify-between w-full mb-6">
               <div className="flex flex-col">
                 <h2 className="text-xl font-medium">Trending Knowledge Bases</h2>
