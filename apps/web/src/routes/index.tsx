@@ -1,7 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import HubLayout from "@/components/layouts/hub-layout";
-import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { AuthHeader } from "@/components/auth-header";
 import { ArrowRight, FileText } from "lucide-react";
@@ -10,7 +9,6 @@ import { KnowledgeBaseCard } from "@/components/features/knowledge-base/knowledg
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { knowledgeQueries, packageQueries } from "@/lib/queries";
-import PolicyBuilder from "@/components/policy-builder";
 
 export const Route = createFileRoute("/")({
   component: HomeComponent,
@@ -63,7 +61,7 @@ function HomeComponent() {
             <div className="grid grid-cols-1 md:grid-cols-2 w-full lg:grid-cols-3 gap-6">
               {packagesData?.data ? (
                 packagesData.data.slice(0, 3).map((pkg: any) => (
-                  <Link to={`/mcp/${pkg.packageId}`} key={pkg.packageId} className="min-h-[200px] group hover:shadow-md transition-shadow duration-200 p-3 inset-shadow-card rounded-xl bg-primary-00 opacity-100 min-w-[348px] relative overflow-hidden">
+                  <Link to={`/mcp/${pkg.id}`} key={pkg.packageId} className="min-h-[200px] group hover:shadow-md transition-shadow duration-200 p-3 inset-shadow-card rounded-xl bg-primary-00 opacity-100 min-w-[348px] relative overflow-hidden">
                     <div className="p-0">
                       <div className="flex items-start justify-between">
                         <div className="flex flex-col items-start gap-3 min-w-0 flex-1">

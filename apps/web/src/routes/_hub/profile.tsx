@@ -69,7 +69,7 @@ function RouteComponent() {
 
   // View mode states for both tables
   const [mcpViewMode, setMcpViewMode] = useState<"table" | "grid">("grid");
-  const [oauthViewMode, setOauthViewMode] = useState<"table" | "grid">("table");
+  const [oauthViewMode, setOauthViewMode] = useState<"table" | "grid">("grid");
 
   const [activeTab, setActiveTab] = useState<string>("oauth-clients");
 
