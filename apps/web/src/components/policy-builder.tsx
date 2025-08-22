@@ -1441,14 +1441,11 @@ const PolicyRuleComponent = React.memo<PolicyRuleProps>(({ rule, onChange, onRem
 });
 
 export default function PolicyBuilder({ value, onChange }: PolicyBuilderProps): JSX.Element {
-    // Default value is "allow all" policy
     const DEFAULT_POLICY = '{\n  "allow": [{}],\n  "deny": []\n}';
 
-    // Track update source
     const isInternalUpdate = useRef(false);
     const lastExternalValue = useRef(value || DEFAULT_POLICY);
 
-    // Initialize state from props with "allow all" as default
     const [rules, setRules] = useState<PolicyRule[]>(() => {
         const initialValue = value || DEFAULT_POLICY;
         try {
@@ -1462,16 +1459,19 @@ export default function PolicyBuilder({ value, onChange }: PolicyBuilderProps): 
     const [activeTab, setActiveTab] = useState<string>('interactive');
     const [isJsonValid, setIsJsonValid] = useState<boolean>(true);
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
+
     const [isAllowAllPolicy, setIsAllowAllPolicy] = useState<boolean>(() => {
-        // Check if initial value is "allow all"
         const initialValue = value || DEFAULT_POLICY;
         try {
             const parsed = JSON.parse(initialValue) as PolicyObject;
-            return parsed.allow?.some(rule => Object.keys(rule).length === 0) ?? false;
+            const allow = Array.isArray(parsed.allow) ? parsed.allow : [];
+            const deny = Array.isArray(parsed.deny) ? parsed.deny : [];
+            return allow.length === 1 && Object.keys(allow[0] ?? {}).length === 0 && deny.length === 0;
         } catch {
-            return true; // Default is "allow all"
+            return true;
         }
     });
+
     const [internalJson, setInternalJson] = useState<string>(value || DEFAULT_POLICY);
 
     // Clean invalid properties from policy based on method
@@ -1635,13 +1635,13 @@ export default function PolicyBuilder({ value, onChange }: PolicyBuilderProps): 
                 }
             } catch (error) {
                 // If parsing fails, return default "allow all"
-                return { allow: [{}], deny: [] };
+                return { allow: [], deny: [] };
             }
         }
 
         // If no rules, default to "allow all"
         if (rulesArray.length === 0) {
-            return { allow: [{}], deny: [] };
+            return { allow: [], deny: [] };
         }
 
         rulesArray.forEach(rule => {
@@ -1941,19 +1941,13 @@ export default function PolicyBuilder({ value, onChange }: PolicyBuilderProps): 
         return newRules;
     }, []);
 
-    // Debounced onChange callback
     const debouncedOnChange = useMemo(
         () => debounce((newValue: string) => {
-            // Only block onChange for "allow all" policies when we have no rules
-            if (isAllowAllPolicy && rules.length === 0) {
-                return;
-            }
-
             if (onChange && !isInternalUpdate.current) {
                 onChange(newValue);
             }
         }, 300),
-        [onChange, isAllowAllPolicy, rules.length]
+        [onChange, rules.length]
     );
 
     // Handle external value changes
