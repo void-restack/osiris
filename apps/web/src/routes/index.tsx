@@ -10,6 +10,7 @@ import { KnowledgeBaseCard } from "@/components/features/knowledge-base/knowledg
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { knowledgeQueries, packageQueries } from "@/lib/queries";
+import PolicyBuilder from "@/components/policy-builder";
 
 export const Route = createFileRoute("/")({
   component: HomeComponent,
@@ -26,14 +27,10 @@ function HomeComponent() {
 
   return (
     <HubLayout>
+
       <header className="flex h-[86px] shrink-0 items-center justify-between gap-2 border-b border-b-primary-100 pr-4">
         <div className="flex items-center gap-2 px-4">
           <SidebarTrigger className="-ml-1" />
-          {/* <Separator
-            orientation="vertical"
-            className="mr-2 data-[orientation=vertical]:h-4"
-          /> */}
-          {/* Profile */}
         </div>
         <AuthHeader />
       </header>
@@ -52,7 +49,6 @@ function HomeComponent() {
             <img src="/homepage.svg" className="absolute bottom-0 -right-2" />
           </div>
 
-          {/* Trending MCPs Section */}
           <div>
             <div className="flex items-center justify-between w-full mb-6">
               <div className="flex flex-col">
@@ -149,7 +145,6 @@ function HomeComponent() {
                   />
                 ))
               ) : (
-                // Loading skeleton
                 Array.from({ length: 3 }).map((_, i) => (
                   <div key={i} className="flex flex-col gap-y-4 relative animate-pulse">
                     <div className="relative h-[120px] bg-primary-100 rounded-[8px]" />

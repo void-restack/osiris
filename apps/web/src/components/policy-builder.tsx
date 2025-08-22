@@ -353,6 +353,55 @@ const FIELD_TYPES = {
     }
 };
 
+// Helper functions for field type detection
+const detectFieldTypeFromConstraints = (constraints: Record<string, unknown>): PolicyField['fieldType'] => {
+    const constraintKeys = Object.keys(constraints);
+
+    // Check for explicit type constraint
+    if (constraints.type === 'array') return 'Array';
+    if (constraints.type === 'object') return 'Object';
+
+    // Check for array-specific constraints
+    if (constraintKeys.some(k => ['lengthEq', 'maxLength', 'minLength'].includes(k)) &&
+        !constraintKeys.some(k => k.includes('string'))) {
+        return 'Array';
+    }
+
+    // Check for BigInt constraints
+    if (constraintKeys.some(k => k.startsWith('bigInt'))) {
+        return 'BigInt';
+    }
+
+    // Check for numeric constraints
+    if (constraintKeys.some(k =>
+        ['numericMin', 'numericMax', 'numericEq', 'numericLt', 'numericLte', 'numericGt', 'numericGte',
+            'minimum', 'maximum', 'min', 'max', 'lt', 'lte', 'gt', 'gte', '24hLimit'].includes(k))) {
+        return 'Number';
+    }
+
+    // Check for boolean constraints
+    if (constraintKeys.some(k => k === 'is')) {
+        return 'Boolean';
+    }
+
+    // Default to String for address, string constraints, or unknown
+    return 'String';
+};
+
+const isNumericKey = (key: string): boolean => {
+    return /^\d+$/.test(key);
+};
+
+const hasArrayIndicators = (obj: Record<string, unknown>): boolean => {
+    const keys = Object.keys(obj);
+    // Has numeric keys or array constraints
+    return keys.some(isNumericKey) ||
+        obj.type === 'array' ||
+        obj.lengthEq !== undefined ||
+        obj.maxLength !== undefined ||
+        obj.minLength !== undefined;
+};
+
 const setNestedProperty = (obj: Record<string, unknown>, path: string, value: unknown): void => {
     const keys = path.split(/[.\[\]]/).filter(Boolean);
     let current: Record<string, unknown> = obj;
@@ -1392,43 +1441,38 @@ const PolicyRuleComponent = React.memo<PolicyRuleProps>(({ rule, onChange, onRem
 });
 
 export default function PolicyBuilder({ value, onChange }: PolicyBuilderProps): JSX.Element {
+    // Default value is "allow all" policy
+    const DEFAULT_POLICY = '{\n  "allow": [{}],\n  "deny": []\n}';
+
     // Track update source
     const isInternalUpdate = useRef(false);
-    const lastExternalValue = useRef(value);
+    const lastExternalValue = useRef(value || DEFAULT_POLICY);
 
-    // Initialize state from props only once
+    // Initialize state from props with "allow all" as default
     const [rules, setRules] = useState<PolicyRule[]>(() => {
-        if (value) {
-            try {
-                const parsed = JSON.parse(value) as PolicyObject;
-                return policyToRules(cleanInvalidProperties(parsed));
-            } catch {
-                return [];
-            }
+        const initialValue = value || DEFAULT_POLICY;
+        try {
+            const parsed = JSON.parse(initialValue) as PolicyObject;
+            return policyToRules(cleanInvalidProperties(parsed));
+        } catch {
+            return [];
         }
-        return [];
     });
 
     const [activeTab, setActiveTab] = useState<string>('interactive');
     const [isJsonValid, setIsJsonValid] = useState<boolean>(true);
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
-    const [isAllowAllPolicy, setIsAllowAllPolicy] = useState<boolean>(false);
-    const [internalJson, setInternalJson] = useState<string>(() => {
-        // Check if the initial value is an "allow all" policy
-        if (value) {
-            try {
-                const parsed = JSON.parse(value) as PolicyObject;
-                const isAllowAll = parsed.allow?.some(rule => Object.keys(rule).length === 0);
-                if (isAllowAll) {
-                    // Set the flag immediately for "allow all" policies
-                    setTimeout(() => setIsAllowAllPolicy(true), 0);
-                }
-            } catch {
-                // If parsing fails, use default
-            }
+    const [isAllowAllPolicy, setIsAllowAllPolicy] = useState<boolean>(() => {
+        // Check if initial value is "allow all"
+        const initialValue = value || DEFAULT_POLICY;
+        try {
+            const parsed = JSON.parse(initialValue) as PolicyObject;
+            return parsed.allow?.some(rule => Object.keys(rule).length === 0) ?? false;
+        } catch {
+            return true; // Default is "allow all"
         }
-        return value || '{\n  "allow": [{}],\n  "deny": []\n}';
     });
+    const [internalJson, setInternalJson] = useState<string>(value || DEFAULT_POLICY);
 
     // Clean invalid properties from policy based on method
     const cleanInvalidProperties = useCallback((policy: PolicyObject): PolicyObject => {
@@ -1504,6 +1548,66 @@ export default function PolicyBuilder({ value, onChange }: PolicyBuilderProps): 
                                     }
                                 }
                             }
+
+                            // Handle nested Object fields
+                            if (nestedField.fieldType === 'Object' && nestedField.nestedFields) {
+                                const nestedObj: Record<string, unknown> = {};
+                                nestedField.nestedFields.forEach(subField => {
+                                    if (subField.property && subField.constraints.length > 0) {
+                                        const validConstraints = subField.constraints.filter(c =>
+                                            c.value !== '' && c.value !== null && c.value !== undefined
+                                        );
+
+                                        if (validConstraints.length === 1 && validConstraints[0].type === 'const') {
+                                            nestedObj[subField.property] = validConstraints[0].value;
+                                        } else if (validConstraints.length > 0) {
+                                            const constraintObj: Record<string, unknown> = {};
+                                            validConstraints.forEach(c => {
+                                                constraintObj[c.type] = c.value;
+                                            });
+                                            nestedObj[subField.property] = constraintObj;
+                                        }
+                                    }
+                                });
+                                if (Object.keys(nestedObj).length > 0) {
+                                    converted[fieldPath] = nestedObj;
+                                }
+                            }
+
+                            // Handle Array fields with indexed elements
+                            if (nestedField.fieldType === 'Array' && nestedField.indexedElements) {
+                                const arrayObj: Record<string, unknown> = {};
+
+                                // Add array constraints
+                                nestedField.constraints.forEach(c => {
+                                    if (c.value !== '' && c.value !== null && c.value !== undefined) {
+                                        arrayObj[c.type] = c.value;
+                                    }
+                                });
+
+                                // Add indexed elements
+                                Object.entries(nestedField.indexedElements).forEach(([index, indexField]) => {
+                                    if (indexField.constraints.length > 0) {
+                                        const validConstraints = indexField.constraints.filter(c =>
+                                            c.value !== '' && c.value !== null && c.value !== undefined
+                                        );
+
+                                        if (validConstraints.length === 1 && validConstraints[0].type === 'const') {
+                                            arrayObj[index] = validConstraints[0].value;
+                                        } else if (validConstraints.length > 0) {
+                                            const constraintObj: Record<string, unknown> = {};
+                                            validConstraints.forEach(c => {
+                                                constraintObj[c.type] = c.value;
+                                            });
+                                            arrayObj[index] = constraintObj;
+                                        }
+                                    }
+                                });
+
+                                if (Object.keys(arrayObj).length > 0) {
+                                    converted[fieldPath] = arrayObj;
+                                }
+                            }
                         });
                     }
 
@@ -1530,8 +1634,14 @@ export default function PolicyBuilder({ value, onChange }: PolicyBuilderProps): 
                     return originalPolicy; // Return the original "allow all" policy
                 }
             } catch (error) {
-                // If parsing fails, continue with normal conversion
+                // If parsing fails, return default "allow all"
+                return { allow: [{}], deny: [] };
             }
+        }
+
+        // If no rules, default to "allow all"
+        if (rulesArray.length === 0) {
+            return { allow: [{}], deny: [] };
         }
 
         rulesArray.forEach(rule => {
@@ -1624,9 +1734,9 @@ export default function PolicyBuilder({ value, onChange }: PolicyBuilderProps): 
         });
 
         return policy;
-    }, [convertLogicalConstraintValue, lastExternalValue.current]);
+    }, [convertLogicalConstraintValue]);
 
-    // Convert policy to rules (memoized)
+    // Convert policy to rules (FIXED VERSION)
     const policyToRules = useCallback((policy: PolicyObject): PolicyRule[] => {
         const newRules: PolicyRule[] = [];
         let ruleId = 1;
@@ -1660,64 +1770,170 @@ export default function PolicyBuilder({ value, onChange }: PolicyBuilderProps): 
 
                 const section = (policyRule.decoded || policyRule.payload || {}) as Record<string, unknown>;
 
-                const extractFields = (obj: Record<string, unknown>, prefix = ''): Array<{ path: string; constraints: Constraint[] }> => {
-                    const flatFields: Array<{ path: string; constraints: Constraint[] }> = [];
+                // Recursive function to parse value into PolicyField
+                const parseValueToField = (
+                    key: string,
+                    value: unknown,
+                    isArrayIndex: boolean = false
+                ): PolicyField => {
+                    // Handle primitive values
+                    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+                        let fieldType: PolicyField['fieldType'] = 'String';
+                        if (typeof value === 'number') fieldType = 'Number';
+                        if (typeof value === 'boolean') fieldType = 'Boolean';
 
-                    Object.entries(obj).forEach(([key, value]) => {
-                        const path = prefix ? `${prefix}.${key}` : key;
+                        return {
+                            property: key,
+                            fieldType,
+                            constraints: [{ type: 'const', value }],
+                            nestedFields: undefined,
+                            indexedElements: undefined
+                        };
+                    }
 
-                        if (typeof value === 'string' || typeof value === 'number') {
-                            flatFields.push({ path, constraints: [{ type: 'const', value }] });
-                            return;
-                        }
+                    // Handle arrays (simple arrays, not object arrays)
+                    if (Array.isArray(value)) {
+                        return {
+                            property: key,
+                            fieldType: 'String', // enum constraint implies string field
+                            constraints: [{ type: 'enum', value }],
+                            nestedFields: undefined,
+                            indexedElements: undefined
+                        };
+                    }
 
-                        if (Array.isArray(value)) {
-                            flatFields.push({ path, constraints: [{ type: 'enum', value }] });
-                            return;
-                        }
+                    // Handle objects
+                    if (value && typeof value === 'object') {
+                        const obj = value as Record<string, unknown>;
+                        const objKeys = Object.keys(obj);
 
-                        if (value && typeof value === 'object') {
-                            const constraintKeys = Object.keys(value as Record<string, unknown>);
-                            const constraintOnlyKeys = constraintKeys.filter(k => CONSTRAINT_TYPES[k]);
+                        // Separate constraint keys from property keys
+                        const constraintKeys = objKeys.filter(k => CONSTRAINT_TYPES[k]);
+                        const propertyKeys = objKeys.filter(k => !CONSTRAINT_TYPES[k]);
 
-                            if (constraintOnlyKeys.length > 0) {
-                                const constraints = constraintOnlyKeys.map(k => ({
-                                    type: k,
-                                    value: (value as Record<string, unknown>)[k] as string | number | boolean | object | Array<unknown>
-                                }));
-                                flatFields.push({ path, constraints });
+                        // If it's purely constraints (no nested properties)
+                        if (propertyKeys.length === 0 && constraintKeys.length > 0) {
+                            const fieldType = detectFieldTypeFromConstraints(obj);
+                            const constraints: Constraint[] = constraintKeys.map(k => ({
+                                type: k,
+                                value: obj[k] as string | number | boolean | object | Array<unknown>
+                            }));
+
+                            // Handle Array fields with indexed elements
+                            if (fieldType === 'Array') {
+                                const indexedElements: Record<string, PolicyField> = {};
+
+                                // Look for numeric keys in constraints (for payload case)
+                                objKeys.forEach(k => {
+                                    if (isNumericKey(k)) {
+                                        indexedElements[k] = parseValueToField(k, obj[k], true);
+                                    }
+                                });
+
+                                return {
+                                    property: key,
+                                    fieldType: 'Array',
+                                    constraints: constraints.filter(c => !isNumericKey(c.type)),
+                                    nestedFields: undefined,
+                                    indexedElements: Object.keys(indexedElements).length > 0 ? indexedElements : {}
+                                };
                             }
 
-                            const nonConstraintKeys = constraintKeys.filter(k => !CONSTRAINT_TYPES[k]);
-                            nonConstraintKeys.forEach(nestedKey => {
-                                const nestedValue = (value as Record<string, unknown>)[nestedKey];
-                                const nestedFields = extractFields({ [nestedKey]: nestedValue }, path);
-                                flatFields.push(...nestedFields);
-                            });
+                            return {
+                                property: key,
+                                fieldType,
+                                constraints,
+                                nestedFields: fieldType === 'Object' ? [] : undefined,
+                                indexedElements: undefined
+                            };
                         }
-                    });
 
-                    return flatFields;
+                        // Check if this should be an Array field (has numeric keys or array indicators)
+                        if (hasArrayIndicators(obj)) {
+                            const indexedElements: Record<string, PolicyField> = {};
+                            const constraints: Constraint[] = [];
+
+                            // Extract array constraints
+                            constraintKeys.forEach(k => {
+                                constraints.push({
+                                    type: k,
+                                    value: obj[k] as string | number | boolean | object | Array<unknown>
+                                });
+                            });
+
+                            // Process numeric keys as array elements
+                            propertyKeys.forEach(k => {
+                                if (isNumericKey(k)) {
+                                    indexedElements[k] = parseValueToField(k, obj[k], true);
+                                }
+                            });
+
+                            return {
+                                property: key,
+                                fieldType: 'Array',
+                                constraints,
+                                nestedFields: undefined,
+                                indexedElements
+                            };
+                        }
+
+                        // It's an Object field with nested properties
+                        const nestedFields: PolicyField[] = [];
+
+                        // Add constraint-based field if there are constraints
+                        if (constraintKeys.length > 0) {
+                            const fieldType = detectFieldTypeFromConstraints(obj);
+                            const constraints: Constraint[] = constraintKeys.map(k => ({
+                                type: k,
+                                value: obj[k] as string | number | boolean | object | Array<unknown>
+                            }));
+
+                            return {
+                                property: key,
+                                fieldType,
+                                constraints,
+                                nestedFields: fieldType === 'Object' ? [] : undefined,
+                                indexedElements: fieldType === 'Array' ? {} : undefined
+                            };
+                        }
+
+                        // Process nested properties
+                        propertyKeys.forEach(nestedKey => {
+                            const nestedField = parseValueToField(nestedKey, obj[nestedKey]);
+                            nestedFields.push(nestedField);
+                        });
+
+                        return {
+                            property: key,
+                            fieldType: 'Object',
+                            constraints: [],
+                            nestedFields,
+                            indexedElements: undefined
+                        };
+                    }
+
+                    // Fallback
+                    return {
+                        property: key,
+                        fieldType: 'String',
+                        constraints: [],
+                        nestedFields: undefined,
+                        indexedElements: undefined
+                    };
                 };
 
-                const flatFields = extractFields(section);
+                // Process all fields in the section
+                Object.entries(section).forEach(([key, value]) => {
+                    const field = parseValueToField(key, value);
 
-                // Simple field tree building
-                const fields: PolicyField[] = flatFields.map(item => ({
-                    property: item.path,
-                    fieldType: 'String',
-                    constraints: item.constraints,
-                    nestedFields: undefined,
-                    indexedElements: undefined
-                }));
+                    // Special handling for args field
+                    if (key === 'args') {
+                        rule.argsField = field;
+                    } else {
+                        rule.fields.push(field);
+                    }
+                });
 
-                const argsFieldIndex = fields.findIndex(field => field.property === 'args');
-                if (argsFieldIndex !== -1) {
-                    rule.argsField = fields[argsFieldIndex];
-                    fields.splice(argsFieldIndex, 1);
-                }
-
-                rule.fields = fields;
                 newRules.push(rule);
             });
         });
@@ -1729,7 +1945,6 @@ export default function PolicyBuilder({ value, onChange }: PolicyBuilderProps): 
     const debouncedOnChange = useMemo(
         () => debounce((newValue: string) => {
             // Only block onChange for "allow all" policies when we have no rules
-            // This prevents the initial conversion that loses the {} object, but allows user modifications
             if (isAllowAllPolicy && rules.length === 0) {
                 return;
             }
@@ -1754,17 +1969,13 @@ export default function PolicyBuilder({ value, onChange }: PolicyBuilderProps): 
                 const isAllowAll = parsed.allow?.some(rule => Object.keys(rule).length === 0);
 
                 if (isAllowAll) {
-                    // For "allow all" policies, don't convert to rules at all
-                    // Keep the original structure completely intact
                     setIsAllowAllPolicy(true);
                     setRules([]);
                     setHasUnsavedChanges(false);
-                    // Don't trigger any further processing for "allow all" policies
-                    // Also prevent any onChange calls to preserve the original structure
                     isInternalUpdate.current = true;
+                    setTimeout(() => { isInternalUpdate.current = false; }, 100);
                     return;
                 } else {
-                    // For regular policies, convert to rules as usual
                     setIsAllowAllPolicy(false);
                     const cleaned = cleanInvalidProperties(parsed);
                     const newRules = policyToRules(cleaned);
@@ -1777,15 +1988,12 @@ export default function PolicyBuilder({ value, onChange }: PolicyBuilderProps): 
         }
     }, [value, cleanInvalidProperties, policyToRules]);
 
-    // Update JSON from rules (only in interactive mode) - but don't trigger onChange automatically
+    // Update JSON from rules (only in interactive mode)
     useEffect(() => {
-        // Only block conversion if this is an "allow all" policy AND we have no rules
-        // This prevents the initial conversion that loses the {} object, but allows user modifications
         if (isAllowAllPolicy && rules.length === 0) {
             return;
         }
 
-        // Additional check: if the current internalJson represents an "allow all" policy AND we have no rules, don't convert
         try {
             const currentPolicy = JSON.parse(internalJson) as PolicyObject;
             const isCurrentAllowAll = currentPolicy.allow?.some(rule => Object.keys(rule).length === 0);
@@ -1793,7 +2001,7 @@ export default function PolicyBuilder({ value, onChange }: PolicyBuilderProps): 
                 return;
             }
         } catch {
-            // If parsing fails, continue with normal logic
+            // Continue with normal logic
         }
 
         if (activeTab === 'interactive') {
@@ -1803,11 +2011,8 @@ export default function PolicyBuilder({ value, onChange }: PolicyBuilderProps): 
             if (newJson !== internalJson) {
                 isInternalUpdate.current = true;
                 setInternalJson(newJson);
-                // Mark as having unsaved changes when rules are modified
                 setHasUnsavedChanges(true);
 
-                // Trigger onChange for interactive form changes so parent component can detect changes
-                // Use a small delay to ensure the internal state is updated first
                 setTimeout(() => {
                     if (onChange) {
                         debouncedOnChange(newJson);
@@ -1826,16 +2031,16 @@ export default function PolicyBuilder({ value, onChange }: PolicyBuilderProps): 
             const parsed = JSON.parse(newValue) as PolicyObject;
             setIsJsonValid(true);
 
-            // Check if this is an "allow all" policy
             const isAllowAll = parsed.allow?.some(rule => Object.keys(rule).length === 0);
 
             if (isAllowAll) {
-                // For "allow all" policies, preserve the original structure
                 setIsAllowAllPolicy(true);
                 setRules([]);
-                // Don't process further, just keep the original JSON
+                debouncedOnChange(newValue);
                 return;
             }
+
+            setIsAllowAllPolicy(false);
 
             if (activeTab === 'json') {
                 const cleaned = cleanInvalidProperties(parsed);
@@ -1854,7 +2059,6 @@ export default function PolicyBuilder({ value, onChange }: PolicyBuilderProps): 
 
                 const newRules = policyToRules(cleaned);
                 setRules(newRules);
-                // Clear unsaved changes when JSON is manually edited
                 setHasUnsavedChanges(false);
 
                 requestAnimationFrame(() => {
@@ -1867,6 +2071,11 @@ export default function PolicyBuilder({ value, onChange }: PolicyBuilderProps): 
     }, [activeTab, cleanInvalidProperties, policyToRules, debouncedOnChange]);
 
     const addRule = useCallback((type: 'allow' | 'deny'): void => {
+        // Clear "allow all" state when adding first rule
+        if (isAllowAllPolicy) {
+            setIsAllowAllPolicy(false);
+        }
+
         const newRule: PolicyRule = {
             id: Date.now(),
             type,
@@ -1876,7 +2085,7 @@ export default function PolicyBuilder({ value, onChange }: PolicyBuilderProps): 
             fields: []
         };
         setRules([...rules, newRule]);
-    }, [rules]);
+    }, [rules, isAllowAllPolicy]);
 
     const updateRule = useCallback((id: number, updatedRule: PolicyRule): void => {
         setRules(prev => prev.map(rule => rule.id === id ? updatedRule : rule));
@@ -1902,11 +2111,11 @@ export default function PolicyBuilder({ value, onChange }: PolicyBuilderProps): 
                 <TabsContent value="interactive" className="space-y-6 max-h-[400px] overflow-y-scroll hidebar">
                     <div className="grid grid-cols-2 gap-4">
                         <div
-                            className="cursor-pointer transition-all duration-300 ease-out inset-shadow-policy-cards bg-primary-25 rounded-xl hover:bg-primary-50 hover:scale-[1.02] hover:shadow-lg"
+                            className="cursor-pointer inset-shadow-policy-cards bg-primary-25 rounded-xl hover:bg-primary-50"
                             onClick={() => addRule('allow')}
                         >
                             <div className="px-[18px] py-6 rounded-xl">
-                                <Icon name='check' className='text-primary-800 size-6 mb-4 transition-transform duration-300 hover:scale-110' />
+                                <Icon name='check' className='text-primary-800 size-6 mb-4' />
                                 <div className='flex flex-col'>
                                     <h3 className="font-medium transition-colors duration-200">Add allow rule</h3>
                                     <p className="text-sm text-primary-400 transition-colors duration-200">Define permitted actions</p>
@@ -1915,11 +2124,11 @@ export default function PolicyBuilder({ value, onChange }: PolicyBuilderProps): 
                         </div>
 
                         <div
-                            className="cursor-pointer transition-all duration-300 ease-out inset-shadow-policy-cards bg-primary-25 rounded-xl hover:bg-primary-50 hover:scale-[1.02] hover:shadow-lg"
+                            className="cursor-pointer inset-shadow-policy-cards bg-primary-25 rounded-xl hover:bg-primary-50"
                             onClick={() => addRule('deny')}
                         >
                             <div className="px-[18px] py-6 rounded-xl">
-                                <Icon name='warning' className='text-primary-800 size-6 mb-4 transition-transform duration-300 hover:scale-110' />
+                                <Icon name='warning' className='text-primary-800 size-6 mb-4' />
                                 <div className='flex flex-col'>
                                     <h3 className="font-medium transition-colors duration-200">Add deny rule</h3>
                                     <p className="text-sm text-primary-400 transition-colors duration-200">Define blocked actions</p>
