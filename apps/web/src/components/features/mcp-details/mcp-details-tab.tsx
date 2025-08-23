@@ -90,7 +90,7 @@ export function McpTabs() {
 		}
 
 		const deploymentUrl = deployment.url ?
-			`${deployment.url}` :
+			`${deployment.url}?deploymentId=${deployment.deploymentId}` :
 			'No URL';
 
 		return {
