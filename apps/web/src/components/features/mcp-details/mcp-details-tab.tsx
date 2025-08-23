@@ -89,9 +89,8 @@ export function McpTabs() {
 			return null;
 		}
 
-		// Construct deployment URL: packageUrl?deploymentId=deploymentId
-		const deploymentUrl = packageData?.url ?
-			`${packageData.url}?deploymentId=${deployment.deploymentId}` :
+		const deploymentUrl = deployment.url ?
+			`${deployment.url}` :
 			'No URL';
 
 		return {

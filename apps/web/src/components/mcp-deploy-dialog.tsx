@@ -163,20 +163,20 @@ function ServiceSection({
                               {(() => {
                                 const md = connection.user_service_connections.metadata;
                                 const t = connection.service_clients?.type;
-                                const shortId = connection.user_service_connections.id.slice(0, 8);
-                                if (!t) return `${connection.user_service_connections.name || 'Unknown Connection'} (${shortId})`;
+                                // const shortId = connection.user_service_connections.id.slice(0, 8);
+                                if (!t) return `${connection.user_service_connections.name || 'Unknown Connection'}`;
 
                                 switch (t) {
                                   case 'oauth':
-                                    return `${md?.user?.name || md?.user?.email || 'Unknown User'} (${shortId})`;
+                                    return `${md?.user?.name || md?.user?.email || 'Unknown User'}`;
                                   case 'secret_sharing':
-                                    return `${connection.user_service_connections.name || 'Database Connection'} (${shortId})`;
+                                    return `${connection.user_service_connections.name || 'Database Connection'}`;
                                   case 'embedded_wallet': {
                                     const walletName = md?.name || connection.user_service_connections.name || 'Wallet Connection';
-                                    return `${walletName} (${shortId})`;
+                                    return `${walletName}`;
                                   }
                                   default:
-                                    return `${connection.user_service_connections.name || 'Unknown Connection'} (${shortId})`;
+                                    return `${connection.user_service_connections.name || 'Unknown Connection'}`;
                                 }
                               })()}
                             </p>
@@ -184,8 +184,8 @@ function ServiceSection({
 
                           {/* Ready Indicator */}
                           {(() => {
-                            console.log("connection scopes", connection.user_service_connections.scopes);
-                            console.log("required scopes", requiredScopes);
+                            // console.log("connection scopes", connection.user_service_connections.scopes);
+                            // console.log("required scopes", requiredScopes);
                             const connectionScopes = connection.user_service_connections.scopes || [];
                             const requiredScopesArray = Array.isArray(requiredScopes) ? requiredScopes : [];
 
@@ -314,8 +314,8 @@ export function McpDeployDialog({
   };
 
   const mcpDeploymentUrl = deployMutation.data?.deployment ?
-    `${pkg?.url?.replace(/\/$/, '')}/mcp?deploymentId=${deployMutation.data.deployment.deploymentId}` :
-    `${pkg?.url?.replace(/\/$/, '')}/mcp`;
+    `${deployMutation.data?.deployment.url}?deploymentId=${deployMutation.data.deployment.deploymentId}` :
+    deployMutation.data?.deployment.url;
 
   const handleDeploy = async () => {
     const requiredServices = Object.keys(authScopes?.serviceClientMap || {});

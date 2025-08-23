@@ -93,20 +93,6 @@ export function useKnowledgeBaseTable({
 
     const knowledgeBases: KnowledgeBase[] = knowledgeBaseData?.data || [];
 
-    // Debug logging to track data changes
-    React.useEffect(() => {
-        console.log('Knowledge base data updated:', {
-            page,
-            limit,
-            sortBy,
-            sortOrder,
-            dataLength: knowledgeBases.length,
-            firstItem: knowledgeBases[0],
-            apiFilters,
-            pagination: knowledgeBaseData?.pagination
-        });
-    }, [knowledgeBases, sortBy, sortOrder, apiFilters, page, limit, knowledgeBaseData?.pagination]);
-
     const pagination = knowledgeBaseData?.pagination || { totalPages: 1, total: 0, page: 1, limit: limit };
 
     const { table, ...rest } = useDataTable({

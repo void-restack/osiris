@@ -7,17 +7,17 @@ import { ICONS } from "./icons";
 import { useEffect } from "react";
 
 export default function Attach({ setFiles }: { setFiles: React.Dispatch<React.SetStateAction<File[]>> }) {
-    const [{ files }, { removeFile, openFileDialog, getInputProps }] =
+  const [{ files }, { removeFile, openFileDialog, getInputProps }] =
     useFileUpload({
       accept: "*",
     })
 
-    useEffect(() => {
-        console.log('Files changed:', files);
-        setFiles(files.map(file => file.file as File));
-    }, [files, setFiles]);
+  useEffect(() => {
+    // console.log('Files changed:', files);
+    setFiles(files.map(file => file.file as File));
+  }, [files, setFiles]);
 
-  
+
 
   return (
     <div className="flex flex-col items-center gap-2">
@@ -26,7 +26,7 @@ export default function Attach({ setFiles }: { setFiles: React.Dispatch<React.Se
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-              className="cursor-pointer"
+                className="cursor-pointer"
                 variant={"ghost"}
                 size={"icon"}
                 onClick={openFileDialog}

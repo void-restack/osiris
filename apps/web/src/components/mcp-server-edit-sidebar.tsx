@@ -63,17 +63,9 @@ export function McpServerEditSidebar() {
             if (currentDeployment?.userServiceConnectionMcpDeployments?.[0]?.policy) {
                 // Use the policy exactly as it comes from the API
                 policyToUse = currentDeployment.userServiceConnectionMcpDeployments[0].policy;
-                console.log('MCP Server Edit Sidebar - Raw policy from API:', currentDeployment.userServiceConnectionMcpDeployments[0].policy);
-                console.log('MCP Server Edit Sidebar - Policy to use:', policyToUse);
-                console.log('MCP Server Edit Sidebar - Policy allow array:', policyToUse.allow);
-                console.log('MCP Server Edit Sidebar - Policy allow array length:', policyToUse.allow?.length);
-                console.log('MCP Server Edit Sidebar - First allow item:', policyToUse.allow?.[0]);
-                console.log('MCP Server Edit Sidebar - First allow item keys:', policyToUse.allow?.[0] ? Object.keys(policyToUse.allow[0]) : 'undefined');
             }
 
             const policyJson = JSON.stringify(policyToUse, null, 2);
-            console.log('MCP Server Edit Sidebar - Original Policy from API:', policyToUse);
-            console.log('MCP Server Edit Sidebar - Policy JSON to set:', policyJson);
             setPolicyValue(policyJson);
             setInitialPolicyValue(policyJson);
 
@@ -109,7 +101,6 @@ export function McpServerEditSidebar() {
     };
 
     const handlePolicyChange = (value: string) => {
-        console.log('MCP Server Edit Sidebar - Policy changed by PolicyBuilder:', value);
         setPolicyValue(value);
     };
 

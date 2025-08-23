@@ -402,7 +402,6 @@ function ServiceConsentSection({
 function RouteComponent() {
   const { client_id, redirect_uri, state, scopes, response_type, package_id, type } = Route.useSearch()
   const { auth } = Route.useLoaderData() as { auth: { isAuthenticated: boolean; user: any | null } }
-  console.log(scopes)
   const isAuthenticated = auth.isAuthenticated
   const scopesArray = scopes ? scopes.split(' ') : []
 
@@ -654,7 +653,6 @@ function RouteComponent() {
             };
           });
 
-        console.log("SERVVICE CONN", serviceConnections, "selectedAuthConnections", selectedAuthConnections)
 
         const deploymentResult = await deployPackageMutation.mutateAsync({
           packageId: package_id as string,
@@ -670,7 +668,6 @@ function RouteComponent() {
       const mcpRedirectUri = new URL(packageDetails?.url as string)
       mcpRedirectUri.pathname = mcpRedirectUri.pathname.replace(/\/$/, '') + '/osiris/callback'
 
-      console.log("SCOPES", scopesArray)
 
       if (type === 'agent') {
         const authResultOsiris = await authorizeFrontendMutation.mutateAsync({

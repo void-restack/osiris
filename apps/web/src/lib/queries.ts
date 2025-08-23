@@ -827,8 +827,8 @@ export const creditQueries = {
 
 export const knowledgeQueries = {
   all: (filters?: { search?: string; page?: number; limit?: number }) => ["knowledge", ...(filters ? Object.entries(filters) : [])] as const,
-  bases: (filters?: { 
-    search?: string; 
+  bases: (filters?: {
+    search?: string;
     name?: string;
     tags?: string;
     sortBy?: 'name' | 'rating' | 'credits' | 'installs' | 'price' | 'recent';
@@ -836,7 +836,7 @@ export const knowledgeQueries = {
     isPublic?: boolean;
     startPrice?: number;
     endPrice?: number;
-    page?: number; 
+    page?: number;
     limit?: number;
   }) => [...knowledgeQueries.all(), "bases", ...(filters ? Object.entries(filters) : [])] as const,
   base: (id: string) => [...knowledgeQueries.bases(), id] as const,
@@ -891,8 +891,6 @@ export const knowledgeQueries = {
         if (filters?.name) searchParams.set("name", filters.name);
 
         const endpoint = `/knowledge-base/search?${searchParams}`;
-        console.log('Knowledge base search endpoint:', endpoint);
-        console.log('Search filters:', filters);
 
         const response = await api(endpoint, {
           schema: z.object({
@@ -907,8 +905,6 @@ export const knowledgeQueries = {
           }),
         });
 
-        console.log('Knowledge base search response:', response);
-
         if (response.status === "FAILED") {
           throw new Error(response.error);
         }
@@ -917,8 +913,8 @@ export const knowledgeQueries = {
       staleTime: 2 * 60 * 1000,
     }),
 
-  basesOptions: (filters?: { 
-    search?: string; 
+  basesOptions: (filters?: {
+    search?: string;
     name?: string;
     tags?: string;
     sortBy?: 'name' | 'rating' | 'credits' | 'installs' | 'price' | 'recent';
@@ -926,7 +922,7 @@ export const knowledgeQueries = {
     isPublic?: boolean;
     startPrice?: number;
     endPrice?: number;
-    page?: number; 
+    page?: number;
     limit?: number;
   }) =>
     queryOptions({

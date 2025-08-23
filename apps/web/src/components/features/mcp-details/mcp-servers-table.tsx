@@ -153,6 +153,7 @@ export function McpServersTable({ data, pagination, onPageChange }: McpServersTa
         },
     });
 
+
     return (
         <div className="rounded-md border border-[#F5F5F5]">
             <Table>
