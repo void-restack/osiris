@@ -144,101 +144,110 @@ function ServiceSection({
                 onValueChange={(value) => onConnectionSelect(serviceName, value)}
                 className="space-y-3"
               >
-                {serviceConnections.map((connection: any) => (
-                  <div key={connection.user_service_connections.id} className="flex items-start space-x-3 cursor-pointer group">
-                    <RadioGroupItem id={connection.user_service_connections.id} value={connection.user_service_connections.id} className="mt-1" />
-                    <div id={connection.user_service_connections.id} className="flex-1 p-3 border border-primary-100 rounded-[6px] group-hover:border-primary-200 transition-colors">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center space-x-2">
-                          <p className="text-sm font-medium text-primary-800">
-                            {(() => {
-                              const md = connection.user_service_connections.metadata;
-                              const t = connection.service_clients?.type;
-                              const shortId = connection.user_service_connections.id.slice(0, 8);
-                              if (!t) return `${connection.user_service_connections.name || 'Unknown Connection'} (${shortId})`;
+                {serviceConnections.map((connection: any) => {
+                  const radioId = `radio-${connection.user_service_connections.id}`;
+                  return (
+                    <div key={connection.user_service_connections.id} className="flex items-start space-x-3">
+                      <RadioGroupItem
+                        id={radioId}
+                        value={connection.user_service_connections.id}
+                        className="mt-1"
+                      />
+                      <label
+                        htmlFor={radioId}
+                        className="flex-1 p-3 border border-primary-100 rounded-[6px] hover:border-primary-200 transition-colors cursor-pointer"
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center space-x-2">
+                            <p className="text-sm font-medium text-primary-800">
+                              {(() => {
+                                const md = connection.user_service_connections.metadata;
+                                const t = connection.service_clients?.type;
+                                const shortId = connection.user_service_connections.id.slice(0, 8);
+                                if (!t) return `${connection.user_service_connections.name || 'Unknown Connection'} (${shortId})`;
 
-                              switch (t) {
-                                case 'oauth':
-                                  return `${md?.user?.name || md?.user?.email || 'Unknown User'} (${shortId})`;
-                                case 'secret_sharing':
-                                  return `${connection.user_service_connections.name || 'Database Connection'} (${shortId})`;
-                                case 'embedded_wallet': {
-                                  const walletName = md?.name || connection.user_service_connections.name || 'Wallet Connection';
-                                  return `${walletName} (${shortId})`;
+                                switch (t) {
+                                  case 'oauth':
+                                    return `${md?.user?.name || md?.user?.email || 'Unknown User'} (${shortId})`;
+                                  case 'secret_sharing':
+                                    return `${connection.user_service_connections.name || 'Database Connection'} (${shortId})`;
+                                  case 'embedded_wallet': {
+                                    const walletName = md?.name || connection.user_service_connections.name || 'Wallet Connection';
+                                    return `${walletName} (${shortId})`;
+                                  }
+                                  default:
+                                    return `${connection.user_service_connections.name || 'Unknown Connection'} (${shortId})`;
                                 }
-                                default:
-                                  return `${connection.user_service_connections.name || 'Unknown Connection'} (${shortId})`;
-                              }
-                            })()}
-                          </p>
+                              })()}
+                            </p>
+                          </div>
+
+                          {/* Ready Indicator */}
+                          {(() => {
+                            console.log("connection scopes", connection.user_service_connections.scopes);
+                            console.log("required scopes", requiredScopes);
+                            const connectionScopes = connection.user_service_connections.scopes || [];
+                            const requiredScopesArray = Array.isArray(requiredScopes) ? requiredScopes : [];
+
+                            const hasAllRequiredScopes = requiredScopesArray.every((requiredScope) => {
+                              const scopeWithoutPrefix = requiredScope.startsWith(`${serviceName}:`)
+                                ? requiredScope.replace(`${serviceName}:`, '')
+                                : requiredScope;
+                              const scopeWithPrefix = `${serviceName}:${requiredScope}`;
+
+                              return (
+                                connectionScopes.includes(requiredScope) ||
+                                connectionScopes.includes(scopeWithoutPrefix) ||
+                                connectionScopes.includes(scopeWithPrefix)
+                              );
+                            });
+
+                            if (hasAllRequiredScopes) {
+                              return (
+                                <Badge className="bg-green-100 text-green-800 px-2 py-1 text-xs font-medium">
+                                  Ready
+                                </Badge>
+                              );
+                            }
+                            return null;
+                          })()}
                         </div>
 
-                        {/* Ready Indicator */}
-                        {(() => {
-                          console.log("connection scopes", connection.user_service_connections.scopes);
-                          console.log("required scopes", requiredScopes);
-                          const connectionScopes = connection.user_service_connections.scopes || [];
-                          const requiredScopesArray = Array.isArray(requiredScopes) ? requiredScopes : [];
+                        <p className="text-[13px] text-primary-400 mb-2">
+                          {(() => {
+                            const md = connection.user_service_connections.metadata;
+                            const t = connection.service_clients?.type;
+                            if (!t) return 'Unknown connection type';
 
-                          // Check if all required scopes are covered
-                          const hasAllRequiredScopes = requiredScopesArray.every((requiredScope) => {
-                            const scopeWithoutPrefix = requiredScope.startsWith(`${serviceName}:`)
-                              ? requiredScope.replace(`${serviceName}:`, '')
-                              : requiredScope;
-                            const scopeWithPrefix = `${serviceName}:${requiredScope}`;
-
-                            return (
-                              connectionScopes.includes(requiredScope) ||
-                              connectionScopes.includes(scopeWithoutPrefix) ||
-                              connectionScopes.includes(scopeWithPrefix)
-                            );
-                          });
-
-                          if (hasAllRequiredScopes) {
-                            return (
-                              <Badge className="bg-green-100 text-green-800 px-2 py-1 text-xs font-medium">
-                                Ready
-                              </Badge>
-                            );
-                          }
-                          return null;
-                        })()}
-                      </div>
-
-                      <p className="text-[13px] text-primary-400 mb-2">
-                        {(() => {
-                          const md = connection.user_service_connections.metadata;
-                          const t = connection.service_clients?.type;
-                          if (!t) return 'Unknown connection type';
-
-                          switch (t) {
-                            case 'oauth':
-                              return md?.user?.email || md?.user?.name || 'No email available';
-                            case 'secret_sharing':
-                              return 'Database connection';
-                            case 'embedded_wallet': {
-                              const addr = md?.accounts?.addresses?.[0]?.address;
-                              if (addr) return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
-                              const chains = md?.accounts?.chains;
-                              if (chains?.length) return `${chains.length} chain${chains.length > 1 ? 's' : ''}`;
-                              return 'Blockchain wallet';
+                            switch (t) {
+                              case 'oauth':
+                                return md?.user?.email || md?.user?.name || 'No email available';
+                              case 'secret_sharing':
+                                return 'Database connection';
+                              case 'embedded_wallet': {
+                                const addr = md?.accounts?.addresses?.[0]?.address;
+                                if (addr) return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+                                const chains = md?.accounts?.chains;
+                                if (chains?.length) return `${chains.length} chain${chains.length > 1 ? 's' : ''}`;
+                                return 'Blockchain wallet';
+                              }
+                              default:
+                                return 'Unknown type';
                             }
-                            default:
-                              return 'Unknown type';
-                          }
-                        })()}
-                      </p>
+                          })()}
+                        </p>
 
-                      <div className="flex flex-wrap gap-1">
-                        {connection.user_service_connections.scopes?.map((scope: string) => (
-                          <Badge key={scope} className="rounded-[6px] bg-primary-100 px-2 py-0.5 text-xs text-primary-800">
-                            {getScopeDisplayName(scope)}
-                          </Badge>
-                        ))}
-                      </div>
+                        <div className="flex flex-wrap gap-1">
+                          {connection.user_service_connections.scopes?.map((scope: string) => (
+                            <Badge key={scope} className="rounded-[6px] bg-primary-100 px-2 py-0.5 text-xs text-primary-800">
+                              {getScopeDisplayName(scope)}
+                            </Badge>
+                          ))}
+                        </div>
+                      </label>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </RadioGroup>
             </div>
           )}
@@ -810,7 +819,7 @@ console.log(\`Available tools: \${tools.map(t => t.name).join(", ")}\`)`, 'TypeS
           </AlertDialogTitle>
         </AlertDialogHeader>
 
-        <div className="w-full">
+        <div className="w-full max-h-[calc(100vh-200px)] overflow-y-scroll">
           <div className="flex items-center justify-between px-4 pt-4">
             <div className="flex">
               <Avatar className="rounded-lg size-10">

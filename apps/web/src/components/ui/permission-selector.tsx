@@ -2,6 +2,7 @@ import { Search, X } from "lucide-react";
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { Checkbox } from "./checkbox";
 import { Input } from "./input";
+import { Button } from "./button";
 import { ScrollArea } from "./scroll-area";
 import { extractScopeUrl } from "@/lib/scope-utils";
 
@@ -94,6 +95,19 @@ export function PermissionSelector({
     id.replace(/[^a-zA-Z0-9-_]/g, '-'), []
   );
 
+  // Select All functionality
+  const handleSelectAll = useCallback(() => {
+    const allPermissions = filteredPermissions.map(p => ({ ...p }));
+    setSelectedPermissions(allPermissions);
+    onSelectionChange?.(allPermissions);
+  }, [filteredPermissions, onSelectionChange]);
+
+  // Check if all filtered permissions are selected
+  const areAllSelected = useMemo(() => {
+    if (filteredPermissions.length === 0) return false;
+    return filteredPermissions.every(permission => isPermissionSelected(permission.id));
+  }, [filteredPermissions, isPermissionSelected]);
+
   useEffect(() => {
     if (selectedsContainerRef.current) {
       selectedsContainerRef.current.scrollTo({
@@ -137,6 +151,21 @@ export function PermissionSelector({
           className="pl-9"
         />
       </div>
+
+      {/* Select All Button */}
+      {filteredPermissions.length > 0 && (
+        <div className="flex justify-end">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleSelectAll}
+            disabled={areAllSelected}
+            className="text-xs h-7 px-2"
+          >
+            {areAllSelected ? 'All Selected' : 'Select All'}
+          </Button>
+        </div>
+      )}
 
       {/* Selected Permissions */}
       {selectedPermissions.length > 0 && (
