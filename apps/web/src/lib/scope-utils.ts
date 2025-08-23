@@ -5,6 +5,8 @@ export type Permission = {
     label: string;
 };
 
+const SERVICES_PRESERVE_FULL_SCOPE = ['notion'];
+
 /**
  * Extract the scope URL from a service-prefixed scope string
  * @param scope - The scope string (e.g., "google:https://www.googleapis.com/auth/calendar")
@@ -15,6 +17,13 @@ export function extractScopeUrl(scope: string): string {
     if (firstColonIndex === -1) {
         return scope; // Return original if no colon found
     }
+
+    const serviceName = scope.substring(0, firstColonIndex);
+
+    if (SERVICES_PRESERVE_FULL_SCOPE.includes(serviceName)) {
+        return scope;
+    }
+
     return scope.substring(firstColonIndex + 1);
 }
 
