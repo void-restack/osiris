@@ -25,6 +25,8 @@ import PolicyBuilder from '@/components/policy-builder'
 import { AuthMethodDialog } from '@/components/features/authhub/auth-method-dialog'
 import { getAuthState } from '@/lib/auth-utils'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { SERVICES_PRESERVE_FULL_SCOPE, transformScopeDefinitions } from '@/lib/scope-utils'
+import { getScopeDisplayName } from '@/lib/scope-definitions'
 
 export const Route = createFileRoute('/oauth/consent')({
   loader: async ({ context: { queryClient } }) => {
@@ -54,14 +56,21 @@ function hasAllRequiredScopes(connection: any, requiredScopes: string[], service
 
 function getPermissionsForService(serviceName: string, requiredScopes: string[], authMethods: any[]) {
   const serviceAuthMethod = authMethods?.find((m: any) => m.name === serviceName)
-  const scopeDefinitions = serviceAuthMethod?.scopeDefinitions || {}
+  const rawScopeDefinitions = serviceAuthMethod?.scopeDefinitions || {}
+
+  const scopeDefinitions = transformScopeDefinitions(serviceName, rawScopeDefinitions);
+
   const required = Array.isArray(requiredScopes) ? requiredScopes : []
   const entries = Object.entries(scopeDefinitions).filter(([scope]) => {
     const scopeWithoutPrefix = scope.startsWith(`${serviceName}:`) ? scope.replace(`${serviceName}:`, '') : scope
     const scopeWithPrefix = `${serviceName}:${scope}`
     return required.includes(scope) || required.includes(scopeWithoutPrefix) || required.includes(scopeWithPrefix)
   })
-  return entries.map(([id, label]) => ({ id, label: String(label) }))
+
+  return entries.map(([id, label]) => ({
+    id,
+    label: getScopeDisplayName(id) || String(label)
+  }));
 }
 
 function ConnectionItem({

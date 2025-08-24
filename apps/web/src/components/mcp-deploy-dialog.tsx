@@ -32,7 +32,7 @@ import { useDeployPackageMutation, useCreateServiceConnectionMutation, useAuthor
 import { AuthMethodDialog } from "@/components/features/authhub/auth-method-dialog";
 import { useAuth } from "@/hooks/use-auth";
 import { getInitials } from "@/lib/utils";
-import { getReadableScopes } from "@/lib/scope-utils";
+import { getReadableScopes, transformScopeDefinitions } from "@/lib/scope-utils";
 import { getScopeDisplayName } from "@/lib/scope-definitions";
 import type { PackageWithUserStatus } from "@/types";
 import PolicyBuilder from "@/components/policy-builder";
@@ -80,10 +80,16 @@ function ServiceSection({
     [userAuth, serviceName]
   );
 
-  const permissions = useMemo(
-    () => getReadableScopes(serviceName, authScopes),
-    [serviceName, authScopes]
-  );
+  const permissions = useMemo(() => {
+    if (!serviceClient.scopeDefinitions) return [];
+
+    const transformedScopeDefinitions = transformScopeDefinitions(serviceClient.name, serviceClient.scopeDefinitions);
+
+    return Object.entries(transformedScopeDefinitions).map(([scope, label]) => ({
+      id: scope,
+      label: getScopeDisplayName(scope) || String(label)
+    }));
+  }, [serviceClient.name, serviceClient.scopeDefinitions]);
 
   const handleServicePermissionSelect = useCallback(
     (perms: Permission[]) => onPermissionSelect(serviceName, perms),

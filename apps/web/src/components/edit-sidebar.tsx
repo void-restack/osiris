@@ -35,6 +35,7 @@ import { hubQueries } from "@/lib/queries";
 import { PermissionSelector, type Permission } from "./ui/permission-selector";
 import { getScopeDisplayName } from "@/lib/scope-definitions";
 import { WalletDialog } from "./features/wallet/wallet-dialog";
+import { transformScopeDefinitions } from "@/lib/scope-utils";
 
 const BLOCKCHAIN_OPTIONS = {
   EVM: {
@@ -530,14 +531,15 @@ const OAuthFields = ({
 }) => {
   const { selectedServiceClient } = useAppStore();
 
-  const scopeDefinitions = selectedServiceClient?.scopeDefinitions || {};
+  const rawScopeDefinitions = selectedServiceClient?.scopeDefinitions || {};
+  const transformedScopeDefinitions = transformScopeDefinitions(selectedServiceClient?.name || '', rawScopeDefinitions);
 
   const availablePermissions = useMemo(() =>
-    Object.entries(scopeDefinitions).map(([scope, label]) => ({
-      id: scope,
+    Object.entries(transformedScopeDefinitions).map(([scope, label]) => ({
+      id: scope, // Will be "notion:all" for notion
       label: getScopeDisplayName(scope) || (label as string) || scope
     })),
-    [scopeDefinitions]
+    [transformedScopeDefinitions]
   );
 
   return (

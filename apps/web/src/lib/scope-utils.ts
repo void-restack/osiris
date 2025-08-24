@@ -5,7 +5,7 @@ export type Permission = {
     label: string;
 };
 
-const SERVICES_PRESERVE_FULL_SCOPE = ['notion'];
+export const SERVICES_PRESERVE_FULL_SCOPE = ['notion'];
 
 /**
  * Extract the scope URL from a service-prefixed scope string
@@ -101,8 +101,36 @@ export function getReadableScopes(serviceName: string, authScopes: any): Permiss
     }
 
     const scopes = authScopes.serviceClientMap[serviceName];
-    return scopes.map((scope: string) => ({
-        id: extractScopeUrl(scope),          // "https://www.googleapis.com/auth/calendar"
-        label: getScopeDisplayName(scope)    // "Access Calendar (Read, Write, Delete)"
-    }));
+    return scopes.map((scope: string) => {
+        // For services that need the full scope format, preserve it
+        const shouldPreserveFullScope = SERVICES_PRESERVE_FULL_SCOPE.includes(serviceName);
+        let scopeId: string;
+
+        if (shouldPreserveFullScope) {
+            // If the scope already has the service prefix, use it as-is
+            // Otherwise, add the service prefix
+            scopeId = scope.includes(':') ? scope : `${serviceName}:${scope}`;
+        } else {
+            scopeId = extractScopeUrl(scope);
+        }
+
+        return {
+            id: scopeId,                     // "notion:all" for notion, extracted URL for others
+            label: getScopeDisplayName(scope)
+        };
+    });
+}
+
+export function transformScopeDefinitions(serviceName: string, scopeDefinitions: Record<string, string>): Record<string, string> {
+    if (!SERVICES_PRESERVE_FULL_SCOPE.includes(serviceName)) {
+        return scopeDefinitions;
+    }
+
+    const transformed: Record<string, string> = {};
+    Object.entries(scopeDefinitions).forEach(([scope, label]) => {
+        const fullScope = `${serviceName}:${scope}`;
+        transformed[fullScope] = label;
+    });
+
+    return transformed;
 }

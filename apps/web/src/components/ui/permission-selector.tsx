@@ -78,6 +78,8 @@ export function PermissionSelector({
     return selectedPermissions.some(permission => {
       const normalizedSelected = extractScopeUrl(permission.id);
       return normalizedSelected === permissionId || permission.id === permissionId;
+      // const normalizedPermission = extractScopeUrl(permissionId);
+      // return normalizedSelected === normalizedPermission || permission.id === permissionId;
     });
   }, [selectedPermissions]);
 
@@ -95,14 +97,12 @@ export function PermissionSelector({
     id.replace(/[^a-zA-Z0-9-_]/g, '-'), []
   );
 
-  // Select All functionality
   const handleSelectAll = useCallback(() => {
     const allPermissions = filteredPermissions.map(p => ({ ...p }));
     setSelectedPermissions(allPermissions);
     onSelectionChange?.(allPermissions);
   }, [filteredPermissions, onSelectionChange]);
 
-  // Check if all filtered permissions are selected
   const areAllSelected = useMemo(() => {
     if (filteredPermissions.length === 0) return false;
     return filteredPermissions.every(permission => isPermissionSelected(permission.id));

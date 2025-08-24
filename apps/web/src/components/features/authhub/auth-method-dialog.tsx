@@ -46,6 +46,7 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select"
+import { transformScopeDefinitions } from "@/lib/scope-utils";
 
 const BLOCKCHAIN_OPTIONS = {
   EVM: {
@@ -89,6 +90,8 @@ export function AuthMethodDialog({
   if (!method) {
     return null;
   }
+
+  console.log("method", method)
 
   const [selectedScopes, setSelectedScopes] = useState<Permission[]>([]);
   const [authHubName, setAuthHubName] = useState(
@@ -187,6 +190,8 @@ export function AuthMethodDialog({
     }
   };
 
+  console.log("selectedScopes", selectedScopes)
+
   const handleSaveAuthenticator = async () => {
     try {
       setConnectionState({ status: 'connecting' });
@@ -282,6 +287,8 @@ export function AuthMethodDialog({
     }
   };
 
+  console.log("MEthod", method)
+
   const isPending = createServiceConnection.isPending || createSecretSharing.isPending || createWallet.isPending || connectionState.status === 'connecting';
 
   const renderOAuthForm = () => (
@@ -290,7 +297,7 @@ export function AuthMethodDialog({
         <PermissionSelector
           context="auth-method-dialog"
           key={`auth-method-dialog-${method.clientId}`}
-          permissions={Object.entries(method.scopeDefinitions).map(([scope, label]) => ({
+          permissions={Object.entries(transformScopeDefinitions(method.name, method.scopeDefinitions)).map(([scope, label]) => ({
             id: scope,
             label: getScopeDisplayName(scope) || (label as string) || scope
           }))}
