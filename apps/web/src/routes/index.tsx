@@ -35,19 +35,19 @@ function HomeComponent() {
 
       <div className="hidebar h-full w-full overflow-y-scroll pb-8">
         <div className="w-full px-8 pt-16">
-          <div className="border border-dashed border-primary-100 rounded-[16px] mb-16 py-[34px] px-6 w-full relative overflow-hidden">
+          <div className="border border-dashed border-primary-100 rounded-[16px] mb-16 py-[34px] px-6 w-full relative overflow-hidden" data-tour="onboarding-steps">
             <h2 className="text-xl font-medium">Get the best out of Osiris</h2>
             <p className="text-primary-400 text-sm">Just three easy steps, and you're all set to kick off & grow hub</p>
 
             <div className="flex items-center gap-4 mt-20">
-              <Button icon={ArrowRight} iconPlacement="right" size="sm">Take a tour</Button>
+              <Button icon={ArrowRight} iconPlacement="right" size="sm" onClick={() => window.dispatchEvent(new CustomEvent('start-tour'))}>Take a tour</Button>
               <Button icon={FileText} iconPlacement="left" variant="outline" size="sm">Read docs</Button>
             </div>
 
             <img src="/homepage.svg" className="absolute bottom-0 -right-2" />
           </div>
 
-          <div>
+          <div data-tour="trending-mcps">
             <div className="flex items-center justify-between w-full mb-6">
               <div className="flex flex-col">
                 <h2 className="text-xl font-medium">Trending MCP Packages</h2>
@@ -60,8 +60,13 @@ function HomeComponent() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 w-full lg:grid-cols-3 gap-6">
               {packagesData?.data ? (
-                packagesData.data.slice(0, 3).map((pkg: any) => (
-                  <Link to={`/mcp/${pkg.id}`} key={pkg.packageId} className="min-h-[200px] group hover:shadow-md transition-shadow duration-200 p-3 inset-shadow-card rounded-xl bg-primary-00 opacity-100 min-w-[348px] relative overflow-hidden">
+                packagesData.data.slice(0, 3).map((pkg: any, index: number) => (
+                  <Link
+                    to={`/mcp/${pkg.id}`}
+                    key={pkg.packageId}
+                    className="min-h-[200px] group hover:shadow-md transition-shadow duration-200 p-3 inset-shadow-card rounded-xl bg-primary-00 opacity-100 min-w-[348px] relative overflow-hidden"
+                    data-tour={index === 0 ? "first-mcp" : undefined}
+                  >
                     <div className="p-0">
                       <div className="flex items-start justify-between">
                         <div className="flex flex-col items-start gap-3 min-w-0 flex-1">
@@ -156,7 +161,10 @@ function HomeComponent() {
             </div>
           </div>
 
-
+          {/* End tour step */}
+          <div className="mt-16 text-center" data-tour="end-tour">
+            <div className="invisible h-1" />
+          </div>
         </div>
       </div>
     </HubLayout>

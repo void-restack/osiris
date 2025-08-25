@@ -6,6 +6,8 @@ import { queryClient } from "./lib/query-client";
 import { routeTree } from "./routeTree.gen";
 import { FullPageLoadingScreen } from "./components/ui/loading-screen";
 import { Web3Provider } from "./components/web3-provider";
+import { TourProvider } from '@reactour/tour'
+import { tourConfig } from "./components/features/tour-config";
 
 const router = createRouter({
   routeTree,
@@ -36,7 +38,9 @@ if (!rootElement.innerHTML) {
     <React.StrictMode>
       <Web3Provider>
         <NuqsAdapter>
-          <RouterProvider router={router} />
+          <TourProvider {...tourConfig}>
+            <RouterProvider router={router} />
+          </TourProvider>
         </NuqsAdapter>
       </Web3Provider>
     </React.StrictMode>,

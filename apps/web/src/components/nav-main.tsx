@@ -31,12 +31,28 @@ export function NavMain({
     }[];
   }[];
 }) {
+  const getTourAttribute = (title: string) => {
+    switch (title.toLowerCase()) {
+      case 'home':
+        return undefined; // Home doesn't need a tour step
+      case 'mcp hub':
+        return 'mcp-hub';
+      case 'authentication hub':
+        return 'auth-hub';
+      case 'knowledge base':
+        return 'knowledge-base';
+      case 'profile':
+        return 'profile';
+      default:
+        return undefined;
+    }
+  };
   return (
     <SidebarGroup>
       <SidebarMenu>
         {items.map((item) => (
           <Collapsible key={item.title} asChild defaultOpen={item.isActive}>
-            <SidebarMenuItem>
+            <SidebarMenuItem data-tour={getTourAttribute(item.title)}>
               <SidebarMenuButton
                 asChild
                 tooltip={item.title}
