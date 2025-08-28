@@ -22,7 +22,18 @@ export function useAppTour() {
 
     const shouldShowTour = !hasSeenTour;
 
+    // Listen for start-tour event from homepage button
+    useEffect(() => {
+        const handleStartTour = () => {
+            startTour();
+        };
 
+        window.addEventListener('start-tour', handleStartTour);
+
+        return () => {
+            window.removeEventListener('start-tour', handleStartTour);
+        };
+    }, [startTour]);
 
     return {
         startTour,

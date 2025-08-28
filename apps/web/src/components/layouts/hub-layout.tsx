@@ -8,7 +8,7 @@ import { useAppStore } from "@/lib/store";
 import { EditConnectionSidebar } from "../edit-sidebar";
 import { McpServerEditSidebar } from "../mcp-server-edit-sidebar";
 import { OAuthClientEditSidebar } from "../oauth-client-edit-sidebar";
-import { TourWelcomeModal } from "../features/tour-welcome-modal";
+
 
 function HubLayoutInner({ children }: { children: React.ReactNode }) {
   const {
@@ -29,7 +29,6 @@ function HubLayoutInner({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      <TourWelcomeModal />
       <AppSidebar />
       <SidebarInset className={isEditSidebarOpen && !isMobile ? "flex-1" : ""}>
         {children}

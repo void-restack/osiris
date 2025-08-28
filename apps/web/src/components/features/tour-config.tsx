@@ -4,24 +4,14 @@ import { cn } from '@/lib/utils';
 
 export const tourSteps: StepType[] = [
     {
-        selector: '[data-tour="tour-welcome"]',
+        selector: '[data-tour="onboarding-steps"]',
         content: (
             <div className="p-6 bg-white rounded-lg">
                 <h3 className="text-xl font-semibold mb-3 text-gray-900">Welcome to Osiris!</h3>
-                <p className="mb-4 text-gray-600 leading-relaxed">Build and connect powerful AI agents to the world. Take a 1-minute tour or dive in directly.</p>
-                {/* <div className="flex justify-center pt-2">
-                    <Button
-                        onClick={() => window.dispatchEvent(new CustomEvent('skip-tour'))}
-                        variant="outline"
-                        size="sm"
-                        className="h-10 px-4 rounded-lg border-2 border-gray-300 hover:border-gray-400 hover:bg-gray-50 text-gray-600 hover:text-gray-800"
-                    >
-                        Skip Tour
-                    </Button>
-                </div> */}
+                <p className="mb-4 text-gray-600 leading-relaxed">Let's take a quick tour to show you around the platform and get you started with building powerful AI agents.</p>
             </div>
         ),
-        position: 'center',
+        position: 'bottom',
     },
     {
         selector: '[data-tour="sidebar"]',
@@ -33,21 +23,7 @@ export const tourSteps: StepType[] = [
         ),
         position: 'right',
     },
-    {
-        selector: '[data-tour="onboarding-steps"]',
-        content: (
-            <div className="p-6 bg-white rounded-lg">
-                <h3 className="text-xl font-semibold mb-3 text-gray-900">Get the Best Out of Osiris</h3>
-                <p className="mb-3 text-gray-600">Just 3 easy steps:</p>
-                <ol className="list-decimal list-inside space-y-2 text-gray-700">
-                    <li>Explore MCPs</li>
-                    <li>Connect integrations</li>
-                    <li>Grow your Knowledge Hub!</li>
-                </ol>
-            </div>
-        ),
-        position: 'bottom',
-    },
+
     {
         selector: '[data-tour="mcp-hub"]',
         content: (
@@ -137,15 +113,35 @@ export const tourConfig = {
             ...base,
             '--reactour-accent': 'hsl(var(--primary))',
             borderRadius: '12px',
-            // boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)',
-            // border: '1px solid hsl(var(--border))',
+            boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.2), 0 8px 10px -6px rgb(0 0 0 / 0.1)',
+            border: '1px solid hsl(var(--border))',
             padding: '0px 10px 10px 10px',
             minWidth: '320px',
             maxWidth: '400px',
+            // Ensure tour step is clearly visible against blurred background
+            backgroundColor: 'white',
+            zIndex: 9999,
         }),
-        maskArea: (base: any) => ({ ...base, rx: 8 }),
+        maskArea: (base: any) => ({
+            ...base,
+            rx: 8,
+            // Add blur effect to the overlay
+            backdropFilter: 'blur(6px)',
+            backgroundColor: 'rgba(0, 0, 0, 0.4)',
+            // Ensure the mask covers the entire viewport
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+        }),
         step: (base: any) => ({
             ...base,
+            // Ensure the highlighted element is clearly visible
+            outline: '2px solid hsl(var(--primary))',
+            outlineOffset: '2px',
+            borderRadius: '8px',
+            boxShadow: '0 0 0 4px rgba(59, 130, 246, 0.1)',
         }),
         navigation: (base: any) => ({
             ...base,
@@ -175,6 +171,11 @@ export const tourConfig = {
     showNavigation: true,
     showActions: false,
     showStepIndicator: true,
+    disableInteraction: true,
+    // Prevent tour from closing when clicking outside
+    disableDotsNavigation: false,
+    // Ensure tour step is always visible
+    inViewThreshold: 0,
     prevButton: ({ currentStep, setCurrentStep }: any) => {
         if (currentStep === 0) return null; // Hide prev button on first step
         return (
