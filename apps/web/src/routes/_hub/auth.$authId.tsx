@@ -227,8 +227,6 @@ function RouteComponent() {
     );
   }
 
-  console.log("serviceClient", serviceClient)
-
   const transformedServiceClient = transformBackendServiceClient(serviceClient);
 
   // Only process user connections if authenticated and data is available

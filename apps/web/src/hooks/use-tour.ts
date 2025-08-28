@@ -1,6 +1,5 @@
 import { useTour } from '@reactour/tour';
 import { useLocalStorage } from 'usehooks-ts';
-import { useEffect } from 'react';
 
 export function useAppTour() {
     const { setIsOpen, setCurrentStep, isOpen } = useTour();
@@ -15,25 +14,13 @@ export function useAppTour() {
         setHasSeenTour(true);
         setIsOpen(false);
     };
-
     const resetTour = () => {
         setHasSeenTour(false);
     };
 
-    const shouldShowTour = !hasSeenTour;
+    const shouldShowTour = false; // Don't show tour automatically
 
-    // Listen for start-tour event from homepage button
-    useEffect(() => {
-        const handleStartTour = () => {
-            startTour();
-        };
 
-        window.addEventListener('start-tour', handleStartTour);
-
-        return () => {
-            window.removeEventListener('start-tour', handleStartTour);
-        };
-    }, [startTour]);
 
     return {
         startTour,

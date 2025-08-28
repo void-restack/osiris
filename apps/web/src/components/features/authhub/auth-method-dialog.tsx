@@ -91,7 +91,6 @@ export function AuthMethodDialog({
     return null;
   }
 
-  console.log("method", method)
 
   const [selectedScopes, setSelectedScopes] = useState<Permission[]>([]);
   const [authHubName, setAuthHubName] = useState(
@@ -190,8 +189,6 @@ export function AuthMethodDialog({
     }
   };
 
-  console.log("selectedScopes", selectedScopes)
-
   const handleSaveAuthenticator = async () => {
     try {
       setConnectionState({ status: 'connecting' });
@@ -286,8 +283,6 @@ export function AuthMethodDialog({
       toast.error(errorMessage);
     }
   };
-
-  console.log("MEthod", method)
 
   const isPending = createServiceConnection.isPending || createSecretSharing.isPending || createWallet.isPending || connectionState.status === 'connecting';
 

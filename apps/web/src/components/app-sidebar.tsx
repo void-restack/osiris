@@ -100,7 +100,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     <Sidebar data-tour="sidebar" variant="inset" {...props}>
       <SidebarHeader className="flex min-h-[86px] w-full items-center justify-center border-b border-b-primary-100">
         <SidebarMenu className="justify-center-safe flex h-full w-full">
-          <SidebarMenuItem>
+          <SidebarMenuItem data-tour="tour-welcome">
             <SidebarMenuButton
               className="hover:bg-transparent"
               size="sm"
@@ -123,6 +123,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <div data-tour="docs-support">
           <NavMain items={data.navFooter} />
         </div>
+
         {isAuthenticated && (
           <div className="inset-shadow-credit-card rounded-[6px] bg-white px-2 py-3" data-tour="profile">
             <p className="mb-2 text-primary-300 text-xs">Available Credits</p>

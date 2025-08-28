@@ -9,6 +9,7 @@ import { KnowledgeBaseCard } from "@/components/features/knowledge-base/knowledg
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { knowledgeQueries, packageQueries } from "@/lib/queries";
+import { useAppTour } from "@/hooks/use-tour";
 
 export const Route = createFileRoute("/")({
   component: HomeComponent,
@@ -22,6 +23,8 @@ function HomeComponent() {
   const { data: packagesData } = useQuery({
     ...packageQueries.popularOptions(),
   });
+
+  const { startTour } = useAppTour();
 
   return (
     <HubLayout>
@@ -40,7 +43,7 @@ function HomeComponent() {
             <p className="text-primary-400 text-sm">Just three easy steps, and you're all set to kick off & grow hub</p>
 
             <div className="flex items-center gap-4 mt-20">
-              <Button icon={ArrowRight} iconPlacement="right" size="sm" onClick={() => window.dispatchEvent(new CustomEvent('start-tour'))}>Take a tour</Button>
+              <Button icon={ArrowRight} iconPlacement="right" size="sm" onClick={startTour}>Take a tour</Button>
               <Button icon={FileText} iconPlacement="left" variant="outline" size="sm">Read docs</Button>
             </div>
 
