@@ -22,17 +22,7 @@ export function useAppTour() {
 
     const shouldShowTour = !hasSeenTour;
 
-    // Auto-start tour for first-time users
-    useEffect(() => {
-        if (shouldShowTour && !isOpen) {
-            // Small delay to ensure the page is fully loaded
-            const timer = setTimeout(() => {
-                startTour();
-            }, 1000);
 
-            return () => clearTimeout(timer);
-        }
-    }, [shouldShowTour, isOpen, startTour]);
 
     return {
         startTour,

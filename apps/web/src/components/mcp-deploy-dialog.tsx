@@ -610,12 +610,12 @@ export function McpDeployDialog({
                 <div>
                   <h4 className="font-medium mb-2">Claude Code</h4>
                   <div className="p-2 bg-gray-100 rounded-[6px] relative">
-                    <code className="text-xs">claude mcp add --transport http {pkg.name} {mcpDeploymentUrl}</code>
+                    <code className="text-xs">claude mcp add --transport http {pkg.name} -s user "{mcpDeploymentUrl}"</code>
                     <Button
                       variant="ghost"
                       size="sm"
                       className="absolute top-1 right-1 h-6 w-6 p-0"
-                      onClick={() => copyToClipboard(`claude mcp add --transport http ${pkg.name} ${mcpDeploymentUrl}`, 'Claude Code command')}
+                      onClick={() => copyToClipboard(`claude mcp add --transport http ${pkg.name} -s user "${mcpDeploymentUrl}"`, 'Claude Code command')}
                     >
                       <Copy className="size-3" />
                     </Button>
@@ -751,7 +751,7 @@ console.log(\`Available tools: \${tools.map(t => t.name).join(", ")}\`)`, 'TypeS
         <div className="flex flex-col text-center mb-8">
           <h3 className="flex items-center justify-center gap-2">
             {isPending ? 'Deploying' : isError ? 'Deploy Failed' : ''}
-            <div className="size-[18px] bg-blue-400 rounded flex items-center justify-center text-white text-xs font-bold">
+            <div className="size-[18px] rounded flex items-center justify-center text-white text-xs font-bold">
               {pkg.name.charAt(0).toUpperCase()}
             </div>
             {pkg.name}
@@ -834,7 +834,7 @@ console.log(\`Available tools: \${tools.map(t => t.name).join(", ")}\`)`, 'TypeS
                   {user ? getInitials(user.name) : 'U'}
                 </AvatarFallback>
               </Avatar>
-              <Avatar className="-ml-3 rounded-lg size-10 bg-blue-400">
+              <Avatar className="-ml-3 rounded-lg size-10">
                 <AvatarImage src={pkg.iconUrl ?? ""} alt={pkg.name} />
                 <AvatarFallback className="rounded-sm text-white font-bold">
                   {pkg.name.charAt(0).toUpperCase()}
