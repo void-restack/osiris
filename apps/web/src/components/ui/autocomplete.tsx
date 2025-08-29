@@ -148,13 +148,13 @@ export function Autocomplete<T extends AutocompleteItem>({
 	return (
 		<div
 			className={cn(
-				"mx-auto flex w-full flex-col gap-3 rounded-[18px] bg-primary-25 p-4 shadow-[inset_0_1px_2px_0_rgba(0,0,0,0.05)] drop-shadow-[0_1px_1px_rgba(0,0,0,0.08)] sm:max-w-[496px] md:max-w-[720px] relative",
+				"mx-auto flex max-w-md sm:max-w-full lg:max-w-[712px] flex-col gap-3 rounded-[18px] bg-primary-25 p-3 sm:p-4 shadow-[inset_0_1px_2px_0_rgba(0,0,0,0.05)] drop-shadow-[0_1px_1px_rgba(0,0,0,0.08)] relative",
 				className,
 			)}
 			style={{ zIndex: 2 }}
 		>
 			<Command shouldFilter={false} className="overflow-visible">
-				<div className="relative h-[84px]">
+				<div className="relative h-[56px] sm:h-[84px]">
 					<CommandPrimitive.Input
 						ref={inputRef}
 						placeholder={placeholder}
@@ -164,7 +164,7 @@ export function Autocomplete<T extends AutocompleteItem>({
 						onFocus={() => setOpen(true)}
 						onBlur={() => setOpen(false)}
 						disabled={disabled}
-						className="w-full resize-none rounded-[12px] border border-none bg-primary-00 p-2 text-primary-700 placeholder:text-primary-300 focus:outline-none focus:ring-0"
+						className="w-full resize-none rounded-[12px] border border-none bg-primary-00 p-3 sm:p-2 pr-24 sm:pr-28 text-primary-700 placeholder:text-primary-300 focus:outline-none focus:ring-0"
 					/>
 					{showSearchButton && (
 						<Button
@@ -172,7 +172,7 @@ export function Autocomplete<T extends AutocompleteItem>({
 							onMouseDown={(e) => {
 								e.preventDefault();
 							}}
-							className="-translate-y-1/7 absolute inset-shadow-search-btn top-1/2 right-3"
+							className="-translate-y-1/2 absolute inset-shadow-search-btn top-1/2 right-2 sm:right-3 h-8 px-3 sm:h-9 sm:px-4 text-sm"
 						>
 							<span>Search</span>
 							<Search className="ml-1 h-4 w-4" />
@@ -182,7 +182,7 @@ export function Autocomplete<T extends AutocompleteItem>({
 
 				<div className="relative">
 					{shouldShowResults && (
-						<div className="absolute top-1.5 z-[99999] w-full rounded-md border border-border bg-white shadow-lg overflow-hidden">
+						<div className="absolute top-1.5 left-0 right-0 z-[99999] w-full max-w-full rounded-md border border-border bg-white shadow-lg overflow-hidden max-h-[320px] sm:max-h-[420px]">
 							<CommandList className="w-full">
 								{popularItems ? (
 									<>
@@ -227,8 +227,8 @@ export function Autocomplete<T extends AutocompleteItem>({
 			</Command>
 
 			{(bottomLeftContent || bottomRightContent) && (
-				<div className="flex justify-between">
-					<div className="flex">{bottomLeftContent}</div>
+				<div className="flex justify-between items-center gap-2 flex-wrap">
+					<div className="flex flex-wrap gap-2">{bottomLeftContent}</div>
 					<div className="flex p-0">{bottomRightContent}</div>
 				</div>
 			)}

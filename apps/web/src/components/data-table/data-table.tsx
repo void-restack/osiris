@@ -31,7 +31,7 @@ export function DataTable<TData>({
       {...props}
     >
       {children}
-      <div className="w-full overflow-x-auto rounded-md border">
+      <div className="rounded-md border overflow-x-auto w-full  max-[698px]:w-[612px] max-sm:w-[560px]">
         <Table className="w-full">
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
@@ -40,7 +40,7 @@ export function DataTable<TData>({
                   <TableHead
                     key={header.id}
                     colSpan={header.colSpan}
-                    className="h-10 font-medium text-[13px] text-primary-400"
+                    className="h-10 font-medium text-[13px] text-primary-400 whitespace-nowrap"
                     style={{
                       ...getCommonPinningStyles({ column: header.column }),
                     }}
@@ -69,7 +69,7 @@ export function DataTable<TData>({
                       style={{
                         ...getCommonPinningStyles({ column: cell.column }),
                       }}
-                      className="h-[56px]"
+                      className="h-[56px] whitespace-nowrap"
                     >
                       {flexRender(
                         cell.column.columnDef.cell,

@@ -306,7 +306,7 @@ function RouteComponent() {
         </div>
 
         {/* Search Autocomplete */}
-        <div className="w-full px-4 mb-14 md:px-0">
+        <div className="px-4 mb-14 w-full mx-auto">
           <Autocomplete
             className="mt-6"
             onSearch={searchAuthMethods}
@@ -315,7 +315,7 @@ function RouteComponent() {
             emptyText={isSearching ? "Searching..." : "No auth methods found."}
             footerText="Footer text"
             bottomLeftContent={
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
                 {authMethods?.slice(0, 2).map((method: ServiceClient) => (
                   <Link to={`/auth/${method.clientId}`} key={method.clientId} className="rounded-[6px] bg-primary-100 px-2 py-0.5 text-xs capitalize">
                     {method.name}
@@ -325,7 +325,7 @@ function RouteComponent() {
             }
             bottomRightContent={<></>}
             popularItems={
-              <div className="flex w-full gap-2">
+              <div className="flex w-full gap-2 flex-wrap">
                 {authMethods?.slice(0, 3).map((method: ServiceClient) => (
                   <Link to={`/auth/${method.clientId}`} key={method.clientId} className="rounded-[6px] bg-primary-100 px-2 py-0.5 text-xs capitalize">
                     {method.name}
@@ -359,16 +359,18 @@ function RouteComponent() {
         </div>
 
         {/* Auth Table - pass table instance as prop */}
-        <div className="px-4 md:px-6 mb-20">
-          <AuthTable
-            table={table}
-            isLoading={isLoading}
-            isFetching={isFetching}
-          />
+        <div className="px-4 md:px-6 mb-24 sm:mb-28">
+          <div className="w-full max-w-full">
+            <AuthTable
+              table={table}
+              isLoading={isLoading}
+              isFetching={isFetching}
+            />
+          </div>
         </div>
 
         {/* Bottom pagination - same pattern as mcp.index.tsx */}
-        <div className="absolute bottom-0 border-t border-t-primary-100 flex h-12 w-full items-center overflow-hidden rounded-b-xl bg-primary-00 p-6 z-40">
+        <div className="sticky bottom-0 border-t border-t-primary-100 flex w-full items-center overflow-hidden bg-primary-00 px-4 sm:px-6 py-2 sm:py-3 z-40">
           <DataTablePagination table={table} />
         </div>
       </div>

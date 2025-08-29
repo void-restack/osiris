@@ -45,11 +45,10 @@ export function AuthTable({
                     )}
                 </div>
 
-                <div className="flex w-full items-center justify-end">
-                    <DataTableToolbar className="w-full" table={table} />
-
+                <div className="flex w-full items-start md:items-center justify-end gap-3">
+                    <DataTableToolbar className="w-full md:w-auto min-w-0" table={table} />
                     <ToggleGroup
-                        className="rounded-[6px] bg-[#F5F5F5] p-[2px] h-8"
+                        className="rounded-[6px] bg-[#F5F5F5] p-[2px] h-8 self-stretch md:self-auto"
                         type="single"
                         value={viewMode}
                         onValueChange={(value) => setViewMode(value as "table" | "grid")}
@@ -77,8 +76,8 @@ export function AuthTable({
             </div>
 
             {viewMode === "table" ? (
-                <ScrollArea className="relative h-[calc(100vh-560px)] hidebar overflow-y-auto">
-                    <div className="w-full hidebar pb-8">
+                <ScrollArea className="relative h-[calc(100vh-560px)] sm:h-[calc(100vh-600px)] hidebar overflow-y-auto">
+                    <div className="hidebar pb-8">
                         <DataTable table={table} />
                     </div>
                 </ScrollArea>

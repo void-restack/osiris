@@ -29,12 +29,12 @@ function HomeComponent() {
   return (
     <HubLayout>
 
-      <header className="flex h-[86px] shrink-0 items-center justify-between gap-2 border-b border-b-primary-100 pr-4">
+      {/* <header className="flex h-[86px] shrink-0 items-center justify-between gap-2 border-b border-b-primary-100 pr-4">
         <div className="flex items-center gap-2 px-4">
           <SidebarTrigger className="-ml-1" />
         </div>
         <AuthHeader />
-      </header>
+      </header> */}
 
       <div className="hidebar h-full w-full overflow-y-scroll pb-8">
         <div className="w-full px-4 sm:px-8 pt-8 sm:pt-16">
