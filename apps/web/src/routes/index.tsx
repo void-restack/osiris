@@ -37,37 +37,37 @@ function HomeComponent() {
       </header>
 
       <div className="hidebar h-full w-full overflow-y-scroll pb-8">
-        <div className="w-full px-8 pt-16">
-          <div className="border border-dashed border-primary-100 rounded-[16px] mb-16 py-[34px] px-6 w-full relative overflow-hidden" data-tour="onboarding-steps">
+        <div className="w-full px-4 sm:px-8 pt-8 sm:pt-16">
+          <div className="border border-dashed border-primary-100 rounded-[16px] mb-8 md:mb-16 py-6 md:py-[34px] px-4 sm:px-6 w-full relative overflow-hidden" data-tour="onboarding-steps">
             <h2 className="text-xl font-medium">Get the best out of Osiris</h2>
             <p className="text-primary-400 text-sm">Just three easy steps, and you're all set to kick off & grow hub</p>
 
-            <div className="flex items-center gap-4 mt-20">
+            <div className="flex flex-row items-center gap-4 mt-6 md:mt-20">
               <Button icon={ArrowRight} iconPlacement="right" size="sm" onClick={startTour}>Take a tour</Button>
               <Button icon={FileText} iconPlacement="left" variant="outline" size="sm">Read docs</Button>
             </div>
 
-            <img src="/homepage.svg" className="absolute bottom-0 -right-2" />
+            <img src="/homepage.svg" className="hidden md:block absolute bottom-0 -right-2 max-w-[360px]" />
           </div>
 
           <div data-tour="trending-mcps">
-            <div className="flex items-center justify-between w-full mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between w-full mb-6">
               <div className="flex flex-col">
                 <h2 className="text-xl font-medium">Trending MCP Packages</h2>
                 <span className="text-primary-400 text-sm">Explore the most popular Model Context Protocol packages</span>
               </div>
 
-              <Link to="/mcp" className="flex items-center gap-1 text-[16px] text-primary-400">
+              <Link to="/mcp" className="flex items-center gap-1 text-[16px] text-primary-400 mt-3 sm:mt-0">
                 View More <ArrowRight className="size-4" />
               </Link>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 w-full lg:grid-cols-3 gap-6">
+            <div className="grid w-full gap-6 [grid-template-columns:repeat(auto-fill,minmax(360px,1fr))]">
               {packagesData?.data ? (
                 packagesData.data.slice(0, 3).map((pkg: any, index: number) => (
                   <Link
                     to={`/mcp/${pkg.id}`}
                     key={pkg.packageId}
-                    className="min-h-[200px] group hover:shadow-md transition-shadow duration-200 p-3 inset-shadow-card rounded-xl bg-primary-00 opacity-100 min-w-[348px] relative overflow-hidden"
+                    className="min-h-[200px] group hover:shadow-md transition-shadow duration-200 p-3 inset-shadow-card rounded-xl bg-primary-00 opacity-100 w-full relative overflow-hidden"
                     data-tour={index === 0 ? "first-mcp" : undefined}
                   >
                     <div className="p-0">
@@ -88,7 +88,7 @@ function HomeComponent() {
                             </p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2 mt-3">
+                        <div className="flex items-center gap-2 mt-3 flex-wrap">
                           <Badge variant="secondary" className="text-xs rounded-[6px] text-[13px]">
                             {pkg.type || "MCP"}
                           </Badge>
@@ -132,17 +132,17 @@ function HomeComponent() {
           </div>
 
           <div className="mt-16">
-            <div className="flex items-center justify-between w-full mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between w-full mb-6">
               <div className="flex flex-col">
                 <h2 className="text-xl font-medium">Trending Knowledge Bases</h2>
                 <span className="text-primary-400 text-sm">Discover the most popular knowledge bases on Osiris</span>
               </div>
 
-              <Link to="/knowledge" className="flex items-center gap-1 text-[16px] text-primary-400">
+              <Link to="/knowledge" className="flex items-center gap-1 text-[16px] text-primary-400 mt-3 sm:mt-0">
                 View More <ArrowRight className="size-4" />
               </Link>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 w-full lg:grid-cols-3 gap-6">
+            <div className="grid w-full gap-6 [grid-template-columns:repeat(auto-fill,minmax(360px,1fr))]">
               {knowledgeBasesData?.data ? (
                 knowledgeBasesData.data.slice(0, 3).map((kb: any) => (
                   <KnowledgeBaseCard
