@@ -289,7 +289,7 @@ function RouteComponent() {
   // Create table instance at parent level (same pattern as mcp.index.tsx)
   const { table, isLoading, isFetching } = useAuthTable({
     columns: tableColumns,
-    initialPageSize: 10,
+    initialPageSize: 12,
   });
 
   return (

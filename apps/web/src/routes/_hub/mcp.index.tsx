@@ -178,7 +178,7 @@ function RouteComponent() {
       const response = await queryClient.ensureQueryData(packageQueries.listOptions({
         search: searchQuery,
         page: 1,
-        limit: 10
+        limit: 12
       }));
       return (response.data || []).map((pkg: any) => ({
         ...pkg,
@@ -413,7 +413,7 @@ function RouteComponent() {
 
   const { table, isLoading, isFetching } = usePackagesTable({
     columns: activeColumns,
-    initialPageSize: 10,
+    initialPageSize: 12,
     customFilters: {},
   });
 

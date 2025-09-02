@@ -24,7 +24,6 @@ export function DataTableToolbar<TData>({
 	const isFiltered = table.getState().columnFilters.length > 0;
 	const hasSorting = table.getState().sorting.length > 0;
 
-	// Get URL state for sorting
 	const [, setSortBy] = useQueryState("sortBy");
 	const [, setSortOrder] = useQueryState("sortOrder");
 
@@ -35,8 +34,7 @@ export function DataTableToolbar<TData>({
 
 	const onReset = React.useCallback(() => {
 		table.resetColumnFilters();
-		table.setSorting([]); // Clear table sorting
-		// Clear URL sorting parameters
+		table.setSorting([]);
 		void setSortBy(null);
 		void setSortOrder("asc");
 	}, [table, setSortBy, setSortOrder]);
@@ -46,7 +44,7 @@ export function DataTableToolbar<TData>({
 			role="toolbar"
 			aria-orientation="horizontal"
 			className={cn(
-				"flex w-full flex-col sm:flex-row sm:items-end justify-between gap-2 p-1",
+				"flex w-full justify-end gap-2 p-1",
 				className,
 			)}
 			{...props}

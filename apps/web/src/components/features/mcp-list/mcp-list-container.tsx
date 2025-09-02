@@ -1,16 +1,16 @@
 import React from "react";
 import { useAppStore } from "@/lib/store";
-import { McpCardList } from "./mcp-card-list";
 import { McpFilters } from "./mcp-filters";
 import { McpListPagination } from "./mcp-list-pagination";
 import { McpTable } from "./mcp-table";
 import { McpViewToggle } from "./toggle-view";
+import { PackagesGridView } from "../packages-table/packages-grid-view";
 
 export function McpListContainer() {
     const { mcpView } = useAppStore();
 
     const [currentPage, setCurrentPage] = React.useState(1);
-    const pageSize = 10;
+    const pageSize = 12;
 
     const mockData = [
         {
@@ -137,24 +137,29 @@ export function McpListContainer() {
         return mockData.slice(start, start + pageSize);
     }, [mockData, currentPage, pageSize]);
 
+    // Adapt plain data to PackagesGridView expected shape: Row<PackageList>[]
+    const gridRows = React.useMemo(() => {
+        return paginatedCards.map((pkg, index) => ({ id: String(index), original: pkg } as any));
+    }, [paginatedCards]);
+
     React.useEffect(() => {
         setCurrentPage(1);
     }, [mcpView]);
 
     return (
         <div className="flex min-h-0 flex-1 flex-col gap-3">
-            <div className="flex w-full items-center justify-between border-b border-b-primary-100 px-6 py-4 font-medium text-xl">
+            <div className="flex w-full items-start md:items-center justify-between border-b border-b-primary-100 px-4 md:px-6 py-4 font-medium text-xl flex-col md:flex-row gap-3">
                 <h3 className="w-full font-medium text-[#171717] text-xl">All MCPs</h3>
-                <div className="flex w-max items-center justify-end gap-2">
+                <div className="flex w-full md:w-max items-start md:items-center justify-end gap-2 flex-col md:flex-row">
                     <McpViewToggle />
                     <McpFilters />
                 </div>
             </div>
             <div className="flex min-h-0 flex-1 flex-col">
                 <div className="flex-1 overflow-auto">
-                    <div className="px-6">
+                    <div className="px-4 md:px-6">
                         {mcpView === "directory" ? (
-                            <McpCardList cards={paginatedCards} />
+                            <PackagesGridView rows={gridRows} />
                         ) : (
                             <McpTable
                                 data={mockData}
@@ -165,7 +170,7 @@ export function McpListContainer() {
                         )}
                     </div>
                 </div>
-                <div className="absolute bottom-0 flex h-12 w-full items-center overflow-hidden rounded-b-xl bg-primary-00 py-6">
+                <div className="sticky bottom-0 flex w-full items-center overflow-hidden bg-primary-00 px-4 md:px-6 py-2 z-40">
                     <McpListPagination
                         totalPages={totalPages}
                         currentPage={currentPage}
