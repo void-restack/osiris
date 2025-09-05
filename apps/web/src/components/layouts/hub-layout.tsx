@@ -8,6 +8,7 @@ import { useAppStore } from "@/lib/store";
 import { EditConnectionSidebar } from "../edit-sidebar";
 import { McpServerEditSidebar } from "../mcp-server-edit-sidebar";
 import { OAuthClientEditSidebar } from "../oauth-client-edit-sidebar";
+import { WorkflowEditSidebar } from "../workflow-edit-sidebar";
 
 
 function HubLayoutInner({ children }: { children: React.ReactNode }) {
@@ -18,6 +19,8 @@ function HubLayoutInner({ children }: { children: React.ReactNode }) {
     closeMcpServerEditSidebar,
     isOAuthClientEditSidebarOpen,
     closeOAuthClientEditSidebar,
+    isWorkflowEditSidebarOpen,
+    closeWorkflowEditSidebar,
     setSidebarOpenCallback
   } = useAppStore();
   const { setOpen } = useSidebar();
@@ -30,7 +33,7 @@ function HubLayoutInner({ children }: { children: React.ReactNode }) {
   return (
     <>
       <AppSidebar />
-      <SidebarInset className={isEditSidebarOpen && !isMobile ? "flex-1" : ""}>
+      <SidebarInset className={(isEditSidebarOpen || isWorkflowEditSidebarOpen) && !isMobile ? "flex-1" : ""}>
         {children}
       </SidebarInset>
       {isEditSidebarOpen && !isMobile && (
@@ -48,6 +51,11 @@ function HubLayoutInner({ children }: { children: React.ReactNode }) {
           <OAuthClientEditSidebar />
         </SidebarInset>
       )}
+      {isWorkflowEditSidebarOpen && !isMobile && (
+        <SidebarInset className="w-full max-w-[448px] border-primary-100 border-l bg-white md:w-[448px]">
+          <WorkflowEditSidebar />
+        </SidebarInset>
+      )}
       {isMobile && (
         <>
           <Drawer open={isEditSidebarOpen} onOpenChange={(open) => !open && closeEditSidebar()}>
@@ -63,6 +71,11 @@ function HubLayoutInner({ children }: { children: React.ReactNode }) {
           <Drawer open={isOAuthClientEditSidebarOpen} onOpenChange={(open) => !open && closeOAuthClientEditSidebar()}>
             <DrawerContent className="h-[90vh]">
               <OAuthClientEditSidebar />
+            </DrawerContent>
+          </Drawer>
+          <Drawer open={isWorkflowEditSidebarOpen} onOpenChange={(open) => !open && closeWorkflowEditSidebar()}>
+            <DrawerContent className="h-[90vh]">
+              <WorkflowEditSidebar />
             </DrawerContent>
           </Drawer>
         </>

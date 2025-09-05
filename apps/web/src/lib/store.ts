@@ -36,6 +36,33 @@ export interface OAuthClientData {
   updatedAt: string;
 }
 
+export interface WorkflowData {
+  id: string;
+  title: string;
+  description: string;
+  imageUrl?: string;
+  coverImageUrl?: string;
+  workflow: Array<{
+    name: string;
+    prompt: string;
+    deploymentId: string[];
+    knowledgeBaseIds: string[];
+  }>;
+  isPublic: boolean;
+  agentId: string | null;
+  knowledgeBaseId: string | null;
+  serviceClient: any | null;
+  embedding: any | null;
+  timeBasedTrigger: {
+    rrule: string;
+    startTime: string;
+  } | null;
+  nextExecution: string | null;
+  ownerId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface AppState {
   mcpView: McpViewType;
   setMcpView: (view: McpViewType) => void;
@@ -51,6 +78,9 @@ interface AppState {
 
   selectedOAuthClient: OAuthClientData | null;
   isOAuthClientEditSidebarOpen: boolean;
+
+  selectedWorkflow: WorkflowData | null;
+  isWorkflowEditSidebarOpen: boolean;
 
   openEditSidebar: (
     connection: UserServiceConnection,
@@ -68,6 +98,10 @@ interface AppState {
   openOAuthClientEditSidebar: (client: OAuthClientData) => void;
   closeOAuthClientEditSidebar: () => void;
   updateSelectedOAuthClient: (client: OAuthClientData) => void;
+
+  openWorkflowEditSidebar: (workflow: WorkflowData) => void;
+  closeWorkflowEditSidebar: () => void;
+  updateSelectedWorkflow: (workflow: WorkflowData) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -88,6 +122,9 @@ export const useAppStore = create<AppState>()(
       selectedOAuthClient: null,
       isOAuthClientEditSidebarOpen: false,
 
+      selectedWorkflow: null,
+      isWorkflowEditSidebarOpen: false,
+
       openEditSidebar: (connection, serviceClient) => {
         set((state) => ({
           selectedConnection: connection,
@@ -97,6 +134,8 @@ export const useAppStore = create<AppState>()(
           selectedMcpServer: null,
           isOAuthClientEditSidebarOpen: false,
           selectedOAuthClient: null,
+          isWorkflowEditSidebarOpen: false,
+          selectedWorkflow: null,
         }));
 
         const state = get();
@@ -127,6 +166,8 @@ export const useAppStore = create<AppState>()(
           selectedServiceClient: null,
           isOAuthClientEditSidebarOpen: false,
           selectedOAuthClient: null,
+          isWorkflowEditSidebarOpen: false,
+          selectedWorkflow: null,
         }));
 
         const state = get();
@@ -153,6 +194,8 @@ export const useAppStore = create<AppState>()(
           selectedServiceClient: null,
           isMcpServerEditSidebarOpen: false,
           selectedMcpServer: null,
+          isWorkflowEditSidebarOpen: false,
+          selectedWorkflow: null,
         }));
 
         const state = get();
@@ -169,6 +212,34 @@ export const useAppStore = create<AppState>()(
 
       updateSelectedOAuthClient: (client) =>
         set({ selectedOAuthClient: client }),
+
+      openWorkflowEditSidebar: (workflow) => {
+        set((state) => ({
+          selectedWorkflow: workflow,
+          isWorkflowEditSidebarOpen: true,
+          isEditSidebarOpen: false,
+          selectedConnection: null,
+          selectedServiceClient: null,
+          isMcpServerEditSidebarOpen: false,
+          selectedMcpServer: null,
+          isOAuthClientEditSidebarOpen: false,
+          selectedOAuthClient: null,
+        }));
+
+        const state = get();
+        if (state.setSidebarOpen) {
+          state.setSidebarOpen(false);
+        }
+      },
+
+      closeWorkflowEditSidebar: () =>
+        set({
+          selectedWorkflow: null,
+          isWorkflowEditSidebarOpen: false,
+        }),
+
+      updateSelectedWorkflow: (workflow) =>
+        set({ selectedWorkflow: workflow }),
     }),
     {
       name: "osiris-app-store",
