@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import {
   ExternalLink,
   Wallet,
+  Workflow,
 } from "lucide-react";
 import type * as React from "react";
 import { NavMain } from "@/components/nav-main";
@@ -54,6 +55,11 @@ const data = {
       title: "Knowledge Base",
       url: "/knowledge",
       icon: () => <Icon name="file" />,
+    },
+    {
+      title: "Workflow",
+      url: "/workflow",
+      icon: () => <Workflow />
     },
     {
       title: "Profile",

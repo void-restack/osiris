@@ -14,6 +14,7 @@ import { Route as HubRouteRouteImport } from './routes/_hub/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as OauthConsentRouteImport } from './routes/oauth.consent'
 import { Route as HubProfileRouteImport } from './routes/_hub/profile'
+import { Route as HubWorkflowIndexRouteImport } from './routes/_hub/workflow.index'
 import { Route as HubMcpIndexRouteImport } from './routes/_hub/mcp.index'
 import { Route as HubKnowledgeIndexRouteImport } from './routes/_hub/knowledge/index'
 import { Route as HubAuthIndexRouteImport } from './routes/_hub/auth.index'
@@ -44,6 +45,11 @@ const OauthConsentRoute = OauthConsentRouteImport.update({
 const HubProfileRoute = HubProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
+  getParentRoute: () => HubRouteRoute,
+} as any)
+const HubWorkflowIndexRoute = HubWorkflowIndexRouteImport.update({
+  id: '/workflow/',
+  path: '/workflow/',
   getParentRoute: () => HubRouteRoute,
 } as any)
 const HubMcpIndexRoute = HubMcpIndexRouteImport.update({
@@ -94,6 +100,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof HubAuthIndexRoute
   '/knowledge': typeof HubKnowledgeIndexRoute
   '/mcp': typeof HubMcpIndexRoute
+  '/workflow': typeof HubWorkflowIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -107,6 +114,7 @@ export interface FileRoutesByTo {
   '/auth': typeof HubAuthIndexRoute
   '/knowledge': typeof HubKnowledgeIndexRoute
   '/mcp': typeof HubMcpIndexRoute
+  '/workflow': typeof HubWorkflowIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -122,6 +130,7 @@ export interface FileRoutesById {
   '/_hub/auth/': typeof HubAuthIndexRoute
   '/_hub/knowledge/': typeof HubKnowledgeIndexRoute
   '/_hub/mcp/': typeof HubMcpIndexRoute
+  '/_hub/workflow/': typeof HubWorkflowIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -137,6 +146,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/knowledge'
     | '/mcp'
+    | '/workflow'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -150,6 +160,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/knowledge'
     | '/mcp'
+    | '/workflow'
   id:
     | '__root__'
     | '/'
@@ -164,6 +175,7 @@ export interface FileRouteTypes {
     | '/_hub/auth/'
     | '/_hub/knowledge/'
     | '/_hub/mcp/'
+    | '/_hub/workflow/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -208,6 +220,13 @@ declare module '@tanstack/react-router' {
       path: '/profile'
       fullPath: '/profile'
       preLoaderRoute: typeof HubProfileRouteImport
+      parentRoute: typeof HubRouteRoute
+    }
+    '/_hub/workflow/': {
+      id: '/_hub/workflow/'
+      path: '/workflow'
+      fullPath: '/workflow'
+      preLoaderRoute: typeof HubWorkflowIndexRouteImport
       parentRoute: typeof HubRouteRoute
     }
     '/_hub/mcp/': {
@@ -271,6 +290,7 @@ interface HubRouteRouteChildren {
   HubAuthIndexRoute: typeof HubAuthIndexRoute
   HubKnowledgeIndexRoute: typeof HubKnowledgeIndexRoute
   HubMcpIndexRoute: typeof HubMcpIndexRoute
+  HubWorkflowIndexRoute: typeof HubWorkflowIndexRoute
 }
 
 const HubRouteRouteChildren: HubRouteRouteChildren = {
@@ -282,6 +302,7 @@ const HubRouteRouteChildren: HubRouteRouteChildren = {
   HubAuthIndexRoute: HubAuthIndexRoute,
   HubKnowledgeIndexRoute: HubKnowledgeIndexRoute,
   HubMcpIndexRoute: HubMcpIndexRoute,
+  HubWorkflowIndexRoute: HubWorkflowIndexRoute,
 }
 
 const HubRouteRouteWithChildren = HubRouteRoute._addFileChildren(

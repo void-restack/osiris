@@ -67,6 +67,7 @@ export function Autocomplete<T extends AutocompleteItem>({
 	const [internalLoading, setInternalLoading] = React.useState(false);
 	const [items, setItems] = React.useState<T[]>([]);
 	const [search, setSearch] = React.useState(controlledValue || "");
+	const [isFocused, setIsFocused] = React.useState(false);
 	const debouncedSearch = useDebounce(search, debounceMs);
 	const inputRef = React.useRef<HTMLInputElement>(null);
 
@@ -161,8 +162,14 @@ export function Autocomplete<T extends AutocompleteItem>({
 						value={search}
 						onInput={(e) => handleValueChange(e.currentTarget.value)}
 						onKeyDown={handleKeyDown}
-						onFocus={() => setOpen(true)}
-						onBlur={() => setOpen(false)}
+						onFocus={() => {
+							setOpen(true);
+							setIsFocused(true);
+						}}
+						onBlur={() => {
+							setOpen(false);
+							setIsFocused(false);
+						}}
 						disabled={disabled}
 						className="w-full resize-none rounded-[12px] border border-none bg-primary-00 p-3 sm:p-2 pr-24 sm:pr-28 text-primary-700 placeholder:text-primary-300 focus:outline-none focus:ring-0"
 					/>
@@ -172,6 +179,7 @@ export function Autocomplete<T extends AutocompleteItem>({
 							onMouseDown={(e) => {
 								e.preventDefault();
 							}}
+							disabled={!search.trim() || !isFocused}
 							className="-translate-y-1/2 absolute inset-shadow-search-btn top-1/2 right-2 sm:right-3 h-8 px-3 sm:h-9 sm:px-4 text-sm"
 						>
 							<span>Search</span>
