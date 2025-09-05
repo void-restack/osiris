@@ -1,26 +1,16 @@
 import { useState } from "react"
+import { Loader2, Plus } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Plus } from "lucide-react"
 import { type WorkflowStep } from "./workflow-step-item"
-
-// Mock MCP providers - you can replace this with actual data from your API
-const mcpProviders = [
-    "Content Summarizer MCP",
-    "Data Processor MCP",
-    "Analytics MCP",
-    "Email Generator MCP"
-]
 
 interface AddStepDialogProps {
     open: boolean
     onOpenChange: (open: boolean) => void
-    onAddStep: (step: Omit<WorkflowStep, 'id' | 'sequence'>) => void
+    onAddStep: (step: Omit<WorkflowStep, 'id' | 'sequence'>) => Promise<void>
     insertIndex: number
     nextStepName?: string
     prevStepName?: string
@@ -28,35 +18,39 @@ interface AddStepDialogProps {
 
 export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, nextStepName, prevStepName }: AddStepDialogProps) {
     const [name, setName] = useState("")
-    const [description, setDescription] = useState("")
-    const [mcpProvider, setMcpProvider] = useState("")
     const [prompt, setPrompt] = useState("")
-    const [deploymentType, setDeploymentType] = useState<"automatic" | "manual">("automatic")
+    const [isSubmitting, setIsSubmitting] = useState(false)
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
 
-        if (!name.trim() || !description.trim() || !mcpProvider || !prompt.trim()) return
+        if (!name.trim() || !prompt.trim()) return
+        if (isSubmitting) return
 
-        onAddStep({
-            name: name.trim(),
-            description: description.trim(),
-            mcpProvider,
-            prompt: prompt.trim(),
-            deploymentType,
-        })
+        setIsSubmitting(true)
+        try {
+            await onAddStep({
+                name: name.trim(),
+                description: name.trim(), // Use name as description for UI display
+                mcpProvider: "API MCP", // Default UI display value
+                prompt: prompt.trim(),
+                deploymentType: "automatic", // Default UI display value
+            })
 
-        // Reset form
-        resetForm()
-        onOpenChange(false)
+            // Reset form and close dialog only on success
+            resetForm()
+            onOpenChange(false)
+        } catch (error) {
+            // Error handling is done in parent component
+            console.error('Failed to add step:', error)
+        } finally {
+            setIsSubmitting(false)
+        }
     }
 
     const resetForm = () => {
         setName("")
-        setDescription("")
-        setMcpProvider("")
         setPrompt("")
-        setDeploymentType("automatic")
     }
 
     const handleCancel = () => {
@@ -96,78 +90,44 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
                         <Label htmlFor="step-name">Step Name</Label>
                         <Input
                             id="step-name"
-                            placeholder="Enter step name..."
+                            placeholder="Enter step name (e.g., 'Send Email', 'Process Data')..."
                             value={name}
                             onChange={(e) => setName(e.target.value)}
                             autoFocus
                         />
+                        <p className="text-xs text-gray-500">
+                            Give this step a clear, descriptive name
+                        </p>
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="step-description">Description</Label>
-                        <Input
-                            id="step-description"
-                            placeholder="Enter step description..."
-                            value={description}
-                            onChange={(e) => setDescription(e.target.value)}
-                        />
-                    </div>
-
-                    <div className="space-y-2">
-                        <Label htmlFor="mcp-provider">MCP to trigger</Label>
-                        <Select value={mcpProvider} onValueChange={setMcpProvider}>
-                            <SelectTrigger id="mcp-provider">
-                                <SelectValue placeholder="Select MCP provider" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {mcpProviders.map((provider) => (
-                                    <SelectItem key={provider} value={provider}>
-                                        {provider}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                        <Label htmlFor="prompt">Prompt</Label>
+                        <Label htmlFor="prompt">What should this step do?</Label>
                         <Textarea
                             id="prompt"
-                            placeholder="Enter your prompt..."
+                            placeholder="Describe what you want this step to accomplish..."
                             value={prompt}
                             onChange={(e) => setPrompt(e.target.value)}
                             rows={4}
                         />
-                    </div>
-
-                    <div className="space-y-3">
-                        <Label>Deployment Type</Label>
-                        <RadioGroup
-                            value={deploymentType}
-                            onValueChange={(value: "automatic" | "manual") => setDeploymentType(value)}
-                        >
-                            <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="automatic" id="automatic" />
-                                <Label htmlFor="automatic" className="cursor-pointer">
-                                    Automatic deployment
-                                </Label>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="manual" id="manual" />
-                                <Label htmlFor="manual" className="cursor-pointer">
-                                    Manual deployment
-                                </Label>
-                            </div>
-                        </RadioGroup>
+                        <p className="text-xs text-gray-500">
+                            Be specific about what action this step should perform
+                        </p>
                     </div>
 
                     <div className="pt-4">
                         <Button
                             type="submit"
-                            disabled={!name.trim() || !description.trim() || !mcpProvider || !prompt.trim()}
+                            disabled={!name.trim() || !prompt.trim() || isSubmitting}
                             className="w-full bg-primary-800 hover:bg-primary-900 text-white"
                         >
-                            Add step
+                            {isSubmitting ? (
+                                <>
+                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                    Adding step...
+                                </>
+                            ) : (
+                                'Add step'
+                            )}
                         </Button>
                     </div>
                 </form>

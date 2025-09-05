@@ -1,77 +1,66 @@
 import { useState, useEffect } from "react"
+import { Edit, Loader2 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Edit } from "lucide-react"
 import { type WorkflowStep } from "./workflow-step-item"
-
-// Mock MCP providers - you can replace this with actual data from your API
-const mcpProviders = [
-    "Content Summarizer MCP",
-    "Data Processor MCP",
-    "Analytics MCP",
-    "Email Generator MCP"
-]
 
 interface EditStepDialogProps {
     open: boolean
     onOpenChange: (open: boolean) => void
-    onEditStep: (step: WorkflowStep) => void
+    onEditStep: (step: WorkflowStep) => Promise<void>
     step: WorkflowStep | null
 }
 
 export function EditStepDialog({ open, onOpenChange, onEditStep, step }: EditStepDialogProps) {
     const [name, setName] = useState("")
-    const [description, setDescription] = useState("")
-    const [mcpProvider, setMcpProvider] = useState("")
     const [prompt, setPrompt] = useState("")
-    const [deploymentType, setDeploymentType] = useState<"automatic" | "manual">("automatic")
+    const [isSubmitting, setIsSubmitting] = useState(false)
 
     // Update form when step changes
     useEffect(() => {
         if (step) {
             setName(step.name)
-            setDescription(step.description)
-            setMcpProvider(step.mcpProvider)
             setPrompt(step.prompt)
-            setDeploymentType(step.deploymentType)
         } else {
             setName("")
-            setDescription("")
-            setMcpProvider("")
             setPrompt("")
-            setDeploymentType("automatic")
         }
     }, [step])
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
 
-        if (!name.trim() || !description.trim() || !mcpProvider || !prompt.trim() || !step) return
+        if (!name.trim() || !prompt.trim() || !step) return
+        if (isSubmitting) return
 
-        onEditStep({
-            ...step,
-            name: name.trim(),
-            description: description.trim(),
-            mcpProvider,
-            prompt: prompt.trim(),
-            deploymentType,
-        })
+        setIsSubmitting(true)
+        try {
+            await onEditStep({
+                ...step,
+                name: name.trim(),
+                description: name.trim(), // Use name as description for UI display
+                mcpProvider: "API MCP", // Default UI display value
+                prompt: prompt.trim(),
+                deploymentType: "automatic", // Default UI display value
+            })
 
-        onOpenChange(false)
+            // Close dialog only on success
+            onOpenChange(false)
+        } catch (error) {
+            // Error handling is done in parent component
+            console.error('Failed to edit step:', error)
+        } finally {
+            setIsSubmitting(false)
+        }
     }
 
     const handleCancel = () => {
         if (step) {
             setName(step.name)
-            setDescription(step.description)
-            setMcpProvider(step.mcpProvider)
             setPrompt(step.prompt)
-            setDeploymentType(step.deploymentType)
         }
         onOpenChange(false)
     }
@@ -107,73 +96,39 @@ export function EditStepDialog({ open, onOpenChange, onEditStep, step }: EditSte
                             onChange={(e) => setName(e.target.value)}
                             autoFocus
                         />
+                        <p className="text-xs text-gray-500">
+                            Update the name for this step
+                        </p>
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="edit-step-description">Description</Label>
-                        <Input
-                            id="edit-step-description"
-                            placeholder="Enter step description..."
-                            value={description}
-                            onChange={(e) => setDescription(e.target.value)}
-                        />
-                    </div>
-
-                    <div className="space-y-2">
-                        <Label htmlFor="edit-mcp-provider">MCP to trigger</Label>
-                        <Select value={mcpProvider} onValueChange={setMcpProvider}>
-                            <SelectTrigger id="edit-mcp-provider">
-                                <SelectValue placeholder="Select MCP provider" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {mcpProviders.map((provider) => (
-                                    <SelectItem key={provider} value={provider}>
-                                        {provider}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                        <Label htmlFor="edit-prompt">Prompt</Label>
+                        <Label htmlFor="edit-prompt">What should this step do?</Label>
                         <Textarea
                             id="edit-prompt"
-                            placeholder="Enter your prompt..."
+                            placeholder="Describe what you want this step to accomplish..."
                             value={prompt}
                             onChange={(e) => setPrompt(e.target.value)}
                             rows={4}
                         />
-                    </div>
-
-                    <div className="space-y-3">
-                        <Label>Deployment Type</Label>
-                        <RadioGroup
-                            value={deploymentType}
-                            onValueChange={(value: "automatic" | "manual") => setDeploymentType(value)}
-                        >
-                            <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="automatic" id="edit-automatic" />
-                                <Label htmlFor="edit-automatic" className="cursor-pointer">
-                                    Auto deployment
-                                </Label>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="manual" id="edit-manual" />
-                                <Label htmlFor="edit-manual" className="cursor-pointer">
-                                    Manual deployment
-                                </Label>
-                            </div>
-                        </RadioGroup>
+                        <p className="text-xs text-gray-500">
+                            Update the action this step should perform
+                        </p>
                     </div>
 
                     <div className="pt-4">
                         <Button
                             type="submit"
-                            disabled={!name.trim() || !description.trim() || !mcpProvider || !prompt.trim()}
+                            disabled={!name.trim() || !prompt.trim() || isSubmitting}
                             className="w-full bg-primary-800 hover:bg-primary-900 text-white"
                         >
-                            Save changes
+                            {isSubmitting ? (
+                                <>
+                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                    Saving changes...
+                                </>
+                            ) : (
+                                'Save changes'
+                            )}
                         </Button>
                     </div>
                 </form>

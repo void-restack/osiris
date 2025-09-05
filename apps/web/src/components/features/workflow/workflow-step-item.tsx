@@ -5,13 +5,14 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { GripVertical, MoreHorizontal, Edit } from "lucide-react"
 
 export interface WorkflowStep {
-    id: string
+    id: string // UI-only field for tracking
     name: string
-    description: string
-    sequence: number
-    mcpProvider: string
+    description: string // UI-only field for display
+    sequence: number // UI-only field for ordering
+    mcpProvider: string // UI-only field for display
     prompt: string
-    deploymentType: "automatic" | "manual"
+    deploymentType: "automatic" | "manual" // UI-only field for display
+    // API fields are extracted in conversion functions
 }
 
 interface SortableStepItemProps {

@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
     DndContext,
     closestCenter,
@@ -19,8 +19,10 @@ import { SortableStepItem, type WorkflowStep } from "./workflow-step-item"
 import { AddStepButton } from "./add-step-button"
 import { AddStepDialog } from "./add-step-dialog"
 import { EditStepDialog } from "./edit-step-dialog"
+import { type WorkflowData } from "@/lib/store"
+import { useUpdateWorkflowMutation } from "@/lib/mutations"
+import { toast } from "sonner"
 
-// Mock data for initial steps
 const initialSteps: WorkflowStep[] = [
     {
         id: "step-1",
@@ -69,12 +71,77 @@ const initialSteps: WorkflowStep[] = [
     },
 ]
 
-export function WorkflowStepsContainer() {
-    const [steps, setSteps] = useState<WorkflowStep[]>(initialSteps)
+const convertApiStepsToWorkflowSteps = (apiSteps: WorkflowData['workflow']): WorkflowStep[] => {
+    return apiSteps.map((step, index) => ({
+        id: `step-${index + 1}`,
+        name: step.name,
+        description: step.prompt.slice(0, 50) + (step.prompt.length > 50 ? '...' : ''),
+        sequence: index,
+        mcpProvider: step.deploymentId.length > 0 ? `Deployment ${step.deploymentId[0].slice(-8)}` : "Unknown MCP",
+        prompt: step.prompt,
+        deploymentType: "automatic" as const,
+    }));
+};
+
+const convertWorkflowStepsToApi = (steps: WorkflowStep[], originalWorkflow?: WorkflowData['workflow']): WorkflowData['workflow'] => {
+    return steps.map((step, index) => {
+        const originalStep = originalWorkflow?.[index];
+
+        return {
+            name: step.name,
+            prompt: step.prompt,
+            deploymentId: originalStep?.deploymentId || [""],
+            knowledgeBaseIds: originalStep?.knowledgeBaseIds || [],
+        };
+    });
+};
+
+interface WorkflowStepsContainerProps {
+    workflowData?: WorkflowData;
+}
+
+export function WorkflowStepsContainer({ workflowData }: WorkflowStepsContainerProps) {
+    const updateWorkflowMutation = useUpdateWorkflowMutation();
+
+    const initialWorkflowSteps = workflowData
+        ? convertApiStepsToWorkflowSteps(workflowData.workflow)
+        : [];
+
+    const [steps, setSteps] = useState<WorkflowStep[]>(initialWorkflowSteps)
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
     const [insertIndex, setInsertIndex] = useState(0)
     const [editingStep, setEditingStep] = useState<WorkflowStep | null>(null)
+
+    useEffect(() => {
+        if (workflowData) {
+            const newSteps = convertApiStepsToWorkflowSteps(workflowData.workflow);
+            setSteps(newSteps);
+        }
+    }, [workflowData]);
+
+    const updateWorkflowSteps = async (newSteps: WorkflowStep[]) => {
+        if (!workflowData) return;
+
+        try {
+            const updatedWorkflow = {
+                workflowId: workflowData.id,
+                title: workflowData.title,
+                description: workflowData.description,
+                imageUrl: workflowData.imageUrl,
+                coverImageUrl: workflowData.coverImageUrl,
+                workflow: convertWorkflowStepsToApi(newSteps, workflowData.workflow),
+                isPublic: workflowData.isPublic,
+                timeBasedTrigger: workflowData.timeBasedTrigger || undefined,
+            };
+
+            await updateWorkflowMutation.mutateAsync(updatedWorkflow);
+        } catch (error) {
+            console.error('Failed to update workflow:', error);
+            toast.error('Failed to update workflow steps. Please try again.');
+            throw error; // Re-throw to handle optimistic updates rollback
+        }
+    };
 
     const sensors = useSensors(
         useSensor(PointerSensor),
@@ -83,22 +150,30 @@ export function WorkflowStepsContainer() {
         })
     )
 
-    const handleDragEnd = (event: DragEndEvent) => {
+    const handleDragEnd = async (event: DragEndEvent) => {
         const { active, over } = event
 
         if (over && active.id !== over.id) {
-            setSteps((items) => {
-                const oldIndex = items.findIndex((item) => item.id === active.id)
-                const newIndex = items.findIndex((item) => item.id === over.id)
+            const originalSteps = steps;
 
-                const newItems = arrayMove(items, oldIndex, newIndex)
+            const newSteps = (() => {
+                const oldIndex = steps.findIndex((item) => item.id === active.id)
+                const newIndex = steps.findIndex((item) => item.id === over.id)
 
-                // Update sequence numbers
+                const newItems = arrayMove(steps, oldIndex, newIndex)
+
                 return newItems.map((item, index) => ({
                     ...item,
                     sequence: index,
                 }))
-            })
+            })();
+
+            setSteps(newSteps);
+            try {
+                await updateWorkflowSteps(newSteps);
+            } catch (error) {
+                setSteps(originalSteps);
+            }
         }
     }
 
@@ -112,35 +187,45 @@ export function WorkflowStepsContainer() {
         setIsEditDialogOpen(true)
     }
 
-    const handleDeleteStep = (stepId: string) => {
-        setSteps((prevSteps) => {
-            const newSteps = prevSteps.filter(step => step.id !== stepId)
+    const handleDeleteStep = async (stepId: string) => {
+        const originalSteps = steps;
+        const newSteps = steps.filter(step => step.id !== stepId).map((step, index) => ({
+            ...step,
+            sequence: index,
+        }));
 
-            // Update sequence numbers for remaining steps
-            return newSteps.map((step, index) => ({
-                ...step,
-                sequence: index,
-            }))
-        })
+        setSteps(newSteps);
+        try {
+            await updateWorkflowSteps(newSteps);
+        } catch (error) {
+            setSteps(originalSteps);
+        }
     }
 
-    const handleAddStepSubmit = (newStepData: Omit<WorkflowStep, 'id' | 'sequence'>) => {
+    const handleAddStepSubmit = async (newStepData: Omit<WorkflowStep, 'id' | 'sequence'>) => {
+        const originalSteps = steps;
+
         const newStep: WorkflowStep = {
             ...newStepData,
             id: `step-${Date.now()}`,
             sequence: insertIndex,
         }
 
-        setSteps((prevSteps) => {
-            const newSteps = [...prevSteps]
-            newSteps.splice(insertIndex, 0, newStep)
+        const newSteps = [...steps];
+        newSteps.splice(insertIndex, 0, newStep);
 
-            // Update sequence numbers for all steps
-            return newSteps.map((step, index) => ({
-                ...step,
-                sequence: index,
-            }))
-        })
+        const finalSteps = newSteps.map((step, index) => ({
+            ...step,
+            sequence: index,
+        }));
+
+        setSteps(finalSteps);
+
+        try {
+            await updateWorkflowSteps(finalSteps);
+        } catch (error) {
+            setSteps(originalSteps);
+        }
     }
 
     const getStepContextInfo = (insertAtIndex: number) => {
@@ -153,12 +238,20 @@ export function WorkflowStepsContainer() {
         }
     }
 
-    const handleEditStepSubmit = (editedStep: WorkflowStep) => {
-        setSteps((prevSteps) =>
-            prevSteps.map(step =>
-                step.id === editedStep.id ? editedStep : step
-            )
-        )
+    const handleEditStepSubmit = async (editedStep: WorkflowStep) => {
+        const originalSteps = steps;
+
+        const newSteps = steps.map(step =>
+            step.id === editedStep.id ? editedStep : step
+        );
+
+        setSteps(newSteps);
+
+        try {
+            await updateWorkflowSteps(newSteps);
+        } catch (error) {
+            setSteps(originalSteps);
+        }
     }
 
     return (
@@ -171,7 +264,6 @@ export function WorkflowStepsContainer() {
                 <SortableContext items={steps} strategy={verticalListSortingStrategy}>
                     {steps.map((step, index) => (
                         <div key={step.id}>
-                            {/* Add step button before first step */}
                             {index === 0 && (
                                 <AddStepButton
                                     onAddStep={handleAddStep}
@@ -179,7 +271,6 @@ export function WorkflowStepsContainer() {
                                 />
                             )}
 
-                            {/* Step item */}
                             <SortableStepItem
                                 step={step}
                                 index={index}
@@ -187,7 +278,6 @@ export function WorkflowStepsContainer() {
                                 onDelete={handleDeleteStep}
                             />
 
-                            {/* Add step button after each step */}
                             <AddStepButton
                                 onAddStep={handleAddStep}
                                 insertIndex={index + 1}
