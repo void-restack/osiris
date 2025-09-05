@@ -1,3 +1,4 @@
+import WorkflowGrid from '@/components/features/workflow/workflow-grid'
 import { Autocomplete } from '@/components/ui/autocomplete'
 import { createFileRoute } from '@tanstack/react-router'
 
@@ -31,6 +32,17 @@ function RouteComponent() {
                         footerText="Footer text"
                         bottomRightContent={<></>}
                     />
+                </div>
+
+                <div className="px-4 md:px-6 mb-24 sm:mb-28">
+                    <div className="w-full max-w-full">
+                        <WorkflowGrid />
+                    </div>
+                </div>
+
+                {/* Bottom pagination */}
+                <div className="sticky rounded-b-xl bottom-0 border-t border-t-primary-100 flex w-full items-center overflow-hidden bg-primary-00 px-4 sm:px-6 py-2 sm:py-3 z-40">
+                    Workflow Footer
                 </div>
             </div>
         </div>

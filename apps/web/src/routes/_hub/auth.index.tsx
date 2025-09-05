@@ -369,7 +369,7 @@ function RouteComponent() {
           </div>
         </div>
 
-        {/* Bottom pagination - same pattern as mcp.index.tsx */}
+        {/* Bottom pagination */}
         <div className="sticky bottom-0 border-t border-t-primary-100 flex w-full items-center overflow-hidden bg-primary-00 px-4 sm:px-6 py-2 sm:py-3 z-40">
           <DataTablePagination table={table} />
         </div>
