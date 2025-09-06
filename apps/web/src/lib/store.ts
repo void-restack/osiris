@@ -58,6 +58,17 @@ export interface WorkflowData {
     startTime: string;
   } | null;
   nextExecution: string | null;
+  agents?: Record<string, {
+    packageId: string;
+    name: string;
+    shortDescription: string;
+    url: string;
+  }>;
+  knowledgeBases?: Record<string, {
+    id: string;
+    name: string;
+    description?: string;
+  }>;
   ownerId: string;
   createdAt: string;
   updatedAt: string;

@@ -1668,7 +1668,7 @@ export const chatQueries = {
     queryOptions({
       queryKey: chatQueries.workflow(id),
       queryFn: async () => {
-        const response = await api(`/chat/workflows/${id}`, {
+        const response = await api(`/chat/workflow/${id}`, {
           schema: responseSchema(
             z.object({
               id: z.string().uuid(),
@@ -1697,8 +1697,17 @@ export const chatQueries = {
               ownerId: z.string().uuid(),
               createdAt: z.string().datetime(),
               updatedAt: z.string().datetime(),
-              agents: z.record(z.any()).optional(),
-              knowledgeBases: z.record(z.any()).optional(),
+              agents: z.record(z.string(), z.object({
+                packageId: z.string().uuid(),
+                name: z.string(),
+                shortDescription: z.string(),
+                url: z.string().url(),
+              })).optional(),
+              knowledgeBases: z.record(z.string(), z.object({
+                id: z.string().uuid(),
+                name: z.string(),
+                description: z.string().optional(),
+              })).optional(),
             })
           ),
         });

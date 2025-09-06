@@ -1,11 +1,6 @@
-import { useState, useEffect } from "react"
-import { Edit, Loader2 } from "lucide-react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
+import { MultiStepWorkflowDialog } from "./multi-step-workflow-dialog"
 import { type WorkflowStep } from "./workflow-step-item"
+import type { WorkflowStepFormData } from "./types"
 
 interface EditStepDialogProps {
     open: boolean
@@ -14,125 +9,55 @@ interface EditStepDialogProps {
     step: WorkflowStep | null
 }
 
-export function EditStepDialog({ open, onOpenChange, onEditStep, step }: EditStepDialogProps) {
-    const [name, setName] = useState("")
-    const [prompt, setPrompt] = useState("")
-    const [isSubmitting, setIsSubmitting] = useState(false)
+export function EditStepDialog({
+    open,
+    onOpenChange,
+    onEditStep,
+    step
+}: EditStepDialogProps) {
 
-    // Update form when step changes
-    useEffect(() => {
-        if (step) {
-            setName(step.name)
-            setPrompt(step.prompt)
-        } else {
-            setName("")
-            setPrompt("")
-        }
-    }, [step])
+    const handleSave = async (data: WorkflowStepFormData) => {
+        if (!step) return;
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault()
+        // Transform multi-step form data to WorkflowStep format
+        const updatedStep: WorkflowStep = {
+            ...step,
+            name: data.name,
+            description: data.name, // Use name as description for UI display
+            mcpProvider: data.selectedMcps.length > 0
+                ? `${data.selectedMcps.length} tool(s)`
+                : "No tools",
+            prompt: data.prompt,
+            deploymentType: "automatic",
+            deploymentId: data.deploymentIds,
+            knowledgeBaseIds: data.knowledgeBaseIds,
+        };
 
-        if (!name.trim() || !prompt.trim() || !step) return
-        if (isSubmitting) return
+        await onEditStep(updatedStep);
+    };
 
-        setIsSubmitting(true)
-        try {
-            await onEditStep({
-                ...step,
-                name: name.trim(),
-                description: name.trim(), // Use name as description for UI display
-                mcpProvider: "API MCP", // Default UI display value
-                prompt: prompt.trim(),
-                deploymentType: "automatic", // Default UI display value
-            })
+    // Transform step data to form data for editing
+    const getInitialData = (): Partial<WorkflowStepFormData> => {
+        if (!step) return {};
 
-            // Close dialog only on success
-            onOpenChange(false)
-        } catch (error) {
-            // Error handling is done in parent component
-            console.error('Failed to edit step:', error)
-        } finally {
-            setIsSubmitting(false)
-        }
-    }
-
-    const handleCancel = () => {
-        if (step) {
-            setName(step.name)
-            setPrompt(step.prompt)
-        }
-        onOpenChange(false)
-    }
+        return {
+            name: step.name,
+            prompt: step.prompt,
+            selectedMcps: [], // We'll need to reconstruct this from deploymentIds if needed
+            mcpDeployments: {},
+            selectedKnowledgeBases: [], // We'll need to reconstruct this from knowledgeBaseIds if needed
+            deploymentIds: step.deploymentId || [],
+            knowledgeBaseIds: step.knowledgeBaseIds || []
+        };
+    };
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[600px]">
-                <DialogHeader>
-                    <DialogTitle>Edit step</DialogTitle>
-                </DialogHeader>
-
-                {/* Currently editing indicator */}
-                <div className="py-4">
-                    <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 px-3 py-2 rounded-lg">
-                        <Edit size={14} />
-                        Currently editing
-                    </div>
-
-                    {step && (
-                        <div className="text-sm text-primary-600 mt-2">
-                            {step.name} - {step.description}
-                        </div>
-                    )}
-                </div>
-
-                <form onSubmit={handleSubmit} className="space-y-6">
-                    <div className="space-y-2">
-                        <Label htmlFor="edit-step-name">Step Name</Label>
-                        <Input
-                            id="edit-step-name"
-                            placeholder="Enter step name..."
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            autoFocus
-                        />
-                        <p className="text-xs text-gray-500">
-                            Update the name for this step
-                        </p>
-                    </div>
-
-                    <div className="space-y-2">
-                        <Label htmlFor="edit-prompt">What should this step do?</Label>
-                        <Textarea
-                            id="edit-prompt"
-                            placeholder="Describe what you want this step to accomplish..."
-                            value={prompt}
-                            onChange={(e) => setPrompt(e.target.value)}
-                            rows={4}
-                        />
-                        <p className="text-xs text-gray-500">
-                            Update the action this step should perform
-                        </p>
-                    </div>
-
-                    <div className="pt-4">
-                        <Button
-                            type="submit"
-                            disabled={!name.trim() || !prompt.trim() || isSubmitting}
-                            className="w-full bg-primary-800 hover:bg-primary-900 text-white"
-                        >
-                            {isSubmitting ? (
-                                <>
-                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                    Saving changes...
-                                </>
-                            ) : (
-                                'Save changes'
-                            )}
-                        </Button>
-                    </div>
-                </form>
-            </DialogContent>
-        </Dialog>
-    )
+        <MultiStepWorkflowDialog
+            open={open}
+            onOpenChange={onOpenChange}
+            onSave={handleSave}
+            title="Edit Workflow Step"
+            initialData={getInitialData()}
+        />
+    );
 }

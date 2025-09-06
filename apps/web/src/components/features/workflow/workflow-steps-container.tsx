@@ -31,7 +31,9 @@ const initialSteps: WorkflowStep[] = [
         sequence: 0,
         mcpProvider: "Content Summarizer MCP",
         prompt: "Analyze the startup's problem statement.",
-        deploymentType: "automatic"
+        deploymentType: "automatic",
+        deploymentId: [],
+        knowledgeBaseIds: []
     },
     {
         id: "step-2",
@@ -40,7 +42,9 @@ const initialSteps: WorkflowStep[] = [
         sequence: 1,
         mcpProvider: "Content Summarizer MCP",
         prompt: "Highlight the startup's product/service as the direct solution to the defined problem.",
-        deploymentType: "automatic"
+        deploymentType: "automatic",
+        deploymentId: [],
+        knowledgeBaseIds: []
     },
     {
         id: "step-3",
@@ -49,7 +53,9 @@ const initialSteps: WorkflowStep[] = [
         sequence: 2,
         mcpProvider: "Content Summarizer MCP",
         prompt: "Create a comprehensive summary of the problem.",
-        deploymentType: "manual"
+        deploymentType: "manual",
+        deploymentId: [],
+        knowledgeBaseIds: []
     },
     {
         id: "step-4",
@@ -58,7 +64,9 @@ const initialSteps: WorkflowStep[] = [
         sequence: 3,
         mcpProvider: "Content Summarizer MCP",
         prompt: "Process the collected data.",
-        deploymentType: "automatic"
+        deploymentType: "automatic",
+        deploymentId: [],
+        knowledgeBaseIds: []
     },
     {
         id: "step-5",
@@ -67,7 +75,9 @@ const initialSteps: WorkflowStep[] = [
         sequence: 4,
         mcpProvider: "Content Summarizer MCP",
         prompt: "Generate final output.",
-        deploymentType: "manual"
+        deploymentType: "manual",
+        deploymentId: [],
+        knowledgeBaseIds: []
     },
 ]
 
@@ -80,20 +90,18 @@ const convertApiStepsToWorkflowSteps = (apiSteps: WorkflowData['workflow']): Wor
         mcpProvider: step.deploymentId.length > 0 ? `Deployment ${step.deploymentId[0].slice(-8)}` : "Unknown MCP",
         prompt: step.prompt,
         deploymentType: "automatic" as const,
+        deploymentId: (step.deploymentId || []).filter((id): id is string => id != null && id !== ''),
+        knowledgeBaseIds: (step.knowledgeBaseIds || []).filter((id): id is string => id != null && id !== ''),
     }));
 };
 
 const convertWorkflowStepsToApi = (steps: WorkflowStep[], originalWorkflow?: WorkflowData['workflow']): WorkflowData['workflow'] => {
-    return steps.map((step, index) => {
-        const originalStep = originalWorkflow?.[index];
-
-        return {
-            name: step.name,
-            prompt: step.prompt,
-            deploymentId: originalStep?.deploymentId || [""],
-            knowledgeBaseIds: originalStep?.knowledgeBaseIds || [],
-        };
-    });
+    return steps.map((step) => ({
+        name: step.name,
+        prompt: step.prompt,
+        deploymentId: (step.deploymentId || []).filter((id): id is string => id != null && id !== ''),
+        knowledgeBaseIds: (step.knowledgeBaseIds || []).filter((id): id is string => id != null && id !== ''),
+    }));
 };
 
 interface WorkflowStepsContainerProps {
@@ -119,6 +127,8 @@ export function WorkflowStepsContainer({ workflowData }: WorkflowStepsContainerP
             setSteps(newSteps);
         }
     }, [workflowData]);
+
+    // OAuth handling is now done via popup windows - no need for dialog restoration
 
     const updateWorkflowSteps = async (newSteps: WorkflowStep[]) => {
         if (!workflowData) return;

@@ -293,12 +293,15 @@ export const useAddWalletMutation = () => {
 };
 
 export const useCreateServiceConnectionMutation = () => {
+  const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: async (data: {
       name: string;
       serviceClientName: string;
       scopes: string[];
       redirectUri?: string;
+      preventRedirect?: boolean;
     }) => {
       const response = await api("/hub/auth/url", {
         method: "GET",
@@ -315,8 +318,20 @@ export const useCreateServiceConnectionMutation = () => {
       }
       return response.data;
     },
-    onSuccess: (data) => {
-      window.location.href = data.url;
+    onSuccess: (data, variables) => {
+      // Check if this is a popup flow (has popup=true in redirectUri)
+      const isPopup = variables.redirectUri?.includes('popup=true');
+
+      if (!isPopup) {
+        // Regular flow - redirect as before
+        localStorage.setItem('oauth-pending-refresh', 'true');
+        localStorage.setItem('oauth-service-name', variables.serviceClientName);
+        window.location.href = data.url;
+      }
+      // For popup flow, just return the URL without redirecting
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: hubQueries.userAuth() });
     },
   });
 };
@@ -1318,49 +1333,49 @@ export const useBuyKnowledgeBaseMutation = () => {
 };
 
 
-export const useCreateConversationMutation = () => {
-  const queryClient = useQueryClient();
+// export const useCreateConversationMutation = () => {
+//   const queryClient = useQueryClient();
 
-  return useMutation({
-    mutationFn: async (data: {
-      message: string;
-      participants: {
-        participants: Array<{
-          name: string;
-          agentId?: string;
-          knowledgeBaseId?: string;
-        }>;
-      };
-    }) => {
-      const response = await api("/chat/stream", {
-        method: "POST",
-        body: data,
-        schema: responseSchema(
-          z.object({
-            conversationId: z.string().uuid(),
-            message: z.string(),
-            participants: z.array(
-              z.object({
-                participantId: z.string().uuid(),
-                name: z.string(),
-                type: z.enum(["agent", "knowledge_base", "user"]),
-                agentId: z.string().uuid().optional(),
-                knowledgeBaseId: z.string().uuid().optional(),
-              })
-            ),
-          })
-        ),
-      });
-      if (response.status === "FAILED") {
-        throw new Error(response.error);
-      }
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: chatQueries.conversations() });
-    },
-  });
-};
+//   return useMutation({
+//     mutationFn: async (data: {
+//       message: string;
+//       participants: {
+//         participants: Array<{
+//           name: string;
+//           agentId?: string;
+//           knowledgeBaseId?: string;
+//         }>;
+//       };
+//     }) => {
+//       const response = await api("/chat/stream", {
+//         method: "POST",
+//         body: data,
+//         schema: responseSchema(
+//           z.object({
+//             conversationId: z.string().uuid(),
+//             message: z.string(),
+//             participants: z.array(
+//               z.object({
+//                 participantId: z.string().uuid(),
+//                 name: z.string(),
+//                 type: z.enum(["agent", "knowledge_base", "user"]),
+//                 agentId: z.string().uuid().optional(),
+//                 knowledgeBaseId: z.string().uuid().optional(),
+//               })
+//             ),
+//           })
+//         ),
+//       });
+//       if (response.status === "FAILED") {
+//         throw new Error(response.error);
+//       }
+//       return response.data;
+//     },
+//     onSuccess: () => {
+//       queryClient.invalidateQueries({ queryKey: chatQueries.conversations() });
+//     },
+//   });
+// };
 
 export const useAddParticipantsMutation = () => {
   const queryClient = useQueryClient();
@@ -1483,6 +1498,7 @@ export const useCreateWorkflowMutation = () => {
       workflow: Array<{
         name: string;
         deploymentId: string[];
+        knowledgeBaseIds?: string[];
         prompt: string;
       }>;
       isPublic?: boolean;
@@ -1506,6 +1522,7 @@ export const useCreateWorkflowMutation = () => {
               z.object({
                 name: z.string(),
                 deploymentId: z.array(z.string().uuid()),
+                knowledgeBaseIds: z.array(z.string().uuid()).optional(),
                 prompt: z.string(),
               })
             ),
@@ -1514,6 +1531,17 @@ export const useCreateWorkflowMutation = () => {
               rrule: z.string(),
               startTime: z.string().datetime(),
             }).optional(),
+            agents: z.record(z.string(), z.object({
+              packageId: z.string().uuid(),
+              name: z.string(),
+              shortDescription: z.string(),
+              url: z.string().url(),
+            })).optional(),
+            knowledgeBases: z.record(z.string(), z.object({
+              id: z.string().uuid(),
+              name: z.string(),
+              description: z.string().optional(),
+            })).optional(),
             createdAt: z.string().datetime(),
             updatedAt: z.string().datetime(),
           })
@@ -1548,6 +1576,7 @@ export const useUpdateWorkflowMutation = () => {
       workflow?: Array<{
         name: string;
         deploymentId: string[];
+        knowledgeBaseIds?: string[];
         prompt: string;
       }>;
       isPublic?: boolean;
@@ -1585,6 +1614,17 @@ export const useUpdateWorkflowMutation = () => {
               startTime: z.string().datetime(),
             }).nullable(),
             nextExecution: z.string().datetime().nullable(),
+            agents: z.record(z.string(), z.object({
+              packageId: z.string().uuid(),
+              name: z.string(),
+              shortDescription: z.string(),
+              url: z.string().url(),
+            })).optional(),
+            knowledgeBases: z.record(z.string(), z.object({
+              id: z.string().uuid(),
+              name: z.string(),
+              description: z.string().optional(),
+            })).optional(),
             ownerId: z.string().uuid(),
             createdAt: z.string().datetime(),
             updatedAt: z.string().datetime(),
@@ -1677,19 +1717,19 @@ export const useExecuteWorkflowMutation = () => {
   });
 };
 
-export const useWorkflowStreamMutation = () => {
-  return useMutation({
-    mutationFn: async (executionId: string) => {
-      // This would typically be handled with Server-Sent Events or WebSocket
-      // For now, we'll use a simple GET request
-      const response = await api(`/chat/workflow/stream/${executionId}`, {
-        method: "GET",
-        schema: responseSchema(z.any()),
-      });
-      if (response.status === "FAILED") {
-        throw new Error(response.error);
-      }
-      return response.data;
-    },
-  });
-};
+// export const useWorkflowStreamMutation = () => {
+//   return useMutation({
+//     mutationFn: async (executionId: string) => {
+//       // This would typically be handled with Server-Sent Events or WebSocket
+//       // For now, we'll use a simple GET request
+//       const response = await api(`/chat/workflow/stream/${executionId}`, {
+//         method: "GET",
+//         schema: responseSchema(z.any()),
+//       });
+//       if (response.status === "FAILED") {
+//         throw new Error(response.error);
+//       }
+//       return response.data;
+//     },
+//   });
+// };

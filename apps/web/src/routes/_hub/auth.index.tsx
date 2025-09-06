@@ -119,6 +119,37 @@ function RouteComponent() {
     }
   }, [search, authMethods]);
 
+  // Handle OAuth popup callback
+  useEffect(() => {
+    const isPopup = search?.popup === 'true';
+    const success = search?.success === 'true';
+    const serviceClient = search?.serviceClient;
+
+    if (isPopup) {
+      if (success) {
+        // Success - notify parent window and close
+        if (window.opener && !window.opener.closed) {
+          window.opener.postMessage({
+            type: 'oauth-success',
+            serviceClient,
+            connectionId: search?.userServiceConnectionId
+          }, window.location.origin);
+        }
+        window.close();
+      } else if (search?.error) {
+        // Error - notify parent window and close
+        if (window.opener && !window.opener.closed) {
+          window.opener.postMessage({
+            type: 'oauth-error',
+            error: search.error,
+            serviceClient
+          }, window.location.origin);
+        }
+        window.close();
+      }
+    }
+  }, [search]);
+
   const [searchQuery, setSearchQuery] = useState('');
 
   const { data: searchResults, isPending: isSearching } = useQuery({

@@ -12,7 +12,9 @@ export interface WorkflowStep {
     mcpProvider: string // UI-only field for display
     prompt: string
     deploymentType: "automatic" | "manual" // UI-only field for display
-    // API fields are extracted in conversion functions
+    // API fields
+    deploymentId: string[] // Selected agent IDs
+    knowledgeBaseIds: string[] // Selected knowledge base IDs
 }
 
 interface SortableStepItemProps {
