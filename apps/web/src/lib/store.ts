@@ -74,6 +74,20 @@ export interface WorkflowData {
   updatedAt: string;
 }
 
+export interface WorkflowExecutionData {
+  executionId: string;
+  workflowId: string;
+  workflowTitle: string;
+  status: "pending" | "running" | "completed" | "failed" | "queued";
+  startedAt: string;
+  completedAt?: string;
+  // Optional fields for API compatibility
+  id?: string; // API uses 'id' instead of 'executionId'
+  flowId?: string; // API uses 'flowId' instead of 'workflowId'
+  createdAt?: string; // API fallback for startedAt
+  updatedAt?: string; // API fallback for completedAt
+}
+
 interface AppState {
   mcpView: McpViewType;
   setMcpView: (view: McpViewType) => void;
@@ -92,6 +106,10 @@ interface AppState {
 
   selectedWorkflow: WorkflowData | null;
   isWorkflowEditSidebarOpen: boolean;
+
+  selectedWorkflowExecution: WorkflowExecutionData | null;
+  isWorkflowExecutionSidebarOpen: boolean;
+
 
   openEditSidebar: (
     connection: UserServiceConnection,
@@ -113,6 +131,10 @@ interface AppState {
   openWorkflowEditSidebar: (workflow: WorkflowData) => void;
   closeWorkflowEditSidebar: () => void;
   updateSelectedWorkflow: (workflow: WorkflowData) => void;
+
+  openWorkflowExecutionSidebar: (execution: WorkflowExecutionData) => void;
+  closeWorkflowExecutionSidebar: () => void;
+  updateSelectedWorkflowExecution: (execution: WorkflowExecutionData) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -136,6 +158,10 @@ export const useAppStore = create<AppState>()(
       selectedWorkflow: null,
       isWorkflowEditSidebarOpen: false,
 
+      selectedWorkflowExecution: null,
+      isWorkflowExecutionSidebarOpen: false,
+
+
       openEditSidebar: (connection, serviceClient) => {
         set((state) => ({
           selectedConnection: connection,
@@ -147,6 +173,8 @@ export const useAppStore = create<AppState>()(
           selectedOAuthClient: null,
           isWorkflowEditSidebarOpen: false,
           selectedWorkflow: null,
+          isWorkflowExecutionSidebarOpen: false,
+          selectedWorkflowExecution: null,
         }));
 
         const state = get();
@@ -179,6 +207,8 @@ export const useAppStore = create<AppState>()(
           selectedOAuthClient: null,
           isWorkflowEditSidebarOpen: false,
           selectedWorkflow: null,
+          isWorkflowExecutionSidebarOpen: false,
+          selectedWorkflowExecution: null,
         }));
 
         const state = get();
@@ -207,6 +237,8 @@ export const useAppStore = create<AppState>()(
           selectedMcpServer: null,
           isWorkflowEditSidebarOpen: false,
           selectedWorkflow: null,
+          isWorkflowExecutionSidebarOpen: false,
+          selectedWorkflowExecution: null,
         }));
 
         const state = get();
@@ -235,6 +267,8 @@ export const useAppStore = create<AppState>()(
           selectedMcpServer: null,
           isOAuthClientEditSidebarOpen: false,
           selectedOAuthClient: null,
+          isWorkflowExecutionSidebarOpen: false,
+          selectedWorkflowExecution: null,
         }));
 
         const state = get();
@@ -251,6 +285,37 @@ export const useAppStore = create<AppState>()(
 
       updateSelectedWorkflow: (workflow) =>
         set({ selectedWorkflow: workflow }),
+
+      openWorkflowExecutionSidebar: (execution) => {
+        set((state) => ({
+          selectedWorkflowExecution: execution,
+          isWorkflowExecutionSidebarOpen: true,
+          isEditSidebarOpen: false,
+          selectedConnection: null,
+          selectedServiceClient: null,
+          isMcpServerEditSidebarOpen: false,
+          selectedMcpServer: null,
+          isOAuthClientEditSidebarOpen: false,
+          selectedOAuthClient: null,
+          isWorkflowEditSidebarOpen: false,
+          selectedWorkflow: null,
+        }));
+
+        const state = get();
+        if (state.setSidebarOpen) {
+          state.setSidebarOpen(false);
+        }
+      },
+
+      closeWorkflowExecutionSidebar: () =>
+        set({
+          selectedWorkflowExecution: null,
+          isWorkflowExecutionSidebarOpen: false,
+        }),
+
+      updateSelectedWorkflowExecution: (execution) =>
+        set({ selectedWorkflowExecution: execution }),
+
     }),
     {
       name: "osiris-app-store",

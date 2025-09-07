@@ -1,7 +1,7 @@
-import { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Check, Loader2 } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useState, useCallback } from 'react';
+import { ChevronLeft, ChevronRight, Check, Loader2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useMultiStepForm } from '@/hooks/use-multi-step-form';
 import { Step1McpSelection } from './steps/step-1-mcp-selection';
 import { Step2McpDeployment } from './steps/step-2-mcp-deployment';
@@ -36,18 +36,13 @@ export function MultiStepWorkflowDialog({
 }: MultiStepDialogProps) {
     const [isSaving, setIsSaving] = useState(false);
 
-    const mergedInitialData = useMemo(() => ({
-        ...INITIAL_DATA,
-        ...initialData
-    }), [initialData]);
-
     const [formState, formActions] = useMultiStepForm<WorkflowStepFormData>({
         totalSteps: STEPS.length,
-        initialData: mergedInitialData,
-        onComplete: async (data) => {
+        initialData: { ...INITIAL_DATA, ...initialData },
+        onComplete: async (formData) => {
             setIsSaving(true);
             try {
-                await onSave(data);
+                await onSave(formData);
                 onOpenChange(false);
                 formActions.reset();
             } catch (error) {
@@ -57,11 +52,6 @@ export function MultiStepWorkflowDialog({
             }
         }
     });
-
-    const handleClose = () => {
-        onOpenChange(false);
-        formActions.reset();
-    };
 
     const renderCurrentStep = () => {
         const stepProps = {
@@ -85,57 +75,28 @@ export function MultiStepWorkflowDialog({
     };
 
     return (
-        <Dialog open={open} onOpenChange={handleClose}>
-            <DialogContent className="max-h-[90vh] overflow-y-auto">
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
                 <DialogHeader className="border-b pb-4">
-                    <DialogTitle className="text-xl">{title}</DialogTitle>
-
-                    {/* Step Indicator */}
-                    {/* <div className="flex items-center justify-between pt-2">
-                        {STEPS.map((step, index) => {
-                            const stepNumber = index + 1;
-                            const isActive = stepNumber === formState.currentStep;
-                            const isCompleted = stepNumber < formState.currentStep;
-
-                            return (
-                                <div
-                                    key={stepNumber}
-                                    className={`flex items-center ${index < STEPS.length - 1 ? 'flex-1' : ''}`}
-                                >
-                                    <div className="flex items-center">
-                                        <div
-                                            className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium ${isCompleted
-                                                ? 'bg-green-500 text-white'
-                                                : isActive
-                                                    ? 'bg-blue-500 text-white'
-                                                    : 'bg-gray-200 text-gray-600'
-                                                }`}
-                                        >
-                                            {isCompleted ? <Check className="h-4 w-4" /> : stepNumber}
-                                        </div>
-                                        <div className="ml-2 hidden sm:block">
-                                            <p className={`text-sm font-medium ${isActive ? 'text-blue-600' : 'text-gray-500'
-                                                }`}>
-                                                {step.title}
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    {index < STEPS.length - 1 && (
-                                        <div className="flex-1 mx-4 h-px bg-gray-200" />
-                                    )}
-                                </div>
-                            );
-                        })}
-                    </div> */}
+                    <div className="flex items-center justify-between">
+                        <DialogTitle className="text-xl">{title}</DialogTitle>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => onOpenChange(false)}
+                            className="h-8 w-8 p-0"
+                        >
+                            <X className="h-4 w-4" />
+                        </Button>
+                    </div>
                 </DialogHeader>
 
                 {/* Step Content */}
-                <div className="pb-6 min-h-[400px]">
+                <div className="min-h-[400px] overflow-y-auto">
                     {renderCurrentStep()}
                 </div>
 
-                {/* Footer */}
+                {/* Footer Actions */}
                 <div className="border-t pt-4 flex justify-between">
                     <div>
                         {formState.currentStep > 1 && (
@@ -153,7 +114,7 @@ export function MultiStepWorkflowDialog({
                     <div className="flex gap-2">
                         <Button
                             variant="outline"
-                            onClick={handleClose}
+                            onClick={() => onOpenChange(false)}
                             disabled={isSaving}
                         >
                             Cancel
@@ -175,12 +136,12 @@ export function MultiStepWorkflowDialog({
                             >
                                 {isSaving ? (
                                     <>
-                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
                                         Saving...
                                     </>
                                 ) : (
                                     <>
-                                        <Check className="h-4 w-4 mr-2" />
+                                        <Check className="h-4 w-4 mr-1" />
                                         Save Step
                                     </>
                                 )}

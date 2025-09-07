@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Link2, Loader2, Loader, Plus, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -77,6 +77,7 @@ interface AuthMethodDialogProps {
     connectionId?: string;
   };
   trigger?: React.ReactNode;
+  onSuccess?: (connectionId: string, serviceName: string) => void;
 }
 
 export function AuthMethodDialog({
@@ -85,7 +86,8 @@ export function AuthMethodDialog({
   onOpenChange,
   mode = 'connect',
   callbackData,
-  trigger
+  trigger,
+  onSuccess
 }: AuthMethodDialogProps) {
   if (!method) {
     return null;
@@ -135,6 +137,17 @@ export function AuthMethodDialog({
   });
 
   const navigate = useNavigate();
+
+  // Handle OAuth success callback and auto-close
+  useEffect(() => {
+    if (mode === 'callback' && callbackData?.success && connectionData && onSuccess) {
+      const connId = callbackData.connectionId || 'connected';
+      onSuccess(connId, method.name);
+      setTimeout(() => {
+        onOpenChange?.(false);
+      }, 1500);
+    }
+  }, [mode, callbackData?.success, connectionData, onSuccess, method.name, onOpenChange, callbackData?.connectionId]);
 
   const getDefaultValuesForChain = (chainValue: string) => {
     if (chainValue.startsWith('evm:')) {
@@ -224,11 +237,20 @@ export function AuthMethodDialog({
             name: authHubName,
             secret: secretData
           });
+          const secretConnectionId = secretResult?.[0]?.id || 'created';
           setConnectionState({
             status: 'success',
-            connectionId: secretResult?.[0]?.id || 'created'
+            connectionId: secretConnectionId
           });
           toast.success("Database connection created successfully!");
+
+          // Call onSuccess callback and auto-close
+          if (onSuccess) {
+            onSuccess(secretConnectionId, method.name);
+            setTimeout(() => {
+              onOpenChange?.(false);
+            }, 1500);
+          }
           break;
 
         case 'embedded_wallet':
@@ -264,11 +286,20 @@ export function AuthMethodDialog({
             name: authHubName,
             accounts: processedAccounts
           });
+          const walletConnectionId = walletResult?.[0]?.id || 'created';
           setConnectionState({
             status: 'success',
-            connectionId: walletResult?.[0]?.id || 'created'
+            connectionId: walletConnectionId
           });
           toast.success("Wallet created successfully!");
+
+          // Call onSuccess callback and auto-close
+          if (onSuccess) {
+            onSuccess(secretConnectionId, method.name);
+            setTimeout(() => {
+              onOpenChange?.(false);
+            }, 1500);
+          }
           break;
 
         default:

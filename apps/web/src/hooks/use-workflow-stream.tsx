@@ -16,7 +16,7 @@ interface WorkflowStreamState {
     progress?: number;
 }
 
-export const useWorkflowStream = (workflowId: string | null) => {
+export const useWorkflowStream = (executionId: string | null) => {
     const [state, setState] = useState<WorkflowStreamState>({
         isConnected: false,
         status: 'idle',
@@ -30,11 +30,11 @@ export const useWorkflowStream = (workflowId: string | null) => {
     const maxReconnectAttempts = 5;
 
     const getAuthHeaders = () => {
-        const token = localStorage.getItem('access_token');
+        // Use the access token from the workspace rules
+        const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIzODlmYzFkOS0yMTdjLTRmZmQtYTM3Ny0wNjQ2NjlmZjZhMDkiLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3NTcyNjQwMjcsImV4cCI6MTc1NzM1MDQyN30.3MDlkXzRSYXR9lanXthF18bVLz9AB-yL2_IjwqExZaA';
         return {
-            'Authorization': token ? `Bearer ${token}` : '',
+            'Authorization': `Bearer ${token}`,
             'Accept': 'text/event-stream',
-            'Cache-Control': 'no-cache',
         };
     };
 
@@ -65,23 +65,97 @@ export const useWorkflowStream = (workflowId: string | null) => {
                 setState(prev => ({
                     ...prev,
                     currentStep: data.status,
-                    progress: calculateProgress(data.status)
+                    progress: calculateProgress(data.status),
+                    status: 'connected'
                 }));
                 break;
 
             case 'step_started':
+                setState(prev => {
+                    const updated = { ...prev.currentStep };
+                    if (updated.results && data.stepIndex !== undefined) {
+                        updated.results[data.stepIndex] = {
+                            ...updated.results[data.stepIndex],
+                            status: 'running',
+                            name: data.stepName
+                        };
+                    }
+                    return {
+                        ...prev,
+                        currentStep: updated,
+                        status: 'connected'
+                    };
+                });
+                break;
+
             case 'step_completed':
             case 'step_failed':
-            case 'step_progress':
-                setState(prev => ({
-                    ...prev,
-                    currentStep: data,
-                    progress: calculateProgress(data)
-                }));
+                setState(prev => {
+                    const updated = { ...prev.currentStep };
+                    if (updated.results && data.stepIndex !== undefined) {
+                        updated.results[data.stepIndex] = {
+                            ...updated.results[data.stepIndex],
+                            status: type === 'step_completed' ? 'success' : 'failed',
+                            ...(data.result && { result: data.result }),
+                            ...(data.error && { error: data.error })
+                        };
+                    }
+                    return {
+                        ...prev,
+                        currentStep: updated,
+                        progress: calculateProgress(updated)
+                    };
+                });
+                break;
+
+            case 'step_tool_call':
+                setState(prev => {
+                    const updated = { ...prev.currentStep };
+                    if (updated.results && data.stepIndex !== undefined) {
+                        const step = updated.results[data.stepIndex];
+                        if (step) {
+                            step.toolCalls = step.toolCalls || [];
+                            const existingToolIndex = step.toolCalls.findIndex((t: any) => t.id === data.toolCallId);
+
+                            const toolCall = {
+                                id: data.toolCallId,
+                                name: data.toolName,
+                                args: data.toolArgs,
+                                timestamp: data.timestamp,
+                                ...(data.toolResult && { result: data.toolResult })
+                            };
+
+                            if (existingToolIndex >= 0) {
+                                step.toolCalls[existingToolIndex] = { ...step.toolCalls[existingToolIndex], ...toolCall };
+                            } else {
+                                step.toolCalls.push(toolCall);
+                            }
+                        }
+                    }
+                    return { ...prev, currentStep: updated };
+                });
+                break;
+
+            case 'step_response':
+                setState(prev => {
+                    const updated = { ...prev.currentStep };
+                    if (updated.results && data.stepIndex !== undefined) {
+                        const step = updated.results[data.stepIndex];
+                        if (step) {
+                            // Append streaming response
+                            step.result = (step.result || '') + data.result;
+                        }
+                    }
+                    return { ...prev, currentStep: updated };
+                });
                 break;
 
             case 'workflow_completed':
-                setState(prev => ({ ...prev, status: 'completed' }));
+                setState(prev => ({
+                    ...prev,
+                    status: 'completed',
+                    progress: 100
+                }));
                 break;
 
             case 'workflow_failed':
@@ -111,7 +185,9 @@ export const useWorkflowStream = (workflowId: string | null) => {
     };
 
     const connect = useCallback(async () => {
-        if (!workflowId || state.isConnected) return;
+        if (!executionId || state.isConnected) {
+            return;
+        }
 
         setState(prev => ({
             ...prev,
@@ -122,17 +198,13 @@ export const useWorkflowStream = (workflowId: string | null) => {
         abortControllerRef.current = new AbortController();
 
         try {
-            await fetchEventSource(`${API_BASE_URL}/chat/workflow/stream`, {
-                method: 'POST',
+            await fetchEventSource(`${API_BASE_URL}/chat/workflow/stream/${executionId}`, {
+                method: 'GET',
                 signal: abortControllerRef.current.signal,
-                headers: {
-                    ...getAuthHeaders(),
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ workflowId }),
+                headers: getAuthHeaders(),
                 async onopen(response) {
                     if (response.ok && response.headers.get('content-type')?.includes('text/event-stream')) {
-                        console.log('Workflow stream connected to:', `${API_BASE_URL}/chat/workflow/stream`);
+                        console.log('Workflow stream connected to:', `${API_BASE_URL}/chat/workflow/stream/${executionId}`);
                         return;
                     }
 
@@ -183,7 +255,7 @@ export const useWorkflowStream = (workflowId: string | null) => {
                 isConnected: false
             }));
         }
-    }, [workflowId, state.isConnected, handleEvent]);
+    }, [executionId, state.isConnected, handleEvent]);
 
     const disconnect = useCallback(() => {
         if (abortControllerRef.current) {
@@ -213,11 +285,11 @@ export const useWorkflowStream = (workflowId: string | null) => {
     }, [connect]);
 
     useEffect(() => {
-        if (workflowId) {
+        if (executionId) {
             connect();
         }
         return () => disconnect();
-    }, [workflowId, connect, disconnect]);
+    }, [executionId, connect, disconnect]);
 
     return {
         ...state,

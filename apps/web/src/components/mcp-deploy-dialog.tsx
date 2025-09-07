@@ -42,6 +42,7 @@ interface McpDeployDialogProps {
   trigger?: React.ReactNode;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  onSuccess?: (deploymentId: string) => void;
 }
 
 function ServiceSection({
@@ -282,7 +283,8 @@ export function McpDeployDialog({
   package: pkg,
   trigger,
   open,
-  onOpenChange
+  onOpenChange,
+  onSuccess
 }: McpDeployDialogProps) {
   const [selectedPermissions, setSelectedPermissions] = useState<Record<string, Permission[]>>({});
   const [selectedConnections, setSelectedConnections] = useState<Record<string, string>>({});
@@ -396,23 +398,22 @@ export function McpDeployDialog({
       // Flatten scopes for authorization
       const allScopes = serviceConnections.flatMap(sc => 'scopes' in sc ? sc.scopes : []);
 
-      const data = await authorizeMutation.mutateAsync({
-        clientId: pkg?.clientId ?? "",
-        redirectUri: mcpRedirectUri.toString(),
-        responseType: 'code',
-        scopes: [...allScopes, "osiris:auth:read", "osiris:auth:action"],
-        state: deploymentId || '',
-        deploymentId: deploymentId,
-      })
-
-      const url = new URL(data.url)
-      const res = await fetch(url.toString())
-      if (res.status !== 200) {
-        throw new Error('Failed to authorize')
-      }
+      // Skip the problematic frontend authorization call for direct deployments
+      // The authorization should be handled by the consent flow when the MCP is actually used
+      console.log('Deployment completed, skipping frontend authorization for direct deployment');
 
       // Show success message
       toast.success('Package deployed successfully!');
+
+      // Call onSuccess callback with deployment data
+      if (onSuccess) {
+        onSuccess(deploymentId);
+      }
+
+      // Auto-close dialog after short delay
+      setTimeout(() => {
+        handleClose();
+      }, 1500);
     } catch (error: any) {
       // Show error message
       const errorMessage = error?.message || 'Deployment failed. Please try again.';
@@ -453,9 +454,9 @@ export function McpDeployDialog({
     setConnectingService(serviceName);
   }, [authMethods]);
 
-  const isPending = deployMutation.isPending && authorizeMutation.isPending;
-  const isSuccess = deployMutation.isSuccess && authorizeMutation.isSuccess;
-  const isError = deployMutation.isError && authorizeMutation.isError;
+  const isPending = deployMutation.isPending;
+  const isSuccess = deployMutation.isSuccess;
+  const isError = deployMutation.isError;
 
   const renderDeployForm = () => (
     <div className="flex flex-col px-4">

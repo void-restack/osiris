@@ -55,6 +55,53 @@ function getPermissionsForService(serviceName: string, requiredScopes: string[],
   }));
 }
 
+// Configure Auth Button Component
+interface ConfigureAuthButtonProps {
+  packageId: string;
+  requiredServices: string[];
+  selectedConnections: Record<string, string>;
+  authMethods: any[];
+  onConnectNewAccount: (packageId: string, serviceName: string, requiredScopes: string[]) => void;
+}
+
+function ConfigureAuthButton({
+  packageId,
+  requiredServices,
+  selectedConnections,
+  authMethods,
+  onConnectNewAccount
+}: ConfigureAuthButtonProps) {
+  const missingServices = requiredServices.filter(service => !selectedConnections[service]);
+  const isAuthConfigured = missingServices.length === 0;
+
+  const handleConfigureAuth = () => {
+    if (missingServices.length > 0) {
+      // Open auth dialog for the first missing service
+      const firstMissingService = missingServices[0];
+      const serviceMethod = authMethods?.find((method: any) => method.name === firstMissingService);
+      if (serviceMethod) {
+        onConnectNewAccount(packageId, firstMissingService, []);
+      }
+    }
+  };
+
+  if (isAuthConfigured) {
+    return (
+      <Button variant="ghost" size="sm" disabled className="text-green-600">
+        <CheckCircle className="h-4 w-4 mr-1" />
+        Auth Configured
+      </Button>
+    );
+  }
+
+  return (
+    <Button variant="ghost" size="sm" onClick={handleConfigureAuth} className="text-amber-600 hover:text-amber-700">
+      <Settings className="h-4 w-4 mr-1" />
+      Configure Auth ({missingServices.length})
+    </Button>
+  );
+}
+
 interface ScopeStatus {
   missingServices: string[];
   servicesWithInsufficientScopes: string[];
@@ -80,6 +127,7 @@ interface McpDeploymentConfigProps {
   selectedPermissions: Record<string, Permission[]>;
   onConnectionSelect: (serviceName: string, connectionId: string) => void;
   onPermissionSelect: (serviceName: string, permissions: Permission[]) => void;
+  onConnectNewAccount?: (packageId: string, serviceName: string, requiredScopes: string[]) => void;
 }
 
 export function McpDeploymentConfig({
@@ -98,7 +146,8 @@ export function McpDeploymentConfig({
   selectedConnections,
   selectedPermissions,
   onConnectionSelect,
-  onPermissionSelect
+  onPermissionSelect,
+  onConnectNewAccount
 }: McpDeploymentConfigProps) {
   const [showOAuthConnector, setShowOAuthConnector] = useState<string | null>(null);
 
@@ -160,7 +209,7 @@ export function McpDeploymentConfig({
   return (
     <Card className="overflow-hidden">
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col items-center justify-between">
           <div className="flex items-center gap-3">
             <Avatar className="h-10 w-10">
               <AvatarImage src={pkg.iconUrl || undefined} alt={pkg.name} />
@@ -177,66 +226,83 @@ export function McpDeploymentConfig({
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            {/* Deployment Status Badges */}
-            {deployment?.status === 'deployed' && (
-              <Badge className="bg-green-100 text-green-800">
-                <CheckCircle className="h-3 w-3 mr-1" />
-                Deployed
-              </Badge>
-            )}
-            {deployment?.status === 'failed' && (
-              <Badge variant="destructive">
-                <AlertCircle className="h-3 w-3 mr-1" />
-                Failed
-              </Badge>
-            )}
-            {isDeploying && (
-              <Badge className="bg-blue-100 text-blue-800">
-                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                Deploying
-              </Badge>
-            )}
+          <div className="flex flex-col items-center gap-2">
+            <div className='flex items-center gap-2'>
 
-            {/* Scope Status Warnings (Informational) */}
-            {scopeStatus?.hasIssues && !isDeploying && deployment?.status !== 'deployed' && (
-              <Badge className="bg-amber-100 text-amber-800 border-amber-200">
-                <AlertCircle className="h-3 w-3 mr-1" />
-                {scopeStatus.missingServices.length > 0 ? 'Setup Needed' : 'Limited Access'}
-              </Badge>
-            )}
+              {/* Deployment Status Badges */}
+              {deployment?.status === 'deployed' && (
+                <Badge className="bg-green-100 text-green-800">
+                  <CheckCircle className="h-3 w-3 mr-1" />
+                  Deployed
+                </Badge>
+              )}
+              {deployment?.status === 'failed' && (
+                <Badge variant="destructive">
+                  <AlertCircle className="h-3 w-3 mr-1" />
+                  Failed
+                </Badge>
+              )}
+              {isDeploying && (
+                <Badge className="bg-blue-100 text-blue-800">
+                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                  Deploying
+                </Badge>
+              )}
 
-            <Collapsible open={isExpanded} onOpenChange={onToggleExpanded}>
-              <CollapsibleTrigger asChild>
-                <Button variant="ghost" size="sm">
-                  <Settings className="h-4 w-4 mr-1" />
-                  Configure
-                  {isExpanded ? (
-                    <ChevronDown className="h-4 w-4 ml-1" />
+              {/* Scope Status Warnings (Informational) */}
+              {scopeStatus?.hasIssues && !isDeploying && deployment?.status !== 'deployed' && (
+                <Badge className="bg-amber-100 text-amber-800 border-amber-200">
+                  <AlertCircle className="h-3 w-3 mr-1" />
+                  {scopeStatus.missingServices.length > 0 ? 'Setup Needed' : 'Limited Access'}
+                </Badge>
+              )}
+            </div>
+            <div className='flex items-center gap-2'>
+              {/* Configure Auth Button */}
+              {requiredServices.length > 0 && (
+                <ConfigureAuthButton
+                  packageId={pkg.packageId}
+                  requiredServices={requiredServices}
+                  selectedConnections={selectedConnections}
+                  authMethods={authMethods}
+                  onConnectNewAccount={onConnectNewAccount || (() => { })}
+                />
+              )}
+
+              <Collapsible open={isExpanded} onOpenChange={onToggleExpanded}>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" size="sm">
+                    <Settings className="h-4 w-4 mr-1" />
+                    Configure
+                    {isExpanded ? (
+                      <ChevronDown className="h-4 w-4 ml-1" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4 ml-1" />
+                    )}
+                  </Button>
+                </CollapsibleTrigger>
+              </Collapsible>
+
+              {deployment?.status !== 'deployed' && (
+                <Button
+                  size="sm"
+                  onClick={onDeploy}
+                  disabled={isDeploying}
+                  className={scopeStatus?.hasIssues ? 'bg-amber-600 hover:bg-amber-700' : ''}
+                >
+                  {isDeploying ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                      Deploying
+                    </>
                   ) : (
-                    <ChevronRight className="h-4 w-4 ml-1" />
+                    scopeStatus?.hasIssues ? 'Deploy Anyway' : 'Deploy'
                   )}
                 </Button>
-              </CollapsibleTrigger>
-            </Collapsible>
+              )}
 
-            {deployment?.status !== 'deployed' && (
-              <Button
-                size="sm"
-                onClick={onDeploy}
-                disabled={isDeploying}
-                className={scopeStatus?.hasIssues ? 'bg-amber-600 hover:bg-amber-700' : ''}
-              >
-                {isDeploying ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                    Deploying
-                  </>
-                ) : (
-                  scopeStatus?.hasIssues ? 'Deploy Anyway' : 'Deploy'
-                )}
-              </Button>
-            )}
+            </div>
+
           </div>
         </div>
       </CardHeader>
@@ -542,7 +608,14 @@ export function McpDeploymentConfig({
                               ) : (
                                 <div className="space-y-3">
                                   <Button
-                                    onClick={() => setShowOAuthConnector(serviceName)}
+                                    onClick={() => {
+                                      if (onConnectNewAccount) {
+                                        const requiredScopes = authScopes?.serviceClientMap?.[serviceName] || [];
+                                        onConnectNewAccount(pkg.packageId, serviceName, requiredScopes);
+                                      } else {
+                                        setShowOAuthConnector(serviceName);
+                                      }
+                                    }}
                                     variant="outline"
                                     className="w-full rounded-lg border-dashed border-2 border-primary-200 bg-primary-25 hover:bg-primary-50 hover:border-primary-300 text-primary-700 h-12"
                                     type="button"

@@ -19,6 +19,16 @@ export function EditStepDialog({
     const handleSave = async (data: WorkflowStepFormData) => {
         if (!step) return;
 
+        // Extract deployment IDs from mcpDeployments as backup
+        const extractedDeploymentIds = Object.values(data.mcpDeployments)
+            .filter(deployment => deployment.status === 'deployed' && deployment.deploymentId)
+            .map(deployment => deployment.deploymentId);
+
+        // Use data.deploymentIds if available, otherwise fall back to extracted IDs
+        const finalDeploymentIds = data.deploymentIds.length > 0
+            ? data.deploymentIds
+            : extractedDeploymentIds;
+
         // Transform multi-step form data to WorkflowStep format
         const updatedStep: WorkflowStep = {
             ...step,
@@ -29,7 +39,7 @@ export function EditStepDialog({
                 : "No tools",
             prompt: data.prompt,
             deploymentType: "automatic",
-            deploymentId: data.deploymentIds,
+            deploymentId: finalDeploymentIds,
             knowledgeBaseIds: data.knowledgeBaseIds,
         };
 

@@ -13,27 +13,18 @@ export interface Permission {
 }
 
 export interface WorkflowStepFormData {
-    // Basic step info
     name: string;
     prompt: string;
-
-    // MCP Selection
     selectedMcps: PackageWithUserStatus[];
     mcpDeployments: Record<string, McpDeploymentStatus>;
-
-    // MCP Deployment Configuration
-    deploymentNames: Record<string, string>; // packageId -> deployment name
-    selectedConnections: Record<string, Record<string, string>>; // packageId -> serviceName -> connectionId
-    selectedPermissions: Record<string, Record<string, Permission[]>>; // packageId -> serviceName -> permissions
-
-    // Knowledge Base Selection  
+    deploymentNames: Record<string, string>;
+    selectedConnections: Record<string, Record<string, string>>;
+    selectedPermissions: Record<string, Record<string, Permission[]>>;
     selectedKnowledgeBases: Array<{
         id: string;
         name: string;
         description?: string;
     }>;
-
-    // Final data for API
     deploymentIds: string[];
     knowledgeBaseIds: string[];
 }

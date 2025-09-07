@@ -17,11 +17,11 @@ import {
 
 import { SortableStepItem, type WorkflowStep } from "./workflow-step-item"
 import { AddStepButton } from "./add-step-button"
-import { AddStepDialog } from "./add-step-dialog"
 import { EditStepDialog } from "./edit-step-dialog"
 import { type WorkflowData } from "@/lib/store"
 import { useUpdateWorkflowMutation } from "@/lib/mutations"
 import { toast } from "sonner"
+import { WorkflowStepBuilderDialog, type WorkflowStepBuilderData } from "../workflow-builder"
 
 const initialSteps: WorkflowStep[] = [
     {
@@ -116,10 +116,10 @@ export function WorkflowStepsContainer({ workflowData }: WorkflowStepsContainerP
         : [];
 
     const [steps, setSteps] = useState<WorkflowStep[]>(initialWorkflowSteps)
-    const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
     const [insertIndex, setInsertIndex] = useState(0)
     const [editingStep, setEditingStep] = useState<WorkflowStep | null>(null)
+    const [isBuilderDialogOpen, setIsBuilderDialogOpen] = useState(false)
 
     useEffect(() => {
         if (workflowData) {
@@ -187,9 +187,9 @@ export function WorkflowStepsContainer({ workflowData }: WorkflowStepsContainerP
         }
     }
 
-    const handleAddStep = (insertAtIndex: number) => {
+    const handleAddStepWithBuilder = (insertAtIndex: number) => {
         setInsertIndex(insertAtIndex)
-        setIsAddDialogOpen(true)
+        setIsBuilderDialogOpen(true)
     }
 
     const handleEditStep = (step: WorkflowStep) => {
@@ -264,6 +264,52 @@ export function WorkflowStepsContainer({ workflowData }: WorkflowStepsContainerP
         }
     }
 
+    const handleBuilderSave = async (builderData: WorkflowStepBuilderData) => {
+        // Extract deployment IDs from mcpDeployments
+        const deploymentIds = Object.values(builderData.mcpDeployments)
+            .filter(deployment => deployment.deploymentId)
+            .map(deployment => deployment.deploymentId!)
+            .filter(Boolean);
+
+        // Convert WorkflowStepBuilderData to WorkflowStep with proper insertion
+        const newWorkflowStep: WorkflowStep = {
+            id: `step-${Date.now()}`, // Generate unique ID
+            name: builderData.name,
+            description: builderData.description,
+            sequence: insertIndex, // Insert at the correct position
+            mcpProvider: builderData.selectedMcps.length > 0
+                ? `${builderData.selectedMcps.length} tool(s)`
+                : "No tools",
+            prompt: builderData.description,
+            deploymentType: "automatic",
+            deploymentId: deploymentIds,
+            knowledgeBaseIds: builderData.knowledgeBaseIds,
+        };
+
+        // Insert step at correct position and resequence
+        const newSteps = (() => {
+            const stepsCopy = [...steps];
+            stepsCopy.splice(insertIndex, 0, newWorkflowStep);
+            return stepsCopy.map((step, index) => ({
+                ...step,
+                sequence: index
+            }));
+        })();
+
+        setSteps(newSteps);
+
+        try {
+            await updateWorkflowSteps(newSteps);
+            toast.success(`"${builderData.name}" step added successfully with ${deploymentIds.length} tool(s) deployed!`);
+            setIsBuilderDialogOpen(false);
+        } catch (error) {
+            // Revert on error
+            setSteps(steps);
+            console.error('Failed to add workflow step:', error);
+            toast.error("Failed to add workflow step. Please try again.");
+        }
+    }
+
     return (
         <div className="space-y-2">
             <DndContext
@@ -276,7 +322,7 @@ export function WorkflowStepsContainer({ workflowData }: WorkflowStepsContainerP
                         <div key={step.id}>
                             {index === 0 && (
                                 <AddStepButton
-                                    onAddStep={handleAddStep}
+                                    onAddStepWithBuilder={handleAddStepWithBuilder}
                                     insertIndex={0}
                                 />
                             )}
@@ -289,7 +335,7 @@ export function WorkflowStepsContainer({ workflowData }: WorkflowStepsContainerP
                             />
 
                             <AddStepButton
-                                onAddStep={handleAddStep}
+                                onAddStepWithBuilder={handleAddStepWithBuilder}
                                 insertIndex={index + 1}
                             />
                         </div>
@@ -297,19 +343,17 @@ export function WorkflowStepsContainer({ workflowData }: WorkflowStepsContainerP
                 </SortableContext>
             </DndContext>
 
-            <AddStepDialog
-                open={isAddDialogOpen}
-                onOpenChange={setIsAddDialogOpen}
-                onAddStep={handleAddStepSubmit}
-                insertIndex={insertIndex}
-                {...getStepContextInfo(insertIndex)}
-            />
-
             <EditStepDialog
                 open={isEditDialogOpen}
                 onOpenChange={setIsEditDialogOpen}
                 onEditStep={handleEditStepSubmit}
                 step={editingStep}
+            />
+
+            <WorkflowStepBuilderDialog
+                open={isBuilderDialogOpen}
+                onOpenChange={setIsBuilderDialogOpen}
+                onSave={handleBuilderSave}
             />
         </div>
     )

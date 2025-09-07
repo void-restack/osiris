@@ -10,6 +10,8 @@ import { useAuth } from '@/hooks/use-auth';
 import { useDeployPackageMutation } from '@/lib/mutations';
 import { packageQueries, hubQueries } from '@/lib/queries';
 import { McpDeploymentConfig } from './mcp-deployment-config';
+import { McpDeployDialog } from '@/components/mcp-deploy-dialog';
+import { AuthMethodDialog } from '@/components/features/authhub/auth-method-dialog';
 import type { StepComponentProps, Permission } from '../types';
 
 export function Step2McpDeployment({
@@ -20,12 +22,14 @@ export function Step2McpDeployment({
     const [deployingPackageId, setDeployingPackageId] = useState<string | null>(null);
     const [expandedPackages, setExpandedPackages] = useState<Set<string>>(new Set());
     const [deploymentNames, setDeploymentNames] = useState<Record<string, string>>({});
-    const [isDeployingAll, setIsDeployingAll] = useState(false);
+    const [mcpDeployOpen, setMcpDeployOpen] = useState(false);
+    const [selectedPackageForDeploy, setSelectedPackageForDeploy] = useState<any>(null);
+    const [authDialogOpen, setAuthDialogOpen] = useState(false);
+    const [selectedServiceForAuth, setSelectedServiceForAuth] = useState<any>(null);
     const deployMutation = useDeployPackageMutation();
     const queryClient = useQueryClient();
     const { isAuthenticated } = useAuth();
 
-    // Auth queries for all selected MCPs
     const authQueries = data.selectedMcps.map(pkg => ({
         packageId: pkg.packageId,
         authScopes: useQuery({
@@ -37,9 +41,6 @@ export function Step2McpDeployment({
     const { data: allUserAuth } = useQuery(hubQueries.userAuthOptions(isAuthenticated));
     const { data: authMethods } = useQuery(hubQueries.authMethodsOptions());
 
-    // OAuth connections now happen via popup - data refreshes automatically
-
-    // Initialize deployment names
     useEffect(() => {
         setDeploymentNames(prev => {
             const newNames = { ...prev };
@@ -52,23 +53,18 @@ export function Step2McpDeployment({
                 }
             });
 
-            // Only return new object if there were changes
             return hasChanges ? newNames : prev;
         });
     }, [data.selectedMcps]);
 
-    // Check if all MCPs are deployed
     const allDeployed = useMemo(() => {
         return data.selectedMcps.every(mcp =>
             data.mcpDeployments[mcp.packageId]?.status === 'deployed'
         );
     }, [data.selectedMcps, data.mcpDeployments]);
-
-    // Update valid state
     useEffect(() => {
         setValid(allDeployed);
 
-        // Update deployment IDs when all are deployed
         if (allDeployed) {
             const deploymentIds = data.selectedMcps
                 .map(mcp => data.mcpDeployments[mcp.packageId]?.deploymentId)
@@ -77,7 +73,6 @@ export function Step2McpDeployment({
         }
     }, [allDeployed, data.selectedMcps, data.mcpDeployments, setValid, updateData]);
 
-    // Handle connection selection
     const handleConnectionSelect = useCallback((packageId: string, serviceName: string, connectionId: string) => {
         updateData({
             selectedConnections: {
@@ -90,7 +85,6 @@ export function Step2McpDeployment({
         });
     }, [data.selectedConnections, updateData]);
 
-    // Handle permission selection
     const handlePermissionSelect = useCallback((packageId: string, serviceName: string, permissions: Permission[]) => {
         updateData({
             selectedPermissions: {
@@ -103,8 +97,21 @@ export function Step2McpDeployment({
         });
     }, [data.selectedPermissions, updateData]);
 
-    // Knowledge base selection is now handled in Step 1
+    const handleConnectNewAccount = useCallback((packageId: string, serviceName: string, requiredScopes: string[]) => {
+        const authQuery = authQueries.find(q => q.packageId === packageId);
+        const authScopes = authQuery?.authScopes.data;
+        const serviceClient = authScopes?.serviceClients.find((client: any) => client.name === serviceName);
 
+        if (serviceClient) {
+            setSelectedServiceForAuth(serviceClient);
+            setAuthDialogOpen(true);
+        }
+    }, [authQueries]);
+
+    const handleDeployWithDialog = useCallback((pkg: any) => {
+        setSelectedPackageForDeploy(pkg);
+        setMcpDeployOpen(true);
+    }, []);
 
     const getScopeStatus = useCallback((pkg: any) => {
         const authQuery = authQueries.find(q => q.packageId === pkg.packageId);
@@ -163,7 +170,6 @@ export function Step2McpDeployment({
     const deployPackage = useCallback(async (pkg: any) => {
         if (data.mcpDeployments[pkg.packageId]?.status === 'deployed') return;
 
-        // Check scope status (informational only - don't block deployment)
         const scopeStatus = getScopeStatus(pkg);
 
         if (scopeStatus.hasIssues) {
@@ -183,7 +189,6 @@ export function Step2McpDeployment({
 
         setDeployingPackageId(pkg.packageId);
 
-        // Update deployment status to deploying
         updateData({
             mcpDeployments: {
                 ...data.mcpDeployments,
@@ -200,20 +205,9 @@ export function Step2McpDeployment({
             const authScopes = authQuery?.authScopes.data;
             const requiredServices = Object.keys(authScopes?.serviceClientMap || {});
 
-            // Debug: Log the data structure
-            console.log('🔍 DEBUG serviceConnections construction:');
-            console.log('packageId:', pkg.packageId);
-            console.log('requiredServices:', requiredServices);
-            console.log('data.selectedConnections:', data.selectedConnections);
-            console.log('data.selectedConnections[packageId]:', data.selectedConnections[pkg.packageId]);
-            console.log('data.selectedPermissions:', data.selectedPermissions);
-            console.log('data.selectedPermissions[packageId]:', data.selectedPermissions[pkg.packageId]);
-
-            // Construct serviceConnections based on selected connections and permissions
             const serviceConnections = requiredServices
                 .filter(service => {
                     const hasConnection = data.selectedConnections[pkg.packageId]?.[service];
-                    console.log(`🔍 Service ${service} has connection:`, hasConnection);
                     return hasConnection;
                 })
                 .map(service => {
@@ -222,23 +216,14 @@ export function Step2McpDeployment({
                     const connectionId = data.selectedConnections[pkg.packageId][service];
                     const permissions = data.selectedPermissions[pkg.packageId]?.[service] || [];
 
-                    console.log(`🔍 Service ${service}:`, {
-                        connectionId,
-                        isEmbeddedWallet,
-                        permissions: permissions.length,
-                        permissionIds: permissions.map(p => p.id)
-                    });
-
                     return {
                         connectionId,
                         ...(isEmbeddedWallet
-                            ? { policy: { allow: [{}], deny: [] } } // Default policy for embedded wallets
+                            ? { policy: { allow: [{}], deny: [] } }
                             : { scopes: permissions.map(permission => permission.id) }
                         )
                     };
                 });
-
-            console.log('🔍 Final serviceConnections:', serviceConnections);
 
             const result = await deployMutation.mutateAsync({
                 packageId: pkg.packageId,
@@ -248,7 +233,6 @@ export function Step2McpDeployment({
                 serviceConnections: serviceConnections
             });
 
-            // Update deployment status to deployed
             updateData({
                 mcpDeployments: {
                     ...data.mcpDeployments,
@@ -262,7 +246,6 @@ export function Step2McpDeployment({
 
             toast.success(`${pkg.name} deployed successfully!`);
         } catch (error: any) {
-            // Update deployment status to failed
             updateData({
                 mcpDeployments: {
                     ...data.mcpDeployments,
@@ -280,38 +263,6 @@ export function Step2McpDeployment({
         }
     }, [data.mcpDeployments, deploymentNames, updateData, deployMutation]);
 
-    const deployAllPackages = useCallback(async () => {
-        // Check for any issues but don't block deployment
-        const packagesWithIssues = data.selectedMcps.filter(pkg => {
-            const scopeStatus = getScopeStatus(pkg);
-            return scopeStatus.hasIssues;
-        });
-
-        if (packagesWithIssues.length > 0) {
-            toast.warning(
-                `Deploying all packages including ${packagesWithIssues.length} with potential issues. Some features may not work as expected.`,
-                { duration: 5000 }
-            );
-        }
-
-        // Deploy packages that aren't already deployed
-        for (const pkg of data.selectedMcps) {
-            if (data.mcpDeployments[pkg.packageId]?.status !== 'deployed') {
-                await deployPackage(pkg);
-            }
-        }
-    }, [data.selectedMcps, data.mcpDeployments, deployPackage, getScopeStatus]);
-
-    const handleDeployAll = useCallback(async () => {
-        setIsDeployingAll(true);
-        try {
-            await deployAllPackages();
-        } catch (error) {
-            console.error('Deploy all failed:', error);
-        } finally {
-            setIsDeployingAll(false);
-        }
-    }, [deployAllPackages]);
 
     const togglePackageExpanded = useCallback((packageId: string) => {
         setExpandedPackages(prev => {
@@ -339,32 +290,11 @@ export function Step2McpDeployment({
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h3 className="text-lg font-medium text-gray-900">Deploy Selected Tools</h3>
-                    <p className="text-sm text-gray-500">
-                        Each tool needs to be deployed before it can be used in your workflow
-                    </p>
-                </div>
-                <Button
-                    onClick={deployAllPackages}
-                    disabled={deployingPackageId !== null || allDeployed}
-                    className="flex items-center gap-2"
-                >
-                    {deployingPackageId ? (
-                        <>
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                            Deploying...
-                        </>
-                    ) : allDeployed ? (
-                        <>
-                            <CheckCircle className="h-4 w-4" />
-                            All Deployed
-                        </>
-                    ) : (
-                        'Deploy All'
-                    )}
-                </Button>
+            <div>
+                <h3 className="text-lg font-medium text-gray-900">Deploy Selected Tools</h3>
+                <p className="text-sm text-gray-500">
+                    Each tool needs to be deployed before it can be used in your workflow
+                </p>
             </div>
 
             <div className="space-y-4">
@@ -373,11 +303,8 @@ export function Step2McpDeployment({
                     const isExpanded = expandedPackages.has(pkg.packageId);
                     const isDeploying = deployingPackageId === pkg.packageId;
 
-                    // Get auth data for this package
                     const authQuery = authQueries.find(q => q.packageId === pkg.packageId);
                     const authScopes = authQuery?.authScopes.data;
-
-                    // Filter user auth connections for this package's required services
                     const userAuth = useMemo(() => {
                         if (!authScopes?.serviceClientMap || !allUserAuth) return [];
                         const allowedServices = Object.keys(authScopes.serviceClientMap);
@@ -400,13 +327,11 @@ export function Step2McpDeployment({
                                     [pkg.packageId]: name
                                 }))
                             }
-                            onDeploy={() => deployPackage(pkg)}
+                            onDeploy={async () => handleDeployWithDialog(pkg)}
                             isDeploying={isDeploying}
                             isExpanded={isExpanded}
                             onToggleExpanded={() => togglePackageExpanded(pkg.packageId)}
                             scopeStatus={scopeStatus}
-
-                            // Auth props
                             authScopes={authScopes}
                             userAuth={userAuth}
                             authMethods={authMethods}
@@ -418,105 +343,89 @@ export function Step2McpDeployment({
                             onPermissionSelect={(serviceName, permissions) =>
                                 handlePermissionSelect(pkg.packageId, serviceName, permissions)
                             }
+                            onConnectNewAccount={(serviceName: string, requiredScopes: string[]) =>
+                                handleConnectNewAccount(pkg.packageId, serviceName, requiredScopes)
+                            }
                         />
                     );
                 })}
             </div>
 
-            {!allDeployed && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <div className="flex">
-                        <div className="ml-3">
-                            <h3 className="text-sm font-medium text-blue-800">
-                                Deploy all tools to continue
-                            </h3>
-                            <p className="mt-1 text-sm text-blue-700">
-                                All selected tools must be deployed before you can proceed to the next step.
-                            </p>
-                            <div className="mt-4 flex space-x-4">
-                                <Button
-                                    size="sm"
-                                    onClick={handleDeployAll}
-                                    disabled={isDeployingAll}
-                                >
-                                    {isDeployingAll ? (
-                                        <>
-                                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                                            Deploying All
-                                        </>
-                                    ) : (
-                                        'Deploy All'
-                                    )}
-                                </Button>
-                                <span className="text-sm text-gray-500">or deploy individually below</span>
-                            </div>
-                        </div>
-                    </div>
+            {/* Knowledge Base selection has been moved to Step 1 */}
 
-                    {/* Individual deployment cards */}
-                    <div className="mt-4 space-y-2">
-                        {data.selectedMcps.map(mcp => (
-                            <div key={mcp.packageId} className="flex items-center justify-between p-3 bg-white border border-blue-200 rounded-lg">
-                                <div className="flex items-center space-x-3">
-                                    <Avatar className="size-8">
-                                        <AvatarImage src={mcp.iconUrl || undefined} />
-                                        <AvatarFallback>
-                                            {mcp.name.charAt(0).toUpperCase()}
-                                        </AvatarFallback>
-                                    </Avatar>
-                                    <div>
-                                        <p className="text-sm font-medium text-gray-900">
-                                            {mcp.name}
-                                        </p>
-                                        <p className="text-xs text-gray-500">
-                                            {mcp.shortDescription}
-                                        </p>
-                                    </div>
-                                </div>
-
-                                <div className="flex items-center space-x-2">
-                                    {data.mcpDeployments[mcp.packageId]?.status === 'deployed' && (
-                                        <Badge className="bg-green-100 text-green-800">
-                                            Deployed
-                                        </Badge>
-                                    )}
-                                    {data.mcpDeployments[mcp.packageId]?.status === 'deploying' && (
-                                        <Badge className="bg-blue-100 text-blue-800">
-                                            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                                            Deploying
-                                        </Badge>
-                                    )}
-                                    {data.mcpDeployments[mcp.packageId]?.status === 'failed' && (
-                                        <Badge className="bg-red-100 text-red-800">
-                                            Failed
-                                        </Badge>
-                                    )}
-
-                                    {data.mcpDeployments[mcp.packageId]?.status !== 'deployed' && data.mcpDeployments[mcp.packageId]?.status !== 'deploying' && (
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            onClick={() => deployPackage(mcp)}
-                                            disabled={deployingPackageId === mcp.packageId}
-                                        >
-                                            {deployingPackageId === mcp.packageId ? (
-                                                <>
-                                                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                                                    Deploying
-                                                </>
-                                            ) : (
-                                                'Deploy'
-                                            )}
-                                        </Button>
-                                    )}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
+            {/* MCP Deploy Dialog */}
+            {selectedPackageForDeploy && (
+                <McpDeployDialog
+                    package={selectedPackageForDeploy}
+                    open={mcpDeployOpen}
+                    onOpenChange={(open) => {
+                        setMcpDeployOpen(open);
+                        if (!open) {
+                            setSelectedPackageForDeploy(null);
+                            // Refresh deployment data
+                            queryClient.invalidateQueries();
+                        }
+                    }}
+                    onSuccess={(deploymentId) => {
+                        // Update workflow data with successful deployment
+                        updateData({
+                            mcpDeployments: {
+                                ...data.mcpDeployments,
+                                [selectedPackageForDeploy.packageId]: {
+                                    packageId: selectedPackageForDeploy.packageId,
+                                    deploymentId,
+                                    status: 'deployed'
+                                }
+                            },
+                            // Also update the deploymentIds array for the API call
+                            deploymentIds: [
+                                ...data.deploymentIds.filter(id => id !== deploymentId), // Remove if already exists
+                                deploymentId // Add the new deployment ID
+                            ]
+                        });
+                    }}
+                />
             )}
 
-            {/* Knowledge Base selection has been moved to Step 1 */}
+            {/* Auth Method Dialog */}
+            {selectedServiceForAuth && (
+                <AuthMethodDialog
+                    method={selectedServiceForAuth}
+                    open={authDialogOpen}
+                    onOpenChange={(open) => {
+                        setAuthDialogOpen(open);
+                        if (!open) {
+                            setSelectedServiceForAuth(null);
+                            // Refresh auth data
+                            queryClient.invalidateQueries({ queryKey: hubQueries.userAuth() });
+                        }
+                    }}
+                    onSuccess={(connectionId, serviceName) => {
+                        // Update workflow data with new connection
+                        const packageId = data.selectedMcps.find(pkg => {
+                            const authQuery = authQueries.find(q => q.packageId === pkg.packageId);
+                            const authScopes = authQuery?.authScopes.data;
+                            const requiredServices = Object.keys(authScopes?.serviceClientMap || {});
+                            return requiredServices.includes(serviceName);
+                        })?.packageId;
+
+                        if (packageId) {
+                            updateData({
+                                selectedConnections: {
+                                    ...data.selectedConnections,
+                                    [packageId]: {
+                                        ...data.selectedConnections[packageId],
+                                        [serviceName]: connectionId
+                                    }
+                                }
+                            });
+                        }
+
+                        // Refresh auth queries
+                        queryClient.invalidateQueries({ queryKey: hubQueries.userAuth() });
+                    }}
+                />
+            )}
 
         </div>
     );

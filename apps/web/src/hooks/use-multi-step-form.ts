@@ -21,6 +21,7 @@ export interface MultiStepFormActions<T = any> {
 export interface UseMultiStepFormOptions<T = any> {
     totalSteps: number;
     initialData: T;
+    initialStep?: number;
     onStepChange?: (step: number) => void;
     onComplete?: (data: T) => void;
 }
@@ -28,10 +29,11 @@ export interface UseMultiStepFormOptions<T = any> {
 export function useMultiStepForm<T = any>({
     totalSteps,
     initialData,
+    initialStep = 1,
     onStepChange,
     onComplete
 }: UseMultiStepFormOptions<T>): [MultiStepFormState<T>, MultiStepFormActions<T>] {
-    const [currentStep, setCurrentStep] = useState(1);
+    const [currentStep, setCurrentStep] = useState(initialStep);
     const [data, setData] = useState<T>(initialData);
     const [isValid, setIsValid] = useState(false);
 

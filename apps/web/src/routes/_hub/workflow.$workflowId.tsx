@@ -3,10 +3,13 @@ import { createFileRoute } from '@tanstack/react-router'
 import { WorkflowStepsContainer } from '@/components/features/workflow/workflow-steps-container'
 import { Button } from '@/components/ui/button'
 import { Play, Edit, Loader2 } from 'lucide-react'
-import { useAppStore } from '@/lib/store'
+import { useAppStore, type WorkflowExecutionData } from '@/lib/store'
 import { useQuery } from '@tanstack/react-query'
 import { chatQueries } from '@/lib/queries'
 import { useExecuteWorkflowMutation } from '@/lib/mutations'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { WorkflowExecutionHistory } from '@/components/workflow-execution-history'
+import { useState, useEffect } from 'react'
 
 
 export const Route = createFileRoute('/_hub/workflow/$workflowId')({
@@ -15,8 +18,17 @@ export const Route = createFileRoute('/_hub/workflow/$workflowId')({
 
 function RouteComponent() {
     const { workflowId } = Route.useParams()
-    const { openWorkflowEditSidebar } = useAppStore()
+    const { openWorkflowEditSidebar, openWorkflowExecutionSidebar, selectedWorkflowExecution } = useAppStore()
     const executeWorkflowMutation = useExecuteWorkflowMutation()
+    const [activeTab, setActiveTab] = useState('flow')
+    const [currentExecution, setCurrentExecution] = useState<WorkflowExecutionData | null>(null)
+
+    // Sync currentExecution with store updates
+    useEffect(() => {
+        if (selectedWorkflowExecution && currentExecution?.executionId === selectedWorkflowExecution.executionId) {
+            setCurrentExecution(selectedWorkflowExecution)
+        }
+    }, [selectedWorkflowExecution, currentExecution?.executionId])
 
     const { data: workflow, isLoading, error } = useQuery(
         chatQueries.workflowOptions(workflowId)
@@ -30,7 +42,27 @@ function RouteComponent() {
 
     const handleExecuteWorkflow = async () => {
         if (workflow) {
-            executeWorkflowMutation.mutate({ workflowId: workflow.id })
+            try {
+                const result = await executeWorkflowMutation.mutateAsync({ workflowId: workflow.id })
+
+                // Create execution data
+                const executionData: WorkflowExecutionData = {
+                    executionId: result.executionId,
+                    workflowId: result.workflowId,
+                    workflowTitle: workflow.title,
+                    status: result.status,
+                    startedAt: result.startedAt,
+                }
+
+                // Set current execution and switch to history tab
+                setCurrentExecution(executionData)
+                setActiveTab('history')
+
+                // Open the execution sidebar
+                openWorkflowExecutionSidebar(executionData)
+            } catch (error) {
+                console.error('Failed to execute workflow:', error)
+            }
         }
     }
 
@@ -80,31 +112,50 @@ function RouteComponent() {
                     </div>
                 </div>
 
-                <div className='space-y-6'>
-                    <WorkflowStepsContainer workflowData={workflow} />
+                <div className='flex w-full'>
+                    <Tabs value={activeTab} className='w-full' onValueChange={setActiveTab}>
+                        <TabsList className='z-20'>
+                            <TabsTrigger value='flow'>Flow</TabsTrigger>
+                            <TabsTrigger value='history'>History</TabsTrigger>
+                        </TabsList>
+                        <div className='bg-primary-100 w-full h-[1px] -translate-y-[3px]' />
+                        <TabsContent value='flow' className='w-full'>
+                            <div className='space-y-6 w-full'>
+                                <WorkflowStepsContainer workflowData={workflow} />
 
-                    {/* Start Button */}
-                    <div className='pt-4'>
-                        <Button
-                            onClick={handleExecuteWorkflow}
-                            disabled={executeWorkflowMutation.isPending}
-                            className='w-full bg-primary-800 hover:bg-primary-900 text-white'
-                        >
-                            {executeWorkflowMutation.isPending ? (
-                                <>
-                                    <Loader2 size={16} className='mr-2 animate-spin' />
-                                    Starting...
-                                </>
-                            ) : (
-                                <>
-                                    <Play size={16} className='mr-2' />
-                                    Start now
-                                </>
-                            )}
-                        </Button>
-                    </div>
+                                {/* Start Button */}
+                                <div className='pt-4 w-full'>
+                                    <Button
+                                        onClick={handleExecuteWorkflow}
+                                        disabled={executeWorkflowMutation.isPending}
+                                        className='w-full bg-primary-800 hover:bg-primary-900 text-white'
+                                    >
+                                        {executeWorkflowMutation.isPending ? (
+                                            <>
+                                                <Loader2 size={16} className='mr-2 animate-spin' />
+                                                Starting...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Play size={16} className='mr-2' />
+                                                Start now
+                                            </>
+                                        )}
+                                    </Button>
+                                </div>
+                            </div>
+                        </TabsContent>
+                        <TabsContent value='history' className='w-full'>
+                            <WorkflowExecutionHistory
+                                workflowId={workflow.id}
+                                workflowTitle={workflow.title}
+                                currentExecution={currentExecution}
+                            />
+                        </TabsContent>
+                    </Tabs>
+
                 </div>
             </div>
-        </div>
+        </div >
     )
 }
