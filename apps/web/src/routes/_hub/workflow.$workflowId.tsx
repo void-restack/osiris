@@ -1,6 +1,5 @@
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { createFileRoute } from '@tanstack/react-router'
-import { WorkflowStepsContainer } from '@/components/features/workflow/workflow-steps-container'
 import { Button } from '@/components/ui/button'
 import { Play, Edit, Loader2 } from 'lucide-react'
 import { useAppStore, type WorkflowExecutionData } from '@/lib/store'
@@ -121,28 +120,7 @@ function RouteComponent() {
                         <div className='bg-primary-100 w-full h-[1px] -translate-y-[3px]' />
                         <TabsContent value='flow' className='w-full'>
                             <div className='space-y-6 w-full'>
-                                <WorkflowStepsContainer workflowData={workflow} />
-
-                                {/* Start Button */}
-                                <div className='pt-4 w-full'>
-                                    <Button
-                                        onClick={handleExecuteWorkflow}
-                                        disabled={executeWorkflowMutation.isPending}
-                                        className='w-full bg-primary-800 hover:bg-primary-900 text-white'
-                                    >
-                                        {executeWorkflowMutation.isPending ? (
-                                            <>
-                                                <Loader2 size={16} className='mr-2 animate-spin' />
-                                                Starting...
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Play size={16} className='mr-2' />
-                                                Start now
-                                            </>
-                                        )}
-                                    </Button>
-                                </div>
+                                workflow steps
                             </div>
                         </TabsContent>
                         <TabsContent value='history' className='w-full'>
