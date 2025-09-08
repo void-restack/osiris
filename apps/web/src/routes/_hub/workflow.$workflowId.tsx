@@ -9,7 +9,7 @@ import { useExecuteWorkflowMutation } from '@/lib/mutations'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { WorkflowExecutionHistory } from '@/components/workflow-execution-history'
 import { useState, useEffect } from 'react'
-
+import WorkflowStepsContainer from '@/components/features/workflow/workflow-steps-container'
 
 export const Route = createFileRoute('/_hub/workflow/$workflowId')({
     component: RouteComponent,
@@ -22,7 +22,6 @@ function RouteComponent() {
     const [activeTab, setActiveTab] = useState('flow')
     const [currentExecution, setCurrentExecution] = useState<WorkflowExecutionData | null>(null)
 
-    // Sync currentExecution with store updates
     useEffect(() => {
         if (selectedWorkflowExecution && currentExecution?.executionId === selectedWorkflowExecution.executionId) {
             setCurrentExecution(selectedWorkflowExecution)
@@ -83,7 +82,7 @@ function RouteComponent() {
     }
 
     return (
-        <div className='p-8 w-full flex flex-col'>
+        <div className='px-8 pt-8 w-full flex flex-col'>
             <div className='relative'>
                 <ScrollArea className='w-full h-20 rounded-lg bg-primary-50 hidebar text-pretty p-2 mb-14'>
                     {workflow.description}
@@ -100,28 +99,26 @@ function RouteComponent() {
 
             <div className='flex w-full flex-col'>
                 <div className='flex flex-col items-start gap-2 mb-8'>
-                    <h2 className='text-primary-800 text-xl'>Workflow Steps</h2>
-                    <div className="flex items-center gap-4 text-sm text-primary-300">
+                    <h2 className='text-primary-800 text-xl'>{workflow.title}</h2>
+                    {/* <div className="flex items-center gap-4 text-sm text-primary-300">
                         <span>Last run: 2 hrs ago</span>
                         {workflow.isPublic && (
                             <span className="bg-green-50 text-green-600 px-2 py-1 rounded-full text-xs">
                                 Public
                             </span>
                         )}
-                    </div>
+                    </div> */}
                 </div>
 
-                <div className='flex w-full'>
+                <div className='flex w-full h-full'>
                     <Tabs value={activeTab} className='w-full' onValueChange={setActiveTab}>
                         <TabsList className='z-20'>
                             <TabsTrigger value='flow'>Flow</TabsTrigger>
                             <TabsTrigger value='history'>History</TabsTrigger>
                         </TabsList>
                         <div className='bg-primary-100 w-full h-[1px] -translate-y-[3px]' />
-                        <TabsContent value='flow' className='w-full'>
-                            <div className='space-y-6 w-full'>
-                                workflow steps
-                            </div>
+                        <TabsContent value='flow' className='w-full h-full'>
+                            <WorkflowStepsContainer workflowData={workflow} />
                         </TabsContent>
                         <TabsContent value='history' className='w-full'>
                             <WorkflowExecutionHistory
@@ -131,9 +128,8 @@ function RouteComponent() {
                             />
                         </TabsContent>
                     </Tabs>
-
                 </div>
             </div>
-        </div >
+        </div>
     )
 }

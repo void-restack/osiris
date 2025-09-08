@@ -1,5 +1,5 @@
 import { X, Loader2, CheckCircle2, XCircle, Clock } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useAppStore } from "@/lib/store";
 import { Badge } from "@/components/ui/badge";
@@ -213,28 +213,24 @@ export function WorkflowExecutionSidebar() {
         updateSelectedWorkflowExecution,
     } = useAppStore();
 
-    // Determine if this is a running execution or a completed one
     const isRunningExecution = selectedWorkflowExecution?.status === 'running' ||
         selectedWorkflowExecution?.status === 'pending' ||
         (selectedWorkflowExecution?.status as any) === 'queued';
 
-    // Only use stream for running executions
     const executionId = isRunningExecution ? (selectedWorkflowExecution?.executionId || selectedWorkflowExecution?.id || null) : null;
     const workflowStream = useWorkflowStream(executionId);
 
-    // Update store when workflow completes
     useEffect(() => {
         if (selectedWorkflowExecution && (workflowStream.status === 'completed' || workflowStream.status === 'failed')) {
             const updatedExecution = {
                 ...selectedWorkflowExecution,
                 status: workflowStream.status === 'completed' ? 'completed' : 'failed',
                 completedAt: new Date().toISOString()
-            } as any; // Add type assertion for the status
+            } as any;
             updateSelectedWorkflowExecution(updatedExecution);
         }
     }, [workflowStream.status, selectedWorkflowExecution, updateSelectedWorkflowExecution]);
 
-    // For completed executions, fetch the details from API
     const { data: executionDetails, isLoading: isLoadingDetails } = useQuery({
         ...chatQueries.workflowExecutionOptions(selectedWorkflowExecution?.executionId || ''),
         enabled: !isRunningExecution && !!selectedWorkflowExecution?.executionId

@@ -5,17 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { CheckCircle2, XCircle, Clock, Loader2, Play, MoreVertical } from "lucide-react";
-import { formatDistance } from "date-fns";
 import { useAppStore } from "@/lib/store";
 import type { WorkflowExecutionData } from "@/lib/store";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import {
-    Task,
-    TaskContent,
-    TaskItem,
-    TaskTrigger
-} from "@/components/ai-elements/task";
-import { Response } from "@/components/ai-elements/response";
 import { Icon } from "./ui/icon";
 
 interface WorkflowExecutionHistoryProps {
