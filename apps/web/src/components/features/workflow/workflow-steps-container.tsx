@@ -22,6 +22,7 @@ import { EditStepDialog } from "./edit-step-dialog"
 import { type WorkflowData } from "@/lib/store"
 import { useUpdateWorkflowMutation } from "@/lib/mutations"
 import { toast } from "sonner"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
 const convertApiStepsToWorkflowSteps = (apiSteps: WorkflowData['workflow']): WorkflowStep[] => {
     return apiSteps.map((step, index) => ({
@@ -222,7 +223,7 @@ export default function WorkflowStepsContainer({ workflowData }: WorkflowStepsCo
     }
 
     return (
-        <div className="space-y-2 mt-6">
+        <ScrollArea className="space-y-2 mt-6 h-[calc(100vh-480px)]">
             <DndContext
                 sensors={sensors}
                 collisionDetection={closestCenter}
@@ -269,6 +270,6 @@ export default function WorkflowStepsContainer({ workflowData }: WorkflowStepsCo
                 step={editingStep}
                 workflowData={workflowData}
             />
-        </div>
+        </ScrollArea>
     )
 }

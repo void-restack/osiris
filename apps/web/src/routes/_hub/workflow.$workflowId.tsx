@@ -119,6 +119,25 @@ function RouteComponent() {
                         <div className='bg-primary-100 w-full h-[1px] -translate-y-[3px]' />
                         <TabsContent value='flow' className='w-full h-full'>
                             <WorkflowStepsContainer workflowData={workflow} />
+                            <div className='pt-4 w-full'>
+                                <Button
+                                    onClick={handleExecuteWorkflow}
+                                    disabled={executeWorkflowMutation.isPending}
+                                    className='w-full bg-primary-800 hover:bg-primary-900 text-white'
+                                >
+                                    {executeWorkflowMutation.isPending ? (
+                                        <>
+                                            <Loader2 size={16} className='mr-2 animate-spin' />
+                                            Starting...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Play size={16} className='mr-2' />
+                                            Start now
+                                        </>
+                                    )}
+                                </Button>
+                            </div>
                         </TabsContent>
                         <TabsContent value='history' className='w-full'>
                             <WorkflowExecutionHistory

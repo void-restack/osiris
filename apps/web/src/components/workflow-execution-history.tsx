@@ -76,7 +76,7 @@ const ExecutionCard = ({
         <div className="h-20 w-full rounded-lg">
             <button type="button" onClick={() => onViewExecution(execution)} className="w-full cursor-pointer flex bg-primary-50 items-center justify-between gap-4 rounded-lg h-20 px-4">
                 <div className="flex w-full">
-                    {(isCurrentExecution || execution.status === 'running') ? <Loader2 className="animate-spin" /> : execution.error ?
+                    {(isCurrentExecution && execution.status === 'running') ? <Loader2 className="animate-spin" /> : execution.error ?
                         <div className="flex items-center gap-2">
                             <XCircle className="h-4 w-4 text-red-600" />
                             <span>Error</span>

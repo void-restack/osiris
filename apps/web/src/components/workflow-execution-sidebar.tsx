@@ -257,12 +257,6 @@ export function WorkflowExecutionSidebar() {
                 <div className="flex flex-col">
                     <h2 className="text-lg font-medium text-gray-900">Workflow Execution</h2>
                     <p className="text-sm text-gray-500">{selectedWorkflowExecution.workflowTitle}</p>
-                    <p className="text-xs text-gray-400">
-                        {selectedWorkflowExecution.startedAt
-                            ? `Started ${formatRelativeTime(selectedWorkflowExecution.startedAt)}`
-                            : 'Starting soon...'
-                        }
-                    </p>
                 </div>
                 <Button
                     variant="ghost"
