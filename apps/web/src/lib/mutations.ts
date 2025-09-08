@@ -319,16 +319,17 @@ export const useCreateServiceConnectionMutation = () => {
       return response.data;
     },
     onSuccess: (data, variables) => {
-      // Check if this is a popup flow (has popup=true in redirectUri)
+      // Check if this is a popup flow (has popup=true in redirectUri) or preventRedirect is true
       const isPopup = variables.redirectUri?.includes('popup=true');
+      const shouldPreventRedirect = variables.preventRedirect === true;
 
-      if (!isPopup) {
+      if (!isPopup && !shouldPreventRedirect) {
         // Regular flow - redirect as before
         localStorage.setItem('oauth-pending-refresh', 'true');
         localStorage.setItem('oauth-service-name', variables.serviceClientName);
         window.location.href = data.url;
       }
-      // For popup flow, just return the URL without redirecting
+      // For popup flow or preventRedirect, just return the URL without redirecting
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: hubQueries.userAuth() });

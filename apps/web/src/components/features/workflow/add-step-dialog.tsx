@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useCallback, useMemo } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -7,10 +7,21 @@ import { Textarea } from "@/components/ui/textarea"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Badge } from "@/components/ui/badge"
-import { PencilLine, Plus, ChevronLeft, ChevronRight, X } from "lucide-react"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { PermissionSelector, type Permission } from "@/components/ui/permission-selector"
+import { PencilLine, ChevronLeft, ChevronRight, X, Settings, Rocket, Loader2, CheckCircle, AlertCircle } from "lucide-react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { packageQueries, knowledgeQueries } from "@/lib/queries"
+import { packageQueries, knowledgeQueries, hubQueries, userQueries } from "@/lib/queries"
+import { useCreateServiceConnectionMutation, useCreateSecretSharingMutation, useCreateWalletMutation } from "@/lib/mutations"
+import { useAuth } from "@/hooks/use-auth"
+import { getInitials } from "@/lib/utils"
+import { getReadableScopes, transformScopeDefinitions } from "@/lib/scope-utils"
+import { getScopeDisplayName } from "@/lib/scope-definitions"
 import { type WorkflowStep } from "./workflow-step-item"
+import { toast } from "sonner"
 
 interface AddStepDialogProps {
     open: boolean
@@ -28,15 +39,42 @@ type StepData = {
     knowledgeBases: Array<any> // Full knowledge base objects
 }
 
+interface McpStatus {
+    oauthStatus: 'not_configured' | 'configured' | 'failed'
+    deploymentStatus: 'not_deployed' | 'deployed' | 'failed'
+    oauthData?: any
+    deploymentData?: any
+}
+
 const TOTAL_STEPS = 3
 
 export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, nextStepName, prevStepName }: AddStepDialogProps) {
-    const [currentStep, setCurrentStep] = useState(1)
+    const queryClient = useQueryClient()
+    const [currentStep, setCurrentStep] = useState<number | '2.1' | '2.2'>(1)
     const [mcpCommandOpen, setMcpCommandOpen] = useState(false)
     const [kbCommandOpen, setKbCommandOpen] = useState(false)
     const [mcpSearchQuery, setMcpSearchQuery] = useState("")
     const [kbSearchQuery, setKbSearchQuery] = useState("")
-    const queryClient = useQueryClient()
+    const [selectedMcpForConfig, setSelectedMcpForConfig] = useState<any>(null)
+    const [selectedMcpForDeploy, setSelectedMcpForDeploy] = useState<any>(null)
+    const [mcpStatuses, setMcpStatuses] = useState<Record<string, McpStatus>>({})
+
+    // OAuth configuration state
+    const [selectedPermissions, setSelectedPermissions] = useState<Record<string, Permission[]>>({})
+    const [selectedConnections, setSelectedConnections] = useState<Record<string, string>>({})
+    const [authHubName, setAuthHubName] = useState("")
+    const [connectionState, setConnectionState] = useState<{
+        status: 'idle' | 'connecting' | 'success' | 'error';
+        error?: string;
+        connectionId?: string;
+    }>({ status: 'idle' })
+
+    const { isAuthenticated } = useAuth()
+
+    // OAuth mutations
+    const createServiceConnection = useCreateServiceConnectionMutation()
+    const createSecretSharing = useCreateSecretSharingMutation()
+    const createWallet = useCreateWalletMutation()
 
     const [formData, setFormData] = useState<StepData>({
         name: "",
@@ -44,6 +82,25 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
         mcpProviders: [],
         knowledgeBases: [],
     })
+
+    // OAuth configuration queries
+    const { data: user } = useQuery(userQueries.meOptions(isAuthenticated))
+    const { data: allUserAuth } = useQuery(hubQueries.userAuthOptions(isAuthenticated))
+    const { data: authMethods } = useQuery(hubQueries.authMethodsOptions())
+
+    // Get auth scopes for selected MCP
+    const { data: authScopes } = useQuery({
+        ...packageQueries.authScopesOptions(selectedMcpForConfig?.packageId || ''),
+        enabled: !!selectedMcpForConfig?.packageId
+    })
+
+    const userAuth = useMemo(() => {
+        if (!allUserAuth || !authScopes) return []
+        const allowedServices = Object.keys(authScopes?.serviceClientMap || {})
+        return allUserAuth.filter((connection: any) =>
+            allowedServices.includes(connection.service_clients.name)
+        )
+    }, [allUserAuth, authScopes])
 
     // MCP queries - return full objects
     const { data: popularPackages } = useQuery({
@@ -136,20 +193,115 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
                 return true // Deployment step can be empty for now
             case 3:
                 return true // Step 3 is now empty, always valid
+            case '2.1':
+            case '2.2':
+                return true // Pseudo-steps are always valid
             default:
                 return false
         }
     }
 
     const handleNext = () => {
-        if (validateCurrentStep() && currentStep < TOTAL_STEPS) {
-            setCurrentStep(prev => prev + 1)
+        if (validateCurrentStep() && typeof currentStep === 'number' && currentStep < TOTAL_STEPS) {
+            setCurrentStep(prev => (prev as number) + 1)
         }
     }
 
     const handlePrevious = () => {
-        if (currentStep > 1) {
-            setCurrentStep(prev => prev - 1)
+        if (typeof currentStep === 'number' && currentStep > 1) {
+            setCurrentStep(prev => (prev as number) - 1)
+        } else if (currentStep === '2.1' || currentStep === '2.2') {
+            setCurrentStep(2)
+        }
+    }
+
+    const handleConfigureOAuth = (mcp: any) => {
+        setSelectedMcpForConfig(mcp)
+        setAuthHubName(`${mcp.name} connection`)
+        setCurrentStep('2.1')
+    }
+
+    const handleDeployMcp = (mcp: any) => {
+        setSelectedMcpForDeploy(mcp)
+        setCurrentStep('2.2')
+    }
+
+    const handleBackToMcpList = () => {
+        setCurrentStep(2)
+        setSelectedMcpForConfig(null)
+        setSelectedMcpForDeploy(null)
+        setConnectionState({ status: 'idle' })
+        setSelectedPermissions({})
+        setSelectedConnections({})
+    }
+
+    // OAuth configuration functions
+    const handlePermissionSelect = useCallback((serviceName: string, permissions: Permission[]) => {
+        setSelectedPermissions(prev => ({ ...prev, [serviceName]: permissions }))
+    }, [])
+
+    const handleConnectionSelect = (serviceName: string, connectionId: string) => {
+        setSelectedConnections(prev => ({
+            ...prev,
+            [serviceName]: connectionId
+        }))
+    }
+
+    const handleSaveAuthenticator = async () => {
+        if (!selectedMcpForConfig) return
+
+        try {
+            setConnectionState({ status: 'connecting' })
+
+            const requiredServices = Object.keys(authScopes?.serviceClientMap || {})
+            const serviceName = requiredServices[0] // GitHub is the only service for GitHub MCP
+
+            if (!serviceName) {
+                toast.error("No service found for this MCP")
+                setConnectionState({ status: 'idle' })
+                return
+            }
+
+            const serviceClient = authScopes?.serviceClients?.find((sc: any) => sc.name === serviceName)
+            if (!serviceClient) {
+                toast.error("Service client not found")
+                setConnectionState({ status: 'idle' })
+                return
+            }
+
+            // Create OAuth connection without redirect
+            await createServiceConnection.mutateAsync({
+                serviceClientName: serviceName,
+                scopes: selectedPermissions[serviceName]?.map(permission => permission.id) || [],
+                name: authHubName,
+                redirectUri: window.location.href,
+                preventRedirect: true
+            })
+
+            setConnectionState({ status: 'success' })
+            toast.success("GitHub OAuth connection created successfully!")
+
+            // Update MCP status
+            const mcpId = selectedMcpForConfig.id || selectedMcpForConfig.packageId
+            setMcpStatuses(prev => ({
+                ...prev,
+                [mcpId]: {
+                    ...prev[mcpId],
+                    oauthStatus: 'configured',
+                    oauthData: { serviceName, connectionId: 'connected' }
+                }
+            }))
+
+            // Auto-close after success
+            setTimeout(() => {
+                handleBackToMcpList()
+            }, 1500)
+
+        } catch (error: any) {
+            console.error("OAuth configuration error:", error)
+            const errorMessage = error?.message || "Failed to create OAuth connection"
+            setConnectionState({ status: 'error', error: errorMessage })
+            toast.error(errorMessage)
         }
     }
 
@@ -178,6 +330,13 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
         setKbCommandOpen(false)
         setMcpSearchQuery("")
         setKbSearchQuery("")
+        setSelectedMcpForConfig(null)
+        setSelectedMcpForDeploy(null)
+        setMcpStatuses({})
+        setSelectedPermissions({})
+        setSelectedConnections({})
+        setAuthHubName("")
+        setConnectionState({ status: 'idle' })
         setFormData({
             name: "",
             prompt: "",
@@ -355,74 +514,283 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
             case 2:
                 return (
                     <div className="space-y-6">
-                        Deployment Step
+                        {/* MCP Deployment Section */}
+                        <div className="space-y-4">
+                            <h3 className="text-sm font-medium text-primary-400">MCP Providers</h3>
+                            {formData.mcpProviders.length > 0 ? (
+                                <div className="space-y-3">
+                                    {formData.mcpProviders.map((mcp) => {
+                                        const mcpId = mcp.id || mcp.packageId
+                                        const status = mcpStatuses[mcpId] || { oauthStatus: 'not_configured', deploymentStatus: 'not_deployed' }
+
+                                        return (
+                                            <div key={mcpId} className="p-4 w-full border rounded-lg">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-8 h-8 rounded bg-primary-100 flex items-center justify-center">
+                                                            <span className="text-xs font-medium">{mcp.name.charAt(0).toUpperCase()}</span>
+                                                        </div>
+                                                        <div>
+                                                            <h4 className="font-medium text-sm">{mcp.name}</h4>
+                                                            <div className="flex gap-2 mt-1">
+                                                                {/* <Badge
+                                                                    variant={status.oauthStatus === 'configured' ? 'default' : 'secondary'}
+                                                                    className="text-xs"
+                                                                >
+                                                                    OAuth: {status.oauthStatus}
+                                                                </Badge> */}
+                                                                <Badge
+                                                                    variant={status.deploymentStatus === 'deployed' ? 'default' : 'secondary'}
+                                                                    className="text-xs"
+                                                                >
+                                                                    Status: {status.deploymentStatus}
+                                                                </Badge>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex gap-2">
+                                                        <Button
+                                                            size="xs"
+                                                            variant="outline"
+                                                            onClick={() => handleConfigureOAuth(mcp)}
+                                                            className="flex items-center gap-1"
+                                                        >
+                                                            <Settings size={12} />
+                                                            Configure
+                                                        </Button>
+                                                        <Button
+                                                            size="xs"
+                                                            variant="outline"
+                                                            onClick={() => handleDeployMcp(mcp)}
+                                                            className="flex items-center gap-1"
+                                                        >
+                                                            <Rocket size={12} />
+                                                            Deploy
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            ) : (
+                                <p className="text-sm text-primary-300">No MCP providers selected</p>
+                            )}
+                        </div>
+
+                        {/* Knowledge Bases Section */}
+                        <div className="space-y-4">
+                            <h3 className="text-sm font-medium text-primary-400">Knowledge Bases</h3>
+                            {formData.knowledgeBases.length > 0 ? (
+                                <div className="flex flex-wrap gap-2">
+                                    {formData.knowledgeBases.map((kb) => {
+                                        const kbData = kb.knowledge_bases || kb
+                                        const kbId = kbData.knowledgeBaseId
+                                        const kbName = kbData.name
+                                        return (
+                                            <Badge key={kbId} variant="secondary" className="text-xs">
+                                                {kbName.length > 20 ? `${kbName.substring(0, 20)}...` : kbName}
+                                            </Badge>
+                                        )
+                                    })}
+                                </div>
+                            ) : (
+                                <p className="text-sm text-primary-300">No knowledge bases selected</p>
+                            )}
+                        </div>
                     </div>
                 )
+            case '2.1':
+                return (
+                    <div>
+                        {/* Header */}
+                        <div className="text-center">
+                            <h3 className="text-lg font-medium mb-2">Configure OAuth for {selectedMcpForConfig?.name}</h3>
+                            <p className="text-sm text-primary-300">Set up OAuth connections and permissions</p>
+                        </div>
+
+                        {/* User and Service Avatars */}
+                        <div className="flex items-center justify-center gap-4">
+                            <Avatar className="size-10">
+                                <AvatarImage src={user?.profileImageUrl} alt={user?.name || 'User'} />
+                                <AvatarFallback className="rounded-sm">
+                                    {user ? getInitials(user.name) : 'U'}
+                                </AvatarFallback>
+                            </Avatar>
+                            <Avatar className="size-10">
+                                <AvatarImage src={selectedMcpForConfig?.iconUrl} alt={selectedMcpForConfig?.name} />
+                                <AvatarFallback className="rounded-sm">
+                                    {selectedMcpForConfig?.name?.charAt(0).toUpperCase()}
+                                </AvatarFallback>
+                            </Avatar>
+                        </div>
+
+                        {/* Connection Name */}
+                        <div className="space-y-2">
+                            <Label htmlFor="auth_hub_name" className="text-sm font-medium">Connection Name</Label>
+                            <Input
+                                id="auth_hub_name"
+                                type="text"
+                                value={authHubName}
+                                onChange={(e) => setAuthHubName(e.target.value)}
+                                placeholder={`${selectedMcpForConfig?.name} connection`}
+                                disabled={connectionState.status === 'connecting'}
+                            />
+                        </div>
+
+                        {/* OAuth Configuration - ScrollArea for dropdown expansion */}
+                        <ScrollArea className="max-h-[400px]">
+                            <div className="pr-4">
+                                {authScopes?.serviceClients?.map((serviceClient: any) => {
+                                    const serviceName = serviceClient.name
+                                    const requiredScopes = authScopes?.serviceClientMap?.[serviceName] || []
+                                    const serviceConnections = userAuth.filter((c: any) => c.service_clients.name === serviceName)
+
+                                    // Transform scope definitions without hooks
+                                    const permissions = serviceClient.scopeDefinitions ?
+                                        Object.entries(transformScopeDefinitions(serviceClient.name, serviceClient.scopeDefinitions)).map(([scope, label]) => ({
+                                            id: scope,
+                                            label: getScopeDisplayName(scope) || String(label)
+                                        })) : []
+
+                                    const handleServicePermissionSelect = (perms: Permission[]) => handlePermissionSelect(serviceName, perms)
+                                    const initialSelected = selectedPermissions[serviceName] || []
+
+                                    return (
+                                        <Accordion key={serviceName} type="single" collapsible className="border border-primary-100 rounded-[6px]">
+                                            <AccordionItem value={serviceName} className="border-none">
+                                                <AccordionTrigger className="px-4 py-3 hover:no-underline">
+                                                    <div className="flex items-center gap-3 w-full">
+                                                        <Avatar className="size-10 rounded-[6px] shadow-xl">
+                                                            <AvatarImage
+                                                                src={serviceClient.iconUrl}
+                                                                alt={serviceName}
+                                                                className="rounded-[6px]"
+                                                            />
+                                                            <AvatarFallback className="bg-purple-300 text-white font-bold text-lg capitalize rounded-[6px]">
+                                                                {serviceName.charAt(0)}
+                                                            </AvatarFallback>
+                                                        </Avatar>
+                                                        <div className="flex flex-col items-start flex-1">
+                                                            <h3 className="text-primary-800 capitalize font-medium">{serviceName} Account</h3>
+                                                            <p className="text-[13px] text-primary-300">Select permissions to grant</p>
+                                                        </div>
+                                                    </div>
+                                                </AccordionTrigger>
+                                                <AccordionContent className="px-4 pb-4">
+                                                    {/* Permissions */}
+                                                    {permissions.length > 0 && (
+                                                        <div className="mb-6">
+                                                            <p className="text-sm font-medium text-primary-800 mb-3">Select permissions to grant:</p>
+                                                            <PermissionSelector
+                                                                context="deploy-dialog"
+                                                                key={`deploy-${serviceName}`}
+                                                                permissions={permissions}
+                                                                placeholder={`Search ${serviceName} permissions...`}
+                                                                onSelectionChange={handleServicePermissionSelect}
+                                                                initialSelected={initialSelected}
+                                                            />
+                                                        </div>
+                                                    )}
+
+                                                    {/* Existing Connections */}
+                                                    {serviceConnections.length > 0 && (
+                                                        <div className="mb-6">
+                                                            <p className="text-sm font-medium text-primary-800 mb-3">Your connected accounts:</p>
+                                                            <RadioGroup
+                                                                value={selectedConnections[serviceName] || ''}
+                                                                onValueChange={(value) => handleConnectionSelect(serviceName, value)}
+                                                                className="space-y-3"
+                                                            >
+                                                                {serviceConnections.map((connection: any) => {
+                                                                    const radioId = `radio-${connection.user_service_connections.id}`
+                                                                    return (
+                                                                        <div key={connection.user_service_connections.id} className="flex items-start space-x-3">
+                                                                            <RadioGroupItem
+                                                                                id={radioId}
+                                                                                value={connection.user_service_connections.id}
+                                                                                className="mt-1"
+                                                                            />
+                                                                            <label
+                                                                                htmlFor={radioId}
+                                                                                className="flex-1 p-3 border border-primary-100 rounded-[6px] hover:border-primary-200 transition-colors cursor-pointer"
+                                                                            >
+                                                                                <div className="flex items-center justify-between mb-2">
+                                                                                    <div className="flex items-center space-x-2">
+                                                                                        <p className="text-sm font-medium text-primary-800">
+                                                                                            {connection.user_service_connections.metadata?.user?.name ||
+                                                                                                connection.user_service_connections.metadata?.user?.email ||
+                                                                                                connection.user_service_connections.name || 'Unknown User'}
+                                                                                        </p>
+                                                                                    </div>
+                                                                                </div>
+                                                                                <p className="text-[13px] text-primary-400 mb-2">
+                                                                                    {connection.user_service_connections.metadata?.user?.email ||
+                                                                                        connection.user_service_connections.metadata?.user?.name || 'No email available'}
+                                                                                </p>
+                                                                                <div className="flex flex-wrap gap-1">
+                                                                                    {connection.user_service_connections.scopes?.map((scope: string) => (
+                                                                                        <Badge key={scope} className="rounded-[6px] bg-primary-100 px-2 py-0.5 text-xs text-primary-800">
+                                                                                            {getScopeDisplayName(scope)}
+                                                                                        </Badge>
+                                                                                    ))}
+                                                                                </div>
+                                                                            </label>
+                                                                        </div>
+                                                                    )
+                                                                })}
+                                                            </RadioGroup>
+                                                        </div>
+                                                    )}
+                                                </AccordionContent>
+                                            </AccordionItem>
+                                        </Accordion>
+                                    )
+                                })}
+                            </div>
+                        </ScrollArea>
+
+                        {/* Status Messages */}
+                        {connectionState.status === 'success' && (
+                            <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                                <div className="flex items-center gap-2">
+                                    <CheckCircle className="size-4 text-green-600" />
+                                    <p className="text-sm text-green-700">OAuth connection created successfully!</p>
+                                </div>
+                            </div>
+                        )}
+
+                        {connectionState.status === 'error' && (
+                            <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                                <div className="flex items-center gap-2">
+                                    <AlertCircle className="size-4 text-red-600" />
+                                    <p className="text-sm text-red-700">{connectionState.error}</p>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )
+
+            case '2.2':
+                return (
+                    <div className="space-y-6">
+                        <div className="text-center">
+                            <h3 className="text-lg font-medium mb-2">Deploy {selectedMcpForDeploy?.name}</h3>
+                            <p className="text-sm text-primary-300">Configure deployment settings and policies</p>
+                        </div>
+
+                        <div className="p-4 border rounded-lg bg-primary-50">
+                            <p className="text-sm text-primary-400">
+                                MCP deployment components will be integrated here.
+                                This will include policy builders and deployment configuration.
+                            </p>
+                        </div>
+                    </div>
+                )
+
             case 3:
                 return (
                     <></>
-                    // <div className="space-y-6">
-                    //     <div className="space-y-2">
-                    //         <Label className="text-sm text-primary-400">MCP Providers *</Label>
-                    //         <Popover open={commandOpen} onOpenChange={setCommandOpen}>
-                    //             <PopoverTrigger asChild>
-                    //                 <Button
-                    //                     variant="outline"
-                    //                     role="combobox"
-                    //                     aria-expanded={commandOpen}
-                    //                     className="justify-between w-full"
-                    //                 >
-                    //                     Select MCP providers...
-                    //                 </Button>
-                    //             </PopoverTrigger>
-                    //             <PopoverContent className="w-full p-0">
-                    //                 <Command>
-                    //                     <CommandInput
-                    //                         placeholder="Search MCP providers..."
-                    //                         value={searchQuery}
-                    //                         onValueChange={setSearchQuery}
-                    //                     />
-                    //                     <CommandList>
-                    //                         <CommandEmpty>No providers found.</CommandEmpty>
-                    //                         {(searchQuery.length >= 2 ? searchResults : popularPackages)?.length > 0 && (
-                    //                             <CommandGroup heading={searchQuery.length >= 2 ? "Search Results" : "Popular Providers"}>
-                    //                                 {(searchQuery.length >= 2 ? searchResults : popularPackages)?.map((provider: { id: string, name: string }) => (
-                    //                                     <CommandItem
-                    //                                         key={provider.id}
-                    //                                         onSelect={() => addMcpProvider(provider)}
-                    //                                         className="cursor-pointer"
-                    //                                     >
-                    //                                         {provider.name}
-                    //                                     </CommandItem>
-                    //                                 ))}
-                    //                             </CommandGroup>
-                    //                         )}
-                    //                     </CommandList>
-                    //                 </Command>
-                    //             </PopoverContent>
-                    //         </Popover>
-
-                    //         {/* Selected providers badges */}
-                    //         {formData.mcpProviders.length > 0 && (
-                    //             <div className="flex flex-wrap gap-2 mt-2">
-                    //                 {formData.mcpProviders.map((provider) => (
-                    //                     <Badge key={provider.id} variant="secondary" className="flex items-center gap-1">
-                    //                         {provider.name}
-                    //                         <Button
-                    //                             type="button"
-                    //                             variant="ghost"
-                    //                             size="sm"
-                    //                             className="h-auto p-0 text-muted-foreground hover:text-foreground"
-                    //                             onClick={() => removeMcpProvider(provider.id)}
-                    //                         >
-                    //                             <X size={12} />
-                    //                         </Button>
-                    //                     </Badge>
-                    //                 ))}
-                    //             </div>
-                    //         )}
-                    //     </div>
-                    // </div>
                 )
             default:
                 return null
@@ -431,7 +799,7 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="p-4 max-w-md">
+            <DialogContent className="p-4 max-w-md max-h-[90vh] overflow-hidden">
                 <DialogHeader className="space-y-4">
                     <DialogTitle className="text-primary-400 font-normal text-sm">Add step</DialogTitle>
                 </DialogHeader>
@@ -456,11 +824,13 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
                     )}
                 </div>
 
-                <form onSubmit={handleSubmit} className="space-y-6">
-                    {renderStepContent()}
+                <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 space-y-6">
+                    <div className="flex-1 overflow-y-auto">
+                        {renderStepContent()}
+                    </div>
 
-                    <div className="flex gap-3 pt-4">
-                        {currentStep > 1 && (
+                    <div className="flex gap-3 pt-4 flex-shrink-0">
+                        {(typeof currentStep === 'number' && currentStep > 1) || currentStep === '2.1' || currentStep === '2.2' ? (
                             <Button
                                 type="button"
                                 variant="outline"
@@ -468,9 +838,9 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
                                 className="flex items-center gap-2"
                             >
                                 <ChevronLeft size={16} />
-                                Previous
+                                {currentStep === '2.1' || currentStep === '2.2' ? 'Back to MCP List' : 'Previous'}
                             </Button>
-                        )}
+                        ) : null}
 
                         <Button
                             type="button"
@@ -481,7 +851,27 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
                             Cancel
                         </Button>
 
-                        {currentStep < TOTAL_STEPS ? (
+                        {/* OAuth Configuration Action Button */}
+                        {currentStep === '2.1' ? (
+                            <Button
+                                type="button"
+                                onClick={handleSaveAuthenticator}
+                                disabled={connectionState.status === 'connecting' || !authHubName.trim()}
+                                className="flex items-center gap-2 bg-primary-800 hover:bg-primary-900 text-white"
+                            >
+                                {connectionState.status === 'connecting' ? (
+                                    <>
+                                        <Loader2 size={16} className="animate-spin" />
+                                        Connecting...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Settings size={16} />
+                                        Save OAuth Connection
+                                    </>
+                                )}
+                            </Button>
+                        ) : typeof currentStep === 'number' && currentStep < TOTAL_STEPS ? (
                             <Button
                                 type="button"
                                 onClick={handleNext}
@@ -491,7 +881,7 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
                                 Next
                                 <ChevronRight size={16} />
                             </Button>
-                        ) : (
+                        ) : typeof currentStep === 'number' && currentStep === TOTAL_STEPS ? (
                             <Button
                                 type="submit"
                                 disabled={!formData.name.trim() || !formData.prompt.trim()}
@@ -499,7 +889,7 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
                             >
                                 Add step
                             </Button>
-                        )}
+                        ) : null}
                     </div>
                 </form>
             </DialogContent>
