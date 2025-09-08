@@ -15,12 +15,13 @@ import { PermissionSelector, type Permission } from "@/components/ui/permission-
 import { PencilLine, ChevronLeft, ChevronRight, X, Settings, Rocket, Loader2, CheckCircle, AlertCircle } from "lucide-react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { packageQueries, knowledgeQueries, hubQueries, userQueries } from "@/lib/queries"
-import { useCreateServiceConnectionMutation, useCreateSecretSharingMutation, useCreateWalletMutation } from "@/lib/mutations"
+import { useCreateServiceConnectionMutation, useCreateSecretSharingMutation, useCreateWalletMutation, useDeployPackageMutation, useAuthorizeFrontendMutation } from "@/lib/mutations"
 import { useAuth } from "@/hooks/use-auth"
 import { getInitials } from "@/lib/utils"
 import { getReadableScopes, transformScopeDefinitions } from "@/lib/scope-utils"
 import { getScopeDisplayName } from "@/lib/scope-definitions"
 import { type WorkflowStep } from "./workflow-step-item"
+import PolicyBuilder from "@/components/policy-builder"
 import { toast } from "sonner"
 
 interface AddStepDialogProps {
@@ -69,12 +70,24 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
         connectionId?: string;
     }>({ status: 'idle' })
 
+    // Deployment state
+    const [deploymentState, setDeploymentState] = useState<{
+        status: 'idle' | 'deploying' | 'success' | 'error';
+        error?: string;
+        deploymentId?: string;
+    }>({ status: 'idle' })
+    const [policyJson, setPolicyJson] = useState<string>('{\n  "allow": [{}],\n  "deny": []\n}')
+
     const { isAuthenticated } = useAuth()
 
     // OAuth mutations
     const createServiceConnection = useCreateServiceConnectionMutation()
     const createSecretSharing = useCreateSecretSharingMutation()
     const createWallet = useCreateWalletMutation()
+
+    // Deployment mutations
+    const deployPackage = useDeployPackageMutation()
+    const authorizeFrontend = useAuthorizeFrontendMutation()
 
     const [formData, setFormData] = useState<StepData>({
         name: "",
@@ -88,10 +101,16 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
     const { data: allUserAuth } = useQuery(hubQueries.userAuthOptions(isAuthenticated))
     const { data: authMethods } = useQuery(hubQueries.authMethodsOptions())
 
-    // Get auth scopes for selected MCP
+    // Get auth scopes for selected MCP (OAuth config)
     const { data: authScopes } = useQuery({
         ...packageQueries.authScopesOptions(selectedMcpForConfig?.packageId || ''),
         enabled: !!selectedMcpForConfig?.packageId
+    })
+
+    // Get auth scopes for selected MCP (Deployment)
+    const { data: deploymentAuthScopes } = useQuery({
+        ...packageQueries.authScopesOptions(selectedMcpForDeploy?.packageId || ''),
+        enabled: !!selectedMcpForDeploy?.packageId
     })
 
     const userAuth = useMemo(() => {
@@ -101,6 +120,15 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
             allowedServices.includes(connection.service_clients.name)
         )
     }, [allUserAuth, authScopes])
+
+    // Separate userAuth for deployment based on deploymentAuthScopes
+    const deploymentUserAuth = useMemo(() => {
+        if (!allUserAuth || !deploymentAuthScopes) return []
+        const allowedServices = Object.keys(deploymentAuthScopes?.serviceClientMap || {})
+        return allUserAuth.filter((connection: any) =>
+            allowedServices.includes(connection.service_clients.name)
+        )
+    }, [allUserAuth, deploymentAuthScopes])
 
     // MCP queries - return full objects
     const { data: popularPackages } = useQuery({
@@ -190,9 +218,19 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
             case 1:
                 return formData.name.trim().length > 0 && formData.prompt.trim().length > 0
             case 2:
-                return true // Deployment step can be empty for now
+                // Check if at least one MCP has been deployed
+                const deployedMcps = formData.mcpProviders.filter(mcp => {
+                    const mcpId = mcp.id || mcp.packageId
+                    return mcpStatuses[mcpId]?.deploymentStatus === 'deployed'
+                })
+                return deployedMcps.length > 0
             case 3:
-                return true // Step 3 is now empty, always valid
+                // Check if at least one MCP has been deployed
+                const deployedMcpsStep3 = formData.mcpProviders.filter(mcp => {
+                    const mcpId = mcp.id || mcp.packageId
+                    return mcpStatuses[mcpId]?.deploymentStatus === 'deployed'
+                })
+                return deployedMcpsStep3.length > 0
             case '2.1':
             case '2.2':
                 return true // Pseudo-steps are always valid
@@ -221,8 +259,9 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
         setCurrentStep('2.1')
     }
 
-    const handleDeployMcp = (mcp: any) => {
+    const handleNavigateToDeploy = (mcp: any) => {
         setSelectedMcpForDeploy(mcp)
+        setDeploymentState({ status: 'idle' }) // Clear previous deployment status
         setCurrentStep('2.2')
     }
 
@@ -231,6 +270,7 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
         setSelectedMcpForConfig(null)
         setSelectedMcpForDeploy(null)
         setConnectionState({ status: 'idle' })
+        setDeploymentState({ status: 'idle' }) // Clear deployment status when going back
         setSelectedPermissions({})
         setSelectedConnections({})
     }
@@ -305,10 +345,176 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
         }
     }
 
+    // Deployment function
+    const handleDeployMcp = async () => {
+        if (!selectedMcpForDeploy) return
+
+        try {
+            setDeploymentState({ status: 'deploying' })
+
+            const requiredServices = Object.keys(deploymentAuthScopes?.serviceClientMap || {})
+            const missingServices = requiredServices.filter(service => !selectedConnections[service])
+
+            if (missingServices.length > 0) {
+                toast.error(`Please select connections for: ${missingServices.join(', ')}`)
+                return
+            }
+
+            // Validate scopes for OAuth services (skip for embedded wallets)
+            const servicesWithScopes = requiredServices.filter(service => {
+                const mcpRequiredScopes = deploymentAuthScopes?.serviceClientMap?.[service] || []
+                const authMethod = authMethods?.find((method: any) => method.name === service)
+                // Skip scope validation for embedded wallet services
+                if (authMethod?.type === 'embedded_wallet') return false
+                return mcpRequiredScopes.length > 0
+            })
+
+            const servicesWithoutPermissions = servicesWithScopes.filter(
+                service => !selectedPermissions[service] || selectedPermissions[service].length === 0
+            )
+
+            if (servicesWithoutPermissions.length > 0) {
+                toast.error(`Please select permissions for: ${servicesWithoutPermissions.join(', ')}`)
+                return
+            }
+
+            // Validate policy JSON if there are embedded wallet services
+            const hasEmbeddedWalletServices = requiredServices.some(service => {
+                const authMethod = authMethods?.find((method: any) => method.name === service)
+                return authMethod?.type === 'embedded_wallet'
+            })
+
+            if (hasEmbeddedWalletServices) {
+                try {
+                    JSON.parse(policyJson)
+                } catch {
+                    toast.error('Invalid policy JSON format')
+                    return
+                }
+            }
+
+            // Get service connections for deployment (same logic as mcp-deploy-dialog.tsx)
+            const serviceConnections = requiredServices
+                .filter(service => selectedConnections[service])
+                .map(service => {
+                    const authMethod = authMethods?.find((method: any) => method.name === service)
+                    const isEmbeddedWallet = authMethod?.type === 'embedded_wallet'
+
+                    return {
+                        connectionId: selectedConnections[service],
+                        ...(isEmbeddedWallet
+                            ? { policy: JSON.parse(policyJson) }
+                            : { scopes: selectedPermissions[service]?.map(permission => permission.id) || [] }
+                        )
+                    }
+                })
+
+            // Deploy the package
+            const deploymentData = await deployPackage.mutateAsync({
+                packageId: selectedMcpForDeploy.packageId,
+                version: selectedMcpForDeploy.latestVersion,
+                url: `${selectedMcpForDeploy.url?.replace(/\/$/, '')}/mcp`,
+                authData: {},
+                serviceConnections: serviceConnections,
+            })
+
+            const deploymentId = deploymentData.deployment.deploymentId
+
+            // Authorize the deployment
+            const mcpRedirectUri = new URL(selectedMcpForDeploy.url as string)
+            mcpRedirectUri.pathname = mcpRedirectUri.pathname.replace(/\/$/, '') + '/osiris/callback'
+
+            // Flatten scopes for authorization (same logic as mcp-deploy-dialog.tsx)
+            const allScopes = serviceConnections.flatMap(sc => 'scopes' in sc ? sc.scopes : [])
+
+            const authData = await authorizeFrontend.mutateAsync({
+                clientId: selectedMcpForDeploy.clientId ?? "",
+                redirectUri: mcpRedirectUri.toString(),
+                responseType: 'code',
+                scopes: [...allScopes, "osiris:auth:read", "osiris:auth:action"],
+                state: deploymentId || '',
+                deploymentId: deploymentId,
+            })
+
+            const url = new URL(authData.url)
+            const res = await fetch(url.toString())
+            if (res.status !== 200) {
+                throw new Error('Failed to authorize')
+            }
+
+            setDeploymentState({ status: 'success', deploymentId })
+            toast.success(`${selectedMcpForDeploy.name} deployed successfully!`)
+
+            // Update MCP status
+            const mcpId = selectedMcpForDeploy.id || selectedMcpForDeploy.packageId
+            setMcpStatuses(prev => ({
+                ...prev,
+                [mcpId]: {
+                    ...prev[mcpId],
+                    deploymentStatus: 'deployed',
+                    deploymentData: { deploymentId }
+                }
+            }))
+
+            // Auto-close after success
+            setTimeout(() => {
+                handleBackToMcpList()
+            }, 1500)
+
+        } catch (error: any) {
+            setDeploymentState({
+                status: 'error',
+                error: error?.message || 'Deployment failed'
+            })
+            toast.error(error?.message || 'Deployment failed')
+        }
+    }
+
+    // Deployment form validation (same logic as mcp-deploy-dialog.tsx)
+    const isDeploymentFormValid = () => {
+        if (!deploymentAuthScopes) return false
+
+        const requiredServices = Object.keys(deploymentAuthScopes?.serviceClientMap || {})
+
+        // Check if all required services have connections
+        const hasAllConnections = requiredServices.every(service => selectedConnections[service])
+        if (!hasAllConnections) return false
+
+        // Check if OAuth services have permissions selected
+        const servicesWithScopes = requiredServices.filter(service => {
+            const mcpRequiredScopes = deploymentAuthScopes?.serviceClientMap?.[service] || []
+            const authMethod = authMethods?.find((method: any) => method.name === service)
+            // Skip scope validation for embedded wallet services
+            if (authMethod?.type === 'embedded_wallet') return false
+            return mcpRequiredScopes.length > 0
+        })
+
+        const hasAllPermissions = servicesWithScopes.every(service =>
+            selectedPermissions[service]?.length > 0
+        )
+
+        return hasAllConnections && hasAllPermissions
+    }
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault()
 
         if (!formData.name.trim() || !formData.prompt.trim()) return
+
+        // Collect deployment IDs from deployed MCPs
+        const deploymentIds = formData.mcpProviders
+            .map(mcp => {
+                const mcpId = mcp.id || mcp.packageId
+                const status = mcpStatuses[mcpId]
+                return status?.deploymentStatus === 'deployed' ? status.deploymentData?.deploymentId : null
+            })
+            .filter(Boolean) // Remove null values
+
+        // Ensure at least one MCP has been deployed
+        if (deploymentIds.length === 0) {
+            toast.error('Please deploy at least one MCP before creating the step')
+            return
+        }
 
         onAddStep({
             name: formData.name.trim(),
@@ -317,6 +523,8 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
             // Pass the full objects for future use
             mcpProviders: formData.mcpProviders,
             knowledgeBases: formData.knowledgeBases,
+            // Pass deployment IDs for API
+            deploymentIds: deploymentIds,
         })
 
         // Reset form
@@ -337,6 +545,8 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
         setSelectedConnections({})
         setAuthHubName("")
         setConnectionState({ status: 'idle' })
+        setDeploymentState({ status: 'idle' })
+        setPolicyJson('{\n  "allow": [{}],\n  "deny": []\n}')
         setFormData({
             name: "",
             prompt: "",
@@ -561,11 +771,12 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
                                                         <Button
                                                             size="xs"
                                                             variant="outline"
-                                                            onClick={() => handleDeployMcp(mcp)}
+                                                            onClick={() => handleNavigateToDeploy(mcp)}
+                                                            disabled={mcpStatuses[mcpId]?.deploymentStatus === 'deployed'}
                                                             className="flex items-center gap-1"
                                                         >
                                                             <Rocket size={12} />
-                                                            Deploy
+                                                            {mcpStatuses[mcpId]?.deploymentStatus === 'deployed' ? 'Deployed' : 'Deploy'}
                                                         </Button>
                                                     </div>
                                                 </div>
@@ -598,6 +809,25 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
                                 <p className="text-sm text-primary-300">No knowledge bases selected</p>
                             )}
                         </div>
+
+                        {/* Validation Message */}
+                        {(() => {
+                            const deployedMcps = formData.mcpProviders.filter(mcp => {
+                                const mcpId = mcp.id || mcp.packageId
+                                return mcpStatuses[mcpId]?.deploymentStatus === 'deployed'
+                            })
+
+                            if (deployedMcps.length === 0) {
+                                return (
+                                    <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                                        <p className="text-sm text-yellow-800">
+                                            <strong>⚠️ Deploy at least one MCP</strong> to proceed to the next step.
+                                        </p>
+                                    </div>
+                                )
+                            }
+                            return null
+                        })()}
                     </div>
                 )
             case '2.1':
@@ -774,23 +1004,268 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
             case '2.2':
                 return (
                     <div className="space-y-6">
+                        {/* Header */}
                         <div className="text-center">
                             <h3 className="text-lg font-medium mb-2">Deploy {selectedMcpForDeploy?.name}</h3>
                             <p className="text-sm text-primary-300">Configure deployment settings and policies</p>
                         </div>
 
-                        <div className="p-4 border rounded-lg bg-primary-50">
-                            <p className="text-sm text-primary-400">
-                                MCP deployment components will be integrated here.
-                                This will include policy builders and deployment configuration.
-                            </p>
+                        {/* MCP Info */}
+                        <div className="flex items-center justify-center gap-4 mb-6">
+                            <div className="flex flex-col items-center gap-2">
+                                <Avatar className="size-10">
+                                    <AvatarImage src={selectedMcpForDeploy?.iconUrl} alt={selectedMcpForDeploy?.name} />
+                                    <AvatarFallback className="rounded-sm">
+                                        {selectedMcpForDeploy?.name?.charAt(0).toUpperCase()}
+                                    </AvatarFallback>
+                                </Avatar>
+                                <span className="text-xs text-primary-400">{selectedMcpForDeploy?.name}</span>
+                            </div>
                         </div>
+
+                        {/* Service Connections - ScrollArea for long content */}
+                        <ScrollArea className="max-h-[400px]">
+                            <div className="pr-4 space-y-4">
+                                {deploymentAuthScopes?.serviceClients?.map((serviceClient: any) => {
+                                    const serviceName = serviceClient.name
+                                    const serviceConnections = deploymentUserAuth.filter((c: any) => c.service_clients.name === serviceName)
+                                    const authMethod = authMethods?.find((method: any) => method.name === serviceName)
+                                    const isEmbeddedWallet = authMethod?.type === 'embedded_wallet'
+                                    const requiredScopes = deploymentAuthScopes?.serviceClientMap?.[serviceName] || []
+
+                                    // Transform scope definitions for permission selector
+                                    const permissions = serviceClient.scopeDefinitions ?
+                                        Object.entries(transformScopeDefinitions(serviceClient.name, serviceClient.scopeDefinitions)).map(([scope, label]) => ({
+                                            id: scope,
+                                            label: getScopeDisplayName(scope) || String(label)
+                                        })) : []
+
+                                    return (
+                                        <div key={serviceName} className="space-y-4">
+                                            <div className="flex items-center gap-3">
+                                                <Avatar className="size-8 rounded-sm">
+                                                    <AvatarImage src={serviceClient.iconUrl} alt={serviceName} />
+                                                    <AvatarFallback className="bg-purple-300 text-white font-bold text-sm capitalize rounded-sm">
+                                                        {serviceName.charAt(0)}
+                                                    </AvatarFallback>
+                                                </Avatar>
+                                                <div>
+                                                    <h4 className="font-medium text-primary-800 capitalize">{serviceName} Account</h4>
+                                                    <p className="text-sm text-primary-300">Select connection and permissions for deployment</p>
+                                                </div>
+                                            </div>
+
+                                            {/* Permission Selection for OAuth services */}
+                                            {!isEmbeddedWallet && permissions.length > 0 && (
+                                                <div className="space-y-2">
+                                                    <Label className="text-sm font-medium text-primary-400">Select permissions to grant:</Label>
+                                                    <PermissionSelector
+                                                        context="deploy-dialog"
+                                                        key={`deploy-${serviceName}`}
+                                                        permissions={permissions}
+                                                        placeholder={`Search ${serviceName} permissions...`}
+                                                        onSelectionChange={(perms) => handlePermissionSelect(serviceName, perms)}
+                                                        initialSelected={selectedPermissions[serviceName] || []}
+                                                    />
+                                                </div>
+                                            )}
+
+                                            {/* Connection Selection */}
+                                            {serviceConnections.length > 0 ? (
+                                                <div className="space-y-2">
+                                                    <Label className="text-sm font-medium text-primary-400">Your connected accounts:</Label>
+                                                    <RadioGroup
+                                                        value={selectedConnections[serviceName] || ''}
+                                                        onValueChange={(value) => handleConnectionSelect(serviceName, value)}
+                                                        className="space-y-3"
+                                                    >
+                                                        {serviceConnections.map((connection: any) => {
+                                                            const radioId = `deploy-radio-${connection.user_service_connections.id}`
+                                                            return (
+                                                                <div key={connection.user_service_connections.id} className="flex items-start space-x-3">
+                                                                    <RadioGroupItem
+                                                                        id={radioId}
+                                                                        value={connection.user_service_connections.id}
+                                                                        className="mt-1"
+                                                                    />
+                                                                    <label
+                                                                        htmlFor={radioId}
+                                                                        className="flex-1 p-3 border border-primary-100 rounded-sm hover:border-primary-200 transition-colors cursor-pointer"
+                                                                    >
+                                                                        <div className="flex items-center justify-between mb-2">
+                                                                            <div className="flex items-center space-x-2">
+                                                                                <p className="text-sm font-medium text-primary-800">
+                                                                                    {connection.user_service_connections.metadata?.user?.name ||
+                                                                                        connection.user_service_connections.metadata?.user?.email ||
+                                                                                        connection.user_service_connections.name || 'Unknown User'}
+                                                                                </p>
+                                                                            </div>
+                                                                            {/* Ready Indicator */}
+                                                                            {(() => {
+                                                                                const connectionScopes = connection.user_service_connections.scopes || [];
+                                                                                const requiredScopesArray = Array.isArray(requiredScopes) ? requiredScopes : [];
+
+                                                                                const hasAllRequiredScopes = requiredScopesArray.every((requiredScope) => {
+                                                                                    const scopeWithoutPrefix = requiredScope.startsWith(`${serviceName}:`)
+                                                                                        ? requiredScope.replace(`${serviceName}:`, '')
+                                                                                        : requiredScope;
+                                                                                    const scopeWithPrefix = `${serviceName}:${requiredScope}`;
+
+                                                                                    return (
+                                                                                        connectionScopes.includes(requiredScope) ||
+                                                                                        connectionScopes.includes(scopeWithoutPrefix) ||
+                                                                                        connectionScopes.includes(scopeWithPrefix)
+                                                                                    );
+                                                                                });
+
+                                                                                if (hasAllRequiredScopes) {
+                                                                                    return (
+                                                                                        <Badge className="bg-green-100 text-green-800 px-2 py-1 text-xs font-medium">
+                                                                                            Ready
+                                                                                        </Badge>
+                                                                                    );
+                                                                                }
+                                                                                return null;
+                                                                            })()}
+                                                                        </div>
+                                                                        <p className="text-xs text-primary-400 mb-2">
+                                                                            {connection.user_service_connections.metadata?.user?.email ||
+                                                                                connection.user_service_connections.metadata?.user?.name || 'No email available'}
+                                                                        </p>
+                                                                        <div className="flex flex-wrap gap-1">
+                                                                            {connection.user_service_connections.scopes?.map((scope: string) => (
+                                                                                <Badge key={scope} className="rounded-sm bg-primary-100 px-2 py-0.5 text-xs text-primary-800">
+                                                                                    {getScopeDisplayName(scope)}
+                                                                                </Badge>
+                                                                            ))}
+                                                                        </div>
+                                                                    </label>
+                                                                </div>
+                                                            )
+                                                        })}
+                                                    </RadioGroup>
+                                                </div>
+                                            ) : (
+                                                <div className="p-3 border border-primary-100 rounded-sm bg-primary-50">
+                                                    <p className="text-sm text-primary-400">No {serviceName} connections available. Please configure OAuth first.</p>
+                                                </div>
+                                            )}
+
+                                            {/* Policy Builder for Embedded Wallets */}
+                                            {isEmbeddedWallet && (
+                                                <div className="space-y-2">
+                                                    <Label className="text-sm font-medium text-primary-400">Deployment Policy</Label>
+                                                    <PolicyBuilder
+                                                        value={policyJson}
+                                                        onChange={setPolicyJson}
+                                                    />
+                                                </div>
+                                            )}
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        </ScrollArea>
+
+                        {/* Deployment Status */}
+                        {/* {deploymentState.status !== 'idle' && (
+                            <div className={`p-3 rounded-lg flex items-center gap-2 ${deploymentState.status === 'success' ? 'bg-green-50 text-green-700' :
+                                deploymentState.status === 'error' ? 'bg-red-50 text-red-700' :
+                                    'bg-blue-50 text-blue-700'
+                                }`}>
+                                {deploymentState.status === 'success' && <CheckCircle className="h-4 w-4" />}
+                                {deploymentState.status === 'error' && <AlertCircle className="h-4 w-4" />}
+                                {deploymentState.status === 'deploying' && <Loader2 className="h-4 w-4 animate-spin" />}
+                                <span className="text-sm">
+                                    {deploymentState.status === 'success' && 'MCP deployed successfully!'}
+                                    {deploymentState.status === 'error' && deploymentState.error}
+                                    {deploymentState.status === 'deploying' && 'Deploying MCP...'}
+                                </span>
+                            </div>
+                        )} */}
                     </div>
                 )
 
             case 3:
                 return (
-                    <></>
+                    <div className="space-y-6">
+                        {/* Confirmation Header */}
+                        <div className="text-center">
+                            <h3 className="text-lg font-medium mb-2">Ready to Create Step</h3>
+                            <p className="text-sm text-primary-300">Review your step configuration before creating</p>
+                        </div>
+
+                        {/* Step Summary */}
+                        <div className="space-y-4">
+                            <div className="p-4 border rounded-lg bg-primary-50">
+                                <h4 className="font-medium text-primary-800 mb-2">Step Details</h4>
+                                <div className="space-y-2 text-sm">
+                                    <div>
+                                        <span className="text-primary-400">Name:</span>
+                                        <span className="ml-2 text-primary-800">{formData.name}</span>
+                                    </div>
+                                    <div>
+                                        <span className="text-primary-400">Prompt:</span>
+                                        <span className="ml-2 text-primary-800">{formData.prompt}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Deployed MCPs Summary */}
+                            <div className="p-4 border rounded-lg bg-green-50">
+                                <h4 className="font-medium text-green-800 mb-2">Deployed MCPs</h4>
+                                <div className="space-y-2">
+                                    {formData.mcpProviders.map((mcp) => {
+                                        const mcpId = mcp.id || mcp.packageId
+                                        const status = mcpStatuses[mcpId]
+                                        const isDeployed = status?.deploymentStatus === 'deployed'
+
+                                        return (
+                                            <div key={mcpId} className="flex items-center justify-between text-sm">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-6 h-6 rounded bg-primary-100 flex items-center justify-center">
+                                                        <span className="text-xs font-medium">{mcp.name.charAt(0).toUpperCase()}</span>
+                                                    </div>
+                                                    <span className="text-primary-800">{mcp.name}</span>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    {isDeployed ? (
+                                                        <>
+                                                            <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                                                            <span className="text-green-700 font-medium">Deployed</span>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
+                                                            <span className="text-yellow-700 font-medium">Not Deployed</span>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* Knowledge Bases Summary */}
+                            {formData.knowledgeBases.length > 0 && (
+                                <div className="p-4 border rounded-lg bg-blue-50">
+                                    <h4 className="font-medium text-blue-800 mb-2">Knowledge Bases</h4>
+                                    <div className="flex flex-wrap gap-2">
+                                        {formData.knowledgeBases.map((kb) => {
+                                            const kbData = kb.knowledge_bases || kb
+                                            const kbName = kbData.name
+                                            return (
+                                                <Badge key={kbData.knowledgeBaseId} variant="secondary" className="text-xs">
+                                                    {kbName.length > 20 ? `${kbName.substring(0, 20)}...` : kbName}
+                                                </Badge>
+                                            )
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 )
             default:
                 return null
@@ -871,6 +1346,25 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
                                     </>
                                 )}
                             </Button>
+                        ) : currentStep === '2.2' ? (
+                            <Button
+                                type="button"
+                                onClick={handleDeployMcp}
+                                disabled={deploymentState.status === 'deploying' || !isDeploymentFormValid()}
+                                className="flex items-center gap-2 bg-primary-800 hover:bg-primary-900 text-white"
+                            >
+                                {deploymentState.status === 'deploying' ? (
+                                    <>
+                                        <Loader2 size={16} className="animate-spin" />
+                                        Deploying...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Rocket size={16} />
+                                        Deploy MCP
+                                    </>
+                                )}
+                            </Button>
                         ) : typeof currentStep === 'number' && currentStep < TOTAL_STEPS ? (
                             <Button
                                 type="button"
@@ -884,10 +1378,10 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
                         ) : typeof currentStep === 'number' && currentStep === TOTAL_STEPS ? (
                             <Button
                                 type="submit"
-                                disabled={!formData.name.trim() || !formData.prompt.trim()}
+                                disabled={!validateCurrentStep()}
                                 className="bg-primary-800 hover:bg-primary-900 text-white"
                             >
-                                Add step
+                                Create Step
                             </Button>
                         ) : null}
                     </div>
@@ -896,3 +1390,4 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
         </Dialog>
     )
 }
+

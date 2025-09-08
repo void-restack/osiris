@@ -32,17 +32,32 @@ const convertApiStepsToWorkflowSteps = (apiSteps: WorkflowData['workflow']): Wor
         mcpProvider: step.deploymentId.length > 0 ? `Deployment ${step.deploymentId[0].slice(-8)}` : "Unknown MCP",
         prompt: step.prompt,
         deploymentType: "automatic" as const,
+        // Preserve deployment IDs from API
+        deploymentIds: step.deploymentId,
     }));
 };
 
 const convertWorkflowStepsToApi = (steps: WorkflowStep[], originalWorkflow?: WorkflowData['workflow']): WorkflowData['workflow'] => {
-    return steps.map((step, index) => {
-        const originalStep = originalWorkflow?.[index];
+    return steps.map((step) => {
+        // Find the original step using multiple criteria for better matching
+        const originalStep = originalWorkflow?.find(origStep => {
+            // First try to match by deployment IDs (most reliable)
+            if (step.deploymentIds && step.deploymentIds.length > 0 && origStep.deploymentId.length > 0) {
+                const stepDeployments = step.deploymentIds.sort().join(',')
+                const origDeployments = origStep.deploymentId.sort().join(',')
+                if (stepDeployments === origDeployments) {
+                    return true
+                }
+            }
+
+            // Fallback to name + prompt matching
+            return origStep.name === step.name && origStep.prompt === step.prompt
+        });
 
         return {
             name: step.name,
             prompt: step.prompt,
-            deploymentId: originalStep?.deploymentId || [""],
+            deploymentId: step.deploymentIds && step.deploymentIds.length > 0 ? step.deploymentIds : (originalStep?.deploymentId || [""]),
             knowledgeBaseIds: originalStep?.knowledgeBaseIds || [],
         };
     });

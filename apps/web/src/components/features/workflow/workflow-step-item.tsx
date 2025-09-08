@@ -15,6 +15,8 @@ export interface WorkflowStep {
     // Full objects for future use
     mcpProviders?: Array<any>
     knowledgeBases?: Array<any>
+    // Deployment IDs for API
+    deploymentIds?: string[]
 }
 
 interface SortableStepItemProps {
