@@ -267,6 +267,7 @@ export default function WorkflowStepsContainer({ workflowData }: WorkflowStepsCo
                 onOpenChange={setIsEditDialogOpen}
                 onEditStep={handleEditStepSubmit}
                 step={editingStep}
+                workflowData={workflowData}
             />
         </div>
     )

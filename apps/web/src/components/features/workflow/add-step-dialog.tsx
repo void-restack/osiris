@@ -18,7 +18,7 @@ import { packageQueries, knowledgeQueries, hubQueries, userQueries } from "@/lib
 import { useCreateServiceConnectionMutation, useCreateSecretSharingMutation, useCreateWalletMutation, useDeployPackageMutation, useAuthorizeFrontendMutation } from "@/lib/mutations"
 import { useAuth } from "@/hooks/use-auth"
 import { getInitials } from "@/lib/utils"
-import { getReadableScopes, transformScopeDefinitions } from "@/lib/scope-utils"
+import { transformScopeDefinitions } from "@/lib/scope-utils"
 import { getScopeDisplayName } from "@/lib/scope-definitions"
 import { type WorkflowStep } from "./workflow-step-item"
 import PolicyBuilder from "@/components/policy-builder"
@@ -60,7 +60,6 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
     const [selectedMcpForDeploy, setSelectedMcpForDeploy] = useState<any>(null)
     const [mcpStatuses, setMcpStatuses] = useState<Record<string, McpStatus>>({})
 
-    // OAuth configuration state
     const [selectedPermissions, setSelectedPermissions] = useState<Record<string, Permission[]>>({})
     const [selectedConnections, setSelectedConnections] = useState<Record<string, string>>({})
     const [authHubName, setAuthHubName] = useState("")
@@ -70,7 +69,6 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
         connectionId?: string;
     }>({ status: 'idle' })
 
-    // Deployment state
     const [deploymentState, setDeploymentState] = useState<{
         status: 'idle' | 'deploying' | 'success' | 'error';
         error?: string;
@@ -80,12 +78,10 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
 
     const { isAuthenticated } = useAuth()
 
-    // OAuth mutations
     const createServiceConnection = useCreateServiceConnectionMutation()
     const createSecretSharing = useCreateSecretSharingMutation()
     const createWallet = useCreateWalletMutation()
 
-    // Deployment mutations
     const deployPackage = useDeployPackageMutation()
     const authorizeFrontend = useAuthorizeFrontendMutation()
 
@@ -96,21 +92,18 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
         knowledgeBases: [],
     })
 
-    // OAuth configuration queries
     const { data: user } = useQuery(userQueries.meOptions(isAuthenticated))
     const { data: allUserAuth } = useQuery(hubQueries.userAuthOptions(isAuthenticated))
     const { data: authMethods } = useQuery(hubQueries.authMethodsOptions())
 
-    // Get auth scopes for selected MCP (OAuth config)
     const { data: authScopes } = useQuery({
-        ...packageQueries.authScopesOptions(selectedMcpForConfig?.packageId || ''),
-        enabled: !!selectedMcpForConfig?.packageId
+        ...packageQueries.authScopesOptions(selectedMcpForConfig?.packageId || selectedMcpForConfig?.id || ''),
+        enabled: !!(selectedMcpForConfig?.packageId || selectedMcpForConfig?.id) && currentStep === '2.1'
     })
 
-    // Get auth scopes for selected MCP (Deployment)
     const { data: deploymentAuthScopes } = useQuery({
-        ...packageQueries.authScopesOptions(selectedMcpForDeploy?.packageId || ''),
-        enabled: !!selectedMcpForDeploy?.packageId
+        ...packageQueries.authScopesOptions(selectedMcpForDeploy?.packageId || selectedMcpForDeploy?.id || ''),
+        enabled: !!(selectedMcpForDeploy?.packageId || selectedMcpForDeploy?.id) && currentStep === '2.2'
     })
 
     const userAuth = useMemo(() => {
@@ -121,7 +114,6 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
         )
     }, [allUserAuth, authScopes])
 
-    // Separate userAuth for deployment based on deploymentAuthScopes
     const deploymentUserAuth = useMemo(() => {
         if (!allUserAuth || !deploymentAuthScopes) return []
         const allowedServices = Object.keys(deploymentAuthScopes?.serviceClientMap || {})
@@ -130,7 +122,6 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
         )
     }, [allUserAuth, deploymentAuthScopes])
 
-    // MCP queries - return full objects
     const { data: popularPackages } = useQuery({
         ...packageQueries.popularOptions(),
         select: (data) => data?.data || []
@@ -150,7 +141,6 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
         enabled: mcpSearchQuery.length >= 2,
     })
 
-    // Knowledge base queries - return full objects  
     const { data: popularKnowledgeBases } = useQuery({
         ...knowledgeQueries.basesOptions({ isPublic: true, limit: 10 }),
         select: (data) => data?.data || []
@@ -218,14 +208,16 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
             case 1:
                 return formData.name.trim().length > 0 && formData.prompt.trim().length > 0
             case 2:
-                // Check if at least one MCP has been deployed
+                // Only require deployed MCPs if MCPs were selected
+                if (formData.mcpProviders.length === 0) return true
                 const deployedMcps = formData.mcpProviders.filter(mcp => {
                     const mcpId = mcp.id || mcp.packageId
                     return mcpStatuses[mcpId]?.deploymentStatus === 'deployed'
                 })
                 return deployedMcps.length > 0
             case 3:
-                // Check if at least one MCP has been deployed
+                // Only require deployed MCPs if MCPs were selected
+                if (formData.mcpProviders.length === 0) return true
                 const deployedMcpsStep3 = formData.mcpProviders.filter(mcp => {
                     const mcpId = mcp.id || mcp.packageId
                     return mcpStatuses[mcpId]?.deploymentStatus === 'deployed'
@@ -233,7 +225,7 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
                 return deployedMcpsStep3.length > 0
             case '2.1':
             case '2.2':
-                return true // Pseudo-steps are always valid
+                return true
             default:
                 return false
         }
@@ -241,13 +233,23 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
 
     const handleNext = () => {
         if (validateCurrentStep() && typeof currentStep === 'number' && currentStep < TOTAL_STEPS) {
-            setCurrentStep(prev => (prev as number) + 1)
+            if (currentStep === 1 && formData.mcpProviders.length === 0) {
+                // Skip to Step 3 (confirmation) if no MCPs selected
+                setCurrentStep(3)
+            } else {
+                setCurrentStep(prev => (prev as number) + 1)
+            }
         }
     }
 
     const handlePrevious = () => {
         if (typeof currentStep === 'number' && currentStep > 1) {
-            setCurrentStep(prev => (prev as number) - 1)
+            if (currentStep === 3 && formData.mcpProviders.length === 0) {
+                // Go back to Step 1 if we skipped Step 2
+                setCurrentStep(1)
+            } else {
+                setCurrentStep(prev => (prev as number) - 1)
+            }
         } else if (currentStep === '2.1' || currentStep === '2.2') {
             setCurrentStep(2)
         }
@@ -261,7 +263,7 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
 
     const handleNavigateToDeploy = (mcp: any) => {
         setSelectedMcpForDeploy(mcp)
-        setDeploymentState({ status: 'idle' }) // Clear previous deployment status
+        setDeploymentState({ status: 'idle' })
         setCurrentStep('2.2')
     }
 
@@ -270,12 +272,11 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
         setSelectedMcpForConfig(null)
         setSelectedMcpForDeploy(null)
         setConnectionState({ status: 'idle' })
-        setDeploymentState({ status: 'idle' }) // Clear deployment status when going back
+        setDeploymentState({ status: 'idle' })
         setSelectedPermissions({})
         setSelectedConnections({})
     }
 
-    // OAuth configuration functions
     const handlePermissionSelect = useCallback((serviceName: string, permissions: Permission[]) => {
         setSelectedPermissions(prev => ({ ...prev, [serviceName]: permissions }))
     }, [])
@@ -309,7 +310,6 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
                 return
             }
 
-            // Create OAuth connection without redirect
             await createServiceConnection.mutateAsync({
                 serviceClientName: serviceName,
                 scopes: selectedPermissions[serviceName]?.map(permission => permission.id) || [],
@@ -321,7 +321,6 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
             setConnectionState({ status: 'success' })
             toast.success("GitHub OAuth connection created successfully!")
 
-            // Update MCP status
             const mcpId = selectedMcpForConfig.id || selectedMcpForConfig.packageId
             setMcpStatuses(prev => ({
                 ...prev,
@@ -332,7 +331,6 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
                 }
             }))
 
-            // Auto-close after success
             setTimeout(() => {
                 handleBackToMcpList()
             }, 1500)
@@ -345,7 +343,6 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
         }
     }
 
-    // Deployment function
     const handleDeployMcp = async () => {
         if (!selectedMcpForDeploy) return
 
@@ -360,11 +357,9 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
                 return
             }
 
-            // Validate scopes for OAuth services (skip for embedded wallets)
             const servicesWithScopes = requiredServices.filter(service => {
                 const mcpRequiredScopes = deploymentAuthScopes?.serviceClientMap?.[service] || []
                 const authMethod = authMethods?.find((method: any) => method.name === service)
-                // Skip scope validation for embedded wallet services
                 if (authMethod?.type === 'embedded_wallet') return false
                 return mcpRequiredScopes.length > 0
             })
@@ -378,7 +373,6 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
                 return
             }
 
-            // Validate policy JSON if there are embedded wallet services
             const hasEmbeddedWalletServices = requiredServices.some(service => {
                 const authMethod = authMethods?.find((method: any) => method.name === service)
                 return authMethod?.type === 'embedded_wallet'
@@ -393,7 +387,6 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
                 }
             }
 
-            // Get service connections for deployment (same logic as mcp-deploy-dialog.tsx)
             const serviceConnections = requiredServices
                 .filter(service => selectedConnections[service])
                 .map(service => {
@@ -409,9 +402,8 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
                     }
                 })
 
-            // Deploy the package
             const deploymentData = await deployPackage.mutateAsync({
-                packageId: selectedMcpForDeploy.packageId,
+                packageId: selectedMcpForDeploy.packageId || selectedMcpForDeploy.id,
                 version: selectedMcpForDeploy.latestVersion,
                 url: `${selectedMcpForDeploy.url?.replace(/\/$/, '')}/mcp`,
                 authData: {},
@@ -420,11 +412,9 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
 
             const deploymentId = deploymentData.deployment.deploymentId
 
-            // Authorize the deployment
             const mcpRedirectUri = new URL(selectedMcpForDeploy.url as string)
             mcpRedirectUri.pathname = mcpRedirectUri.pathname.replace(/\/$/, '') + '/osiris/callback'
 
-            // Flatten scopes for authorization (same logic as mcp-deploy-dialog.tsx)
             const allScopes = serviceConnections.flatMap(sc => 'scopes' in sc ? sc.scopes : [])
 
             const authData = await authorizeFrontend.mutateAsync({
@@ -445,7 +435,6 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
             setDeploymentState({ status: 'success', deploymentId })
             toast.success(`${selectedMcpForDeploy.name} deployed successfully!`)
 
-            // Update MCP status
             const mcpId = selectedMcpForDeploy.id || selectedMcpForDeploy.packageId
             setMcpStatuses(prev => ({
                 ...prev,
@@ -456,7 +445,6 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
                 }
             }))
 
-            // Auto-close after success
             setTimeout(() => {
                 handleBackToMcpList()
             }, 1500)
@@ -470,17 +458,14 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
         }
     }
 
-    // Deployment form validation (same logic as mcp-deploy-dialog.tsx)
     const isDeploymentFormValid = () => {
         if (!deploymentAuthScopes) return false
 
         const requiredServices = Object.keys(deploymentAuthScopes?.serviceClientMap || {})
 
-        // Check if all required services have connections
         const hasAllConnections = requiredServices.every(service => selectedConnections[service])
         if (!hasAllConnections) return false
 
-        // Check if OAuth services have permissions selected
         const servicesWithScopes = requiredServices.filter(service => {
             const mcpRequiredScopes = deploymentAuthScopes?.serviceClientMap?.[service] || []
             const authMethod = authMethods?.find((method: any) => method.name === service)
@@ -501,33 +486,23 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
 
         if (!formData.name.trim() || !formData.prompt.trim()) return
 
-        // Collect deployment IDs from deployed MCPs
         const deploymentIds = formData.mcpProviders
             .map(mcp => {
                 const mcpId = mcp.id || mcp.packageId
                 const status = mcpStatuses[mcpId]
                 return status?.deploymentStatus === 'deployed' ? status.deploymentData?.deploymentId : null
             })
-            .filter(Boolean) // Remove null values
-
-        // Ensure at least one MCP has been deployed
-        if (deploymentIds.length === 0) {
-            toast.error('Please deploy at least one MCP before creating the step')
-            return
-        }
+            .filter(Boolean)
 
         onAddStep({
             name: formData.name.trim(),
-            mcpProvider: formData.mcpProviders[0]?.name || "", // For compatibility, use first selected  
+            mcpProvider: formData.mcpProviders[0]?.name || "",
             prompt: formData.prompt.trim(),
-            // Pass the full objects for future use
             mcpProviders: formData.mcpProviders,
             knowledgeBases: formData.knowledgeBases,
-            // Pass deployment IDs for API
             deploymentIds: deploymentIds,
         })
 
-        // Reset form
         resetForm()
         onOpenChange(false)
     }
@@ -556,8 +531,14 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
     }
 
     const handleCancel = () => {
-        resetForm()
         onOpenChange(false)
+    }
+
+    const handleDialogClose = (open: boolean) => {
+        if (!open) {
+            resetForm()
+        }
+        onOpenChange(open)
     }
 
     const renderStepContent = () => {
@@ -627,7 +608,6 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
                                 </PopoverContent>
                             </Popover>
 
-                            {/* Selected providers badges */}
                             {formData.mcpProviders.length > 0 && (
                                 <div className="flex flex-wrap gap-2 mt-2">
                                     {formData.mcpProviders.map((provider) => (
@@ -693,7 +673,6 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
                                 </PopoverContent>
                             </Popover>
 
-                            {/* Selected knowledge bases badges */}
                             {formData.knowledgeBases.length > 0 && (
                                 <div className="flex flex-wrap gap-2 mt-2">
                                     {formData.knowledgeBases.map((kb) => {
@@ -724,7 +703,6 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
             case 2:
                 return (
                     <div className="space-y-6">
-                        {/* MCP Deployment Section */}
                         <div className="space-y-4">
                             <h3 className="text-sm font-medium text-primary-400">MCP Providers</h3>
                             {formData.mcpProviders.length > 0 ? (
@@ -789,7 +767,6 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
                             )}
                         </div>
 
-                        {/* Knowledge Bases Section */}
                         <div className="space-y-4">
                             <h3 className="text-sm font-medium text-primary-400">Knowledge Bases</h3>
                             {formData.knowledgeBases.length > 0 ? (
@@ -810,8 +787,10 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
                             )}
                         </div>
 
-                        {/* Validation Message */}
                         {(() => {
+                            // Only show validation if MCPs are selected
+                            if (formData.mcpProviders.length === 0) return null
+
                             const deployedMcps = formData.mcpProviders.filter(mcp => {
                                 const mcpId = mcp.id || mcp.packageId
                                 return mcpStatuses[mcpId]?.deploymentStatus === 'deployed'
@@ -833,13 +812,11 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
             case '2.1':
                 return (
                     <div>
-                        {/* Header */}
                         <div className="text-center">
                             <h3 className="text-lg font-medium mb-2">Configure OAuth for {selectedMcpForConfig?.name}</h3>
                             <p className="text-sm text-primary-300">Set up OAuth connections and permissions</p>
                         </div>
 
-                        {/* User and Service Avatars */}
                         <div className="flex items-center justify-center gap-4">
                             <Avatar className="size-10">
                                 <AvatarImage src={user?.profileImageUrl} alt={user?.name || 'User'} />
@@ -855,7 +832,6 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
                             </Avatar>
                         </div>
 
-                        {/* Connection Name */}
                         <div className="space-y-2">
                             <Label htmlFor="auth_hub_name" className="text-sm font-medium">Connection Name</Label>
                             <Input
@@ -868,7 +844,6 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
                             />
                         </div>
 
-                        {/* OAuth Configuration - ScrollArea for dropdown expansion */}
                         <ScrollArea className="max-h-[400px]">
                             <div className="pr-4">
                                 {authScopes?.serviceClients?.map((serviceClient: any) => {
@@ -876,7 +851,6 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
                                     const requiredScopes = authScopes?.serviceClientMap?.[serviceName] || []
                                     const serviceConnections = userAuth.filter((c: any) => c.service_clients.name === serviceName)
 
-                                    // Transform scope definitions without hooks
                                     const permissions = serviceClient.scopeDefinitions ?
                                         Object.entries(transformScopeDefinitions(serviceClient.name, serviceClient.scopeDefinitions)).map(([scope, label]) => ({
                                             id: scope,
@@ -908,7 +882,6 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
                                                     </div>
                                                 </AccordionTrigger>
                                                 <AccordionContent className="px-4 pb-4">
-                                                    {/* Permissions */}
                                                     {permissions.length > 0 && (
                                                         <div className="mb-6">
                                                             <p className="text-sm font-medium text-primary-800 mb-3">Select permissions to grant:</p>
@@ -923,7 +896,6 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
                                                         </div>
                                                     )}
 
-                                                    {/* Existing Connections */}
                                                     {serviceConnections.length > 0 && (
                                                         <div className="mb-6">
                                                             <p className="text-sm font-medium text-primary-800 mb-3">Your connected accounts:</p>
@@ -979,38 +951,17 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
                                 })}
                             </div>
                         </ScrollArea>
-
-                        {/* Status Messages */}
-                        {connectionState.status === 'success' && (
-                            <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                                <div className="flex items-center gap-2">
-                                    <CheckCircle className="size-4 text-green-600" />
-                                    <p className="text-sm text-green-700">OAuth connection created successfully!</p>
-                                </div>
-                            </div>
-                        )}
-
-                        {connectionState.status === 'error' && (
-                            <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-                                <div className="flex items-center gap-2">
-                                    <AlertCircle className="size-4 text-red-600" />
-                                    <p className="text-sm text-red-700">{connectionState.error}</p>
-                                </div>
-                            </div>
-                        )}
                     </div>
                 )
 
             case '2.2':
                 return (
                     <div className="space-y-6">
-                        {/* Header */}
                         <div className="text-center">
                             <h3 className="text-lg font-medium mb-2">Deploy {selectedMcpForDeploy?.name}</h3>
                             <p className="text-sm text-primary-300">Configure deployment settings and policies</p>
                         </div>
 
-                        {/* MCP Info */}
                         <div className="flex items-center justify-center gap-4 mb-6">
                             <div className="flex flex-col items-center gap-2">
                                 <Avatar className="size-10">
@@ -1023,7 +974,6 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
                             </div>
                         </div>
 
-                        {/* Service Connections - ScrollArea for long content */}
                         <ScrollArea className="max-h-[400px]">
                             <div className="pr-4 space-y-4">
                                 {deploymentAuthScopes?.serviceClients?.map((serviceClient: any) => {
@@ -1033,7 +983,6 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
                                     const isEmbeddedWallet = authMethod?.type === 'embedded_wallet'
                                     const requiredScopes = deploymentAuthScopes?.serviceClientMap?.[serviceName] || []
 
-                                    // Transform scope definitions for permission selector
                                     const permissions = serviceClient.scopeDefinitions ?
                                         Object.entries(transformScopeDefinitions(serviceClient.name, serviceClient.scopeDefinitions)).map(([scope, label]) => ({
                                             id: scope,
@@ -1055,7 +1004,6 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
                                                 </div>
                                             </div>
 
-                                            {/* Permission Selection for OAuth services */}
                                             {!isEmbeddedWallet && permissions.length > 0 && (
                                                 <div className="space-y-2">
                                                     <Label className="text-sm font-medium text-primary-400">Select permissions to grant:</Label>
@@ -1070,7 +1018,6 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
                                                 </div>
                                             )}
 
-                                            {/* Connection Selection */}
                                             {serviceConnections.length > 0 ? (
                                                 <div className="space-y-2">
                                                     <Label className="text-sm font-medium text-primary-400">Your connected accounts:</Label>
@@ -1100,7 +1047,6 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
                                                                                         connection.user_service_connections.name || 'Unknown User'}
                                                                                 </p>
                                                                             </div>
-                                                                            {/* Ready Indicator */}
                                                                             {(() => {
                                                                                 const connectionScopes = connection.user_service_connections.scopes || [];
                                                                                 const requiredScopesArray = Array.isArray(requiredScopes) ? requiredScopes : [];
@@ -1151,7 +1097,6 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
                                                 </div>
                                             )}
 
-                                            {/* Policy Builder for Embedded Wallets */}
                                             {isEmbeddedWallet && (
                                                 <div className="space-y-2">
                                                     <Label className="text-sm font-medium text-primary-400">Deployment Policy</Label>
@@ -1166,36 +1111,17 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
                                 })}
                             </div>
                         </ScrollArea>
-
-                        {/* Deployment Status */}
-                        {/* {deploymentState.status !== 'idle' && (
-                            <div className={`p-3 rounded-lg flex items-center gap-2 ${deploymentState.status === 'success' ? 'bg-green-50 text-green-700' :
-                                deploymentState.status === 'error' ? 'bg-red-50 text-red-700' :
-                                    'bg-blue-50 text-blue-700'
-                                }`}>
-                                {deploymentState.status === 'success' && <CheckCircle className="h-4 w-4" />}
-                                {deploymentState.status === 'error' && <AlertCircle className="h-4 w-4" />}
-                                {deploymentState.status === 'deploying' && <Loader2 className="h-4 w-4 animate-spin" />}
-                                <span className="text-sm">
-                                    {deploymentState.status === 'success' && 'MCP deployed successfully!'}
-                                    {deploymentState.status === 'error' && deploymentState.error}
-                                    {deploymentState.status === 'deploying' && 'Deploying MCP...'}
-                                </span>
-                            </div>
-                        )} */}
                     </div>
                 )
 
             case 3:
                 return (
                     <div className="space-y-6">
-                        {/* Confirmation Header */}
                         <div className="text-center">
                             <h3 className="text-lg font-medium mb-2">Ready to Create Step</h3>
                             <p className="text-sm text-primary-300">Review your step configuration before creating</p>
                         </div>
 
-                        {/* Step Summary */}
                         <div className="space-y-4">
                             <div className="p-4 border rounded-lg bg-primary-50">
                                 <h4 className="font-medium text-primary-800 mb-2">Step Details</h4>
@@ -1211,43 +1137,50 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
                                 </div>
                             </div>
 
-                            {/* Deployed MCPs Summary */}
-                            <div className="p-4 border rounded-lg bg-green-50">
-                                <h4 className="font-medium text-green-800 mb-2">Deployed MCPs</h4>
-                                <div className="space-y-2">
-                                    {formData.mcpProviders.map((mcp) => {
-                                        const mcpId = mcp.id || mcp.packageId
-                                        const status = mcpStatuses[mcpId]
-                                        const isDeployed = status?.deploymentStatus === 'deployed'
+                            {formData.mcpProviders.length > 0 && (
+                                <div className="p-4 border rounded-lg bg-green-50">
+                                    <h4 className="font-medium text-green-800 mb-2">Deployed MCPs</h4>
+                                    <div className="space-y-2">
+                                        {formData.mcpProviders.map((mcp) => {
+                                            const mcpId = mcp.id || mcp.packageId
+                                            const status = mcpStatuses[mcpId]
+                                            const isDeployed = status?.deploymentStatus === 'deployed'
 
-                                        return (
-                                            <div key={mcpId} className="flex items-center justify-between text-sm">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-6 h-6 rounded bg-primary-100 flex items-center justify-center">
-                                                        <span className="text-xs font-medium">{mcp.name.charAt(0).toUpperCase()}</span>
+                                            return (
+                                                <div key={mcpId} className="flex items-center justify-between text-sm">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-6 h-6 rounded bg-primary-100 flex items-center justify-center">
+                                                            <span className="text-xs font-medium">{mcp.name.charAt(0).toUpperCase()}</span>
+                                                        </div>
+                                                        <span className="text-primary-800">{mcp.name}</span>
                                                     </div>
-                                                    <span className="text-primary-800">{mcp.name}</span>
+                                                    <div className="flex items-center gap-2">
+                                                        {isDeployed ? (
+                                                            <>
+                                                                <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                                                                <span className="text-green-700 font-medium">Deployed</span>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
+                                                                <span className="text-yellow-700 font-medium">Not Deployed</span>
+                                                            </>
+                                                        )}
+                                                    </div>
                                                 </div>
-                                                <div className="flex items-center gap-2">
-                                                    {isDeployed ? (
-                                                        <>
-                                                            <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                                                            <span className="text-green-700 font-medium">Deployed</span>
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
-                                                            <span className="text-yellow-700 font-medium">Not Deployed</span>
-                                                        </>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        )
-                                    })}
+                                            )
+                                        })}
+                                    </div>
                                 </div>
-                            </div>
+                            )}
 
-                            {/* Knowledge Bases Summary */}
+                            {formData.mcpProviders.length === 0 && (
+                                <div className="p-4 border rounded-lg bg-gray-50">
+                                    <h4 className="font-medium text-gray-800 mb-2">No MCPs Selected</h4>
+                                    <p className="text-sm text-gray-600">This step will be created without any MCP integrations.</p>
+                                </div>
+                            )}
+
                             {formData.knowledgeBases.length > 0 && (
                                 <div className="p-4 border rounded-lg bg-blue-50">
                                     <h4 className="font-medium text-blue-800 mb-2">Knowledge Bases</h4>
@@ -1273,13 +1206,12 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
     }
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
+        <Dialog open={open} onOpenChange={handleDialogClose}>
             <DialogContent className="p-4 max-w-md max-h-[90vh] overflow-hidden">
                 <DialogHeader className="space-y-4">
                     <DialogTitle className="text-primary-400 font-normal text-sm">Add step</DialogTitle>
                 </DialogHeader>
 
-                {/* Context indicator */}
                 <div className="py-4 w-full flex flex-col items-center gap-2">
                     {prevStepName && (
                         <div className="text-sm text-primary-800 mb-2">
@@ -1326,7 +1258,6 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
                             Cancel
                         </Button>
 
-                        {/* OAuth Configuration Action Button */}
                         {currentStep === '2.1' ? (
                             <Button
                                 type="button"
