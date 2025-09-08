@@ -414,6 +414,8 @@ function RouteComponent() {
   const isAuthenticated = auth.isAuthenticated
   const scopesArray = scopes ? scopes.split(' ') : []
 
+  const isWalletOnlyFlow = !package_id && scopesArray.includes('osiris:auth:wallet')
+
   const [selectedDeploymentId, setSelectedDeploymentId] = useState<string>('')
   const [selectedAuthConnections, setSelectedAuthConnections] = useState<Record<string, string>>({})
   const [selectedPermissions, setSelectedPermissions] = useState<Record<string, Permission[]>>({})
@@ -425,26 +427,34 @@ function RouteComponent() {
   const [deploymentPage, setDeploymentPage] = useState(1)
   const deploymentLimit = 5
 
-  // State for open sections
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({})
 
-  // Login mutation
   const loginMutation = useLoginMutation()
 
-  // Package queries that don't require authentication
-  const { data: packageDetails, error: packageError } = useQuery(packageQueries.detailOptions(package_id as string))
-  const { data: authScopes, error: authScopesError } = useQuery(packageQueries.authScopesOptions(package_id as string))
+  const { data: packageDetails, error: packageError } = useQuery({
+    ...packageQueries.detailOptions(package_id as string),
+    enabled: !isWalletOnlyFlow && !!package_id
+  })
+  const { data: authScopes, error: authScopesError } = useQuery({
+    ...packageQueries.authScopesOptions(package_id as string),
+    enabled: !isWalletOnlyFlow && !!package_id
+  })
   const { data: authMethods, error: authMethodsError } = useQuery(hubQueries.authMethodsOptions())
 
-  // User-specific queries - always attempt to load, handle 401s to determine auth status
+  const { data: oauthClient, error: oauthClientError } = useQuery({
+    ...hubQueries.oauthClientOptions(client_id as string),
+    enabled: isWalletOnlyFlow && !!client_id
+  })
+
   const { data: userInfo, error: userError } = useQuery(userQueries.meOptions(true))
   const { data: rawUserAuthConnections, error: authError } = useQuery(hubQueries.userAuthOptions(true))
-  const { data: existingPackageDeploymentsResponse, error: deploymentError } = useQuery(
-    packageQueries.userDeploymentsForPackageOptions(package_id as string, {
+  const { data: existingPackageDeploymentsResponse, error: deploymentError } = useQuery({
+    ...packageQueries.userDeploymentsForPackageOptions(package_id as string, {
       page: deploymentPage,
       limit: deploymentLimit
-    })
-  )
+    }),
+    enabled: !isWalletOnlyFlow && !!package_id
+  })
 
   // Initialize open sections when auth scopes are loaded
   useEffect(() => {
@@ -458,24 +468,24 @@ function RouteComponent() {
     }
   }, [isAuthenticated, authScopes?.serviceClientMap, openSections])
 
-  // Filter user auth connections
   const userAuthConnections = rawUserAuthConnections?.filter((connection: any) => {
-    const allowed = Object.keys(authScopes?.serviceClientMap || {})
-    return allowed.includes(connection.service_clients?.name)
+    if (isWalletOnlyFlow) {
+      return connection.service_clients?.type === 'embedded_wallet'
+    } else {
+      const allowed = Object.keys(authScopes?.serviceClientMap || {})
+      return allowed.includes(connection.service_clients?.name)
+    }
   }) || []
 
-  // Ensure existingPackageDeployments is always an array
   const existingPackageDeployments = Array.isArray(existingPackageDeploymentsResponse) ? existingPackageDeploymentsResponse : []
-  const deploymentPagination = null // Pagination is no longer available
+  const deploymentPagination = null
 
-  // Mutations
   const createServiceConnectionMutation = useCreateServiceConnectionMutation()
   const createSecretSharingMutation = useCreateSecretSharingMutation()
   const createWalletMutation = useCreateWalletMutation()
   const deployPackageMutation = useDeployPackageMutation()
   const authorizeFrontendMutation = useAuthorizeFrontendMutation()
 
-  // Show error toasts for mutation errors
   useEffect(() => {
     if (createServiceConnectionMutation.error) {
       toast.error(createServiceConnectionMutation.error.message || 'Failed to create service connection');
@@ -512,11 +522,10 @@ function RouteComponent() {
     }
   }, [authorizeFrontendMutation.error]);
 
-  // Show error toast for local errors
   useEffect(() => {
     if (error) {
       toast.error(error);
-      setError(null); // Clear error after showing toast
+      setError(null);
     }
   }, [error]);
 
@@ -602,30 +611,65 @@ function RouteComponent() {
   const [selectedAuthMethod, setSelectedAuthMethod] = useState<any>(null)
 
   const handleAllowConsent = async () => {
-    if (!selectedDeploymentId) {
-      const requiredServices = Object.keys(authScopes?.serviceClientMap || {})
-      const selectedServices = Object.keys(selectedAuthConnections)
-      const missingServices = requiredServices.filter((service) => !selectedServices.includes(service))
-      if (missingServices.length > 0) {
-        setError(`Please select accounts for: ${missingServices.join(', ')}`)
-        return
-      }
-      const servicesWithoutPermissions = selectedServices.filter((service) => {
-        const serviceAuthMethod = authMethods?.find((method: any) => method.name === service)
-        if (serviceAuthMethod?.type === 'oauth') {
-          return !selectedPermissions[service] || selectedPermissions[service].length === 0
-        }
-        return false
-      })
-      if (servicesWithoutPermissions.length > 0) {
-        setError(`Please select permissions for: ${servicesWithoutPermissions.join(', ')}`)
-        return
-      }
-    }
-
     setIsLoading(true)
 
     try {
+      if (isWalletOnlyFlow) {
+        // New wallet-only flow - skip deployment and directly authorize
+        if (Object.keys(selectedAuthConnections).length === 0) {
+          setError('Please select a wallet connection')
+          setIsLoading(false)
+          return
+        }
+
+        // Direct authorization for wallet-only flow
+        const authResultFrontend = await authorizeFrontendMutation.mutateAsync({
+          clientId: client_id,
+          redirectUri: redirect_uri,
+          responseType: response_type ?? 'code',
+          scopes: scopesArray,
+          state: String(state) || '',
+        })
+
+        const url = new URL(authResultFrontend.url)
+        // Add wallet connection info to the redirect
+        url.searchParams.set(
+          'wallet_connections',
+          JSON.stringify([
+            {
+              connectionId: Object.values(selectedAuthConnections)[0],
+              policy: { allow: [{}], deny: [] }, // Default policy for wallet-only flow
+            },
+          ])
+        )
+        window.location.href = url.toString()
+        return
+      }
+
+      // Original package flow
+      if (!selectedDeploymentId) {
+        const requiredServices = Object.keys(authScopes?.serviceClientMap || {})
+        const selectedServices = Object.keys(selectedAuthConnections)
+        const missingServices = requiredServices.filter((service) => !selectedServices.includes(service))
+        if (missingServices.length > 0) {
+          setError(`Please select accounts for: ${missingServices.join(', ')}`)
+          setIsLoading(false)
+          return
+        }
+        const servicesWithoutPermissions = selectedServices.filter((service) => {
+          const serviceAuthMethod = authMethods?.find((method: any) => method.name === service)
+          if (serviceAuthMethod?.type === 'oauth') {
+            return !selectedPermissions[service] || selectedPermissions[service].length === 0
+          }
+          return false
+        })
+        if (servicesWithoutPermissions.length > 0) {
+          setError(`Please select permissions for: ${servicesWithoutPermissions.join(', ')}`)
+          setIsLoading(false)
+          return
+        }
+      }
+
       let deploymentId = selectedDeploymentId
       if (!selectedDeploymentId) {
         const selectedScopes = Object.entries(selectedPermissions).flatMap(([serviceName, permissions]) =>
@@ -662,7 +706,6 @@ function RouteComponent() {
             };
           });
 
-
         const deploymentResult = await deployPackageMutation.mutateAsync({
           packageId: package_id as string,
           version: packageDetails?.latestVersion || '1.0.0',
@@ -676,7 +719,6 @@ function RouteComponent() {
 
       const mcpRedirectUri = new URL(packageDetails?.url as string)
       mcpRedirectUri.pathname = mcpRedirectUri.pathname.replace(/\/$/, '') + '/osiris/callback'
-
 
       if (type === 'agent') {
         const authResultOsiris = await authorizeFrontendMutation.mutateAsync({
@@ -731,28 +773,56 @@ function RouteComponent() {
       <div className="flex flex-1 flex-col bg-primary-25 h-full min-h-screen">
         <div className="mx-auto py-8 max-w-[520px] w-full px-4 space-y-6">
           <div className="text-center py-8">
-            <h1 className="text-2xl font-semibold text-gray-900 mb-2">{packageDetails?.name} wants to access your Authentication Hub.</h1>
+            <h1 className="text-2xl font-semibold text-gray-900 mb-2">
+              {isWalletOnlyFlow
+                ? `${oauthClient?.name || 'Application'} wants to access your wallet.`
+                : `${packageDetails?.name} wants to access your Authentication Hub.`
+              }
+            </h1>
             <p className="text-sm text-gray-600">Sign in with your account to continue</p>
           </div>
 
           <Card>
             <CardHeader>
               <div className="flex items-start gap-3">
-                {packageDetails?.iconUrl ? (
-                  <img src={packageDetails.iconUrl} alt={`${packageDetails.name} icon`} className="size-12 rounded-[6px] shadow-xl object-cover" />
-                ) : (
+                {isWalletOnlyFlow ? (
                   <div className="size-12 rounded-[6px] bg-purple-300 flex items-center justify-center text-white font-bold text-lg capitalize shadow-xl">
-                    {packageDetails?.name?.charAt(0) || 'P'}
+                    {oauthClient?.name?.charAt(0) || 'A'}
                   </div>
+                ) : (
+                  <>
+                    {packageDetails?.iconUrl ? (
+                      <img src={packageDetails.iconUrl} alt={`${packageDetails.name} icon`} className="size-12 rounded-[6px] shadow-xl object-cover" />
+                    ) : (
+                      <div className="size-12 rounded-[6px] bg-purple-300 flex items-center justify-center text-white font-bold text-lg capitalize shadow-xl">
+                        {packageDetails?.name?.charAt(0) || 'P'}
+                      </div>
+                    )}
+                  </>
                 )}
                 <div className="flex flex-col">
-                  <CardTitle className="text-primary-800">{packageDetails?.name}</CardTitle>
-                  <p className="text-[13px] text-primary-300 mt-1">{packageDetails?.shortDescription}</p>
-                  <div className="flex items-center gap-3 mt-2 text-xs text-primary-400">
-                    <span>v{packageDetails?.latestVersion}</span>
-                    <span>•</span>
-                    <span>{packageDetails?.metadata?.author}</span>
-                  </div>
+                  <CardTitle className="text-primary-800">
+                    {isWalletOnlyFlow ? oauthClient?.name : packageDetails?.name}
+                  </CardTitle>
+                  <p className="text-[13px] text-primary-300 mt-1">
+                    {isWalletOnlyFlow
+                      ? (oauthClient?.metadata?.description || 'Wallet Access Application')
+                      : packageDetails?.shortDescription
+                    }
+                  </p>
+                  {isWalletOnlyFlow ? (
+                    <div className="flex items-center gap-3 mt-2 text-xs text-primary-400">
+                      <span>Client ID: {oauthClient?.clientId?.slice(0, 8)}...</span>
+                      <span>•</span>
+                      <span>Created: {oauthClient?.createdAt ? new Date(oauthClient.createdAt).toLocaleDateString() : 'Unknown'}</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-3 mt-2 text-xs text-primary-400">
+                      <span>v{packageDetails?.latestVersion}</span>
+                      <span>•</span>
+                      <span>{packageDetails?.metadata?.author}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </CardHeader>
@@ -810,33 +880,61 @@ function RouteComponent() {
     <div className="flex flex-1 flex-col bg-primary-25 h-full min-h-screen">
       <div className="mx-auto py-8 max-w-[520px] w-full px-4 space-y-6">
         <div className="text-center py-8">
-          <h1 className="text-2xl font-semibold text-gray-900 mb-2">{packageDetails?.name} wants to access your Authentication Hub.</h1>
+          <h1 className="text-2xl font-semibold text-gray-900 mb-2">
+            {isWalletOnlyFlow
+              ? `${oauthClient?.name || 'Application'} wants to access your wallet.`
+              : `${packageDetails?.name} wants to access your Authentication Hub.`
+            }
+          </h1>
         </div>
 
         <Card>
           <CardHeader>
             <div className="flex items-start gap-3">
-              {packageDetails?.iconUrl ? (
-                <img src={packageDetails.iconUrl} alt={`${packageDetails.name} icon`} className="size-12 shrink-0 rounded-[6px] shadow-xl object-cover" />
-              ) : (
+              {isWalletOnlyFlow ? (
                 <div className="size-12 rounded-[6px] bg-purple-300 flex shrink-0 items-center justify-center text-white font-bold text-lg capitalize shadow-xl">
-                  {packageDetails?.name?.charAt(0) || 'P'}
+                  {oauthClient?.name?.charAt(0) || 'A'}
                 </div>
+              ) : (
+                <>
+                  {packageDetails?.iconUrl ? (
+                    <img src={packageDetails.iconUrl} alt={`${packageDetails.name} icon`} className="size-12 shrink-0 rounded-[6px] shadow-xl object-cover" />
+                  ) : (
+                    <div className="size-12 rounded-[6px] bg-purple-300 flex shrink-0 items-center justify-center text-white font-bold text-lg capitalize shadow-xl">
+                      {packageDetails?.name?.charAt(0) || 'P'}
+                    </div>
+                  )}
+                </>
               )}
               <div className="flex flex-col">
-                <CardTitle className="text-primary-800">{packageDetails?.name}</CardTitle>
-                <p className="text-[13px] text-primary-300 mt-1">{packageDetails?.shortDescription}</p>
-                <div className="flex items-center gap-3 mt-2 text-xs text-primary-400">
-                  <span>v{packageDetails?.latestVersion}</span>
-                  <span>•</span>
-                  <span>{packageDetails?.metadata?.author}</span>
-                </div>
+                <CardTitle className="text-primary-800">
+                  {isWalletOnlyFlow ? oauthClient?.name : packageDetails?.name}
+                </CardTitle>
+                <p className="text-[13px] text-primary-300 mt-1">
+                  {isWalletOnlyFlow
+                    ? (oauthClient?.metadata?.description || 'Wallet Access Application')
+                    : packageDetails?.shortDescription
+                  }
+                </p>
+                {isWalletOnlyFlow ? (
+                  <div className="flex items-center gap-3 mt-2 text-xs text-primary-400">
+                    <span>Client ID: {oauthClient?.clientId?.slice(0, 8)}...</span>
+                    <span>•</span>
+                    <span>Created: {oauthClient?.createdAt ? new Date(oauthClient.createdAt).toLocaleDateString() : 'Unknown'}</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-3 mt-2 text-xs text-primary-400">
+                    <span>v{packageDetails?.latestVersion}</span>
+                    <span>•</span>
+                    <span>{packageDetails?.metadata?.author}</span>
+                  </div>
+                )}
               </div>
             </div>
           </CardHeader>
         </Card>
 
-        {existingPackageDeployments.length > 0 && (
+        {!isWalletOnlyFlow && existingPackageDeployments.length > 0 && (
           <Collapsible open={deploymentSearchOpen} onOpenChange={setDeploymentSearchOpen}>
             <Card className="border-primary-100 hover:bg-primary-25 hover:border-primary-200 transition-all duration-200 rounded-xl overflow-hidden">
               <CollapsibleTrigger asChild>
@@ -959,32 +1057,62 @@ function RouteComponent() {
         )}
 
         <div className="space-y-4">
-          {Object.entries(authScopes?.serviceClientMap || {}).map(([serviceName, requiredScopes]) => (
-            <div key={serviceName} onClick={(e) => e.stopPropagation()}>
-              <ServiceConsentSection
-                serviceName={serviceName}
-                requiredScopes={requiredScopes as string[]}
-                userAuthConnections={userAuthConnections}
-                authMethods={authMethods || []}
-                selectedPermissions={selectedPermissions}
-                onPermissionSelect={handlePermissionSelect}
-                selectedAuthConnections={selectedAuthConnections}
-                onAuthConnectionSelect={handleAuthConnectionSelect}
-                isDisabledByDeployment={!!selectedDeploymentId}
-                selectedDeploymentDetails={selectedDeploymentDetails}
-                onConnectNewAccount={handleConnectNewAccount}
-                isOpen={openSections[serviceName] || false}
-                onToggle={(open) => toggleSection(serviceName, open)}
-              />
-            </div>
-          ))}
+          {isWalletOnlyFlow ? (
+            // Wallet-only flow - show embedded wallet connections
+            userAuthConnections.length > 0 ? (
+              <div>
+                <p className="text-sm font-medium text-primary-800 mb-4">Select a wallet connection:</p>
+                <RadioGroup
+                  value={Object.values(selectedAuthConnections)[0] || ''}
+                  onValueChange={(value) => setSelectedAuthConnections({ wallet: value })}
+                  className="space-y-2"
+                >
+                  {userAuthConnections.map((connection: any) => (
+                    <ConnectionItem
+                      key={connection.user_service_connections.id}
+                      connection={connection}
+                      serviceName="wallet"
+                      permissions={[]}
+                      ok={true}
+                    />
+                  ))}
+                </RadioGroup>
+              </div>
+            ) : (
+              <div className="text-center py-6 px-4 bg-primary-25 rounded-lg border border-primary-100">
+                <p className="text-sm text-primary-600 mb-2">No wallet connections found</p>
+                <p className="text-xs text-primary-400">You need to create a wallet connection first</p>
+              </div>
+            )
+          ) : (
+            // Original package flow
+            Object.entries(authScopes?.serviceClientMap || {}).map(([serviceName, requiredScopes]) => (
+              <div key={serviceName} onClick={(e) => e.stopPropagation()}>
+                <ServiceConsentSection
+                  serviceName={serviceName}
+                  requiredScopes={requiredScopes as string[]}
+                  userAuthConnections={userAuthConnections}
+                  authMethods={authMethods || []}
+                  selectedPermissions={selectedPermissions}
+                  onPermissionSelect={handlePermissionSelect}
+                  selectedAuthConnections={selectedAuthConnections}
+                  onAuthConnectionSelect={handleAuthConnectionSelect}
+                  isDisabledByDeployment={!!selectedDeploymentId}
+                  selectedDeploymentDetails={selectedDeploymentDetails}
+                  onConnectNewAccount={handleConnectNewAccount}
+                  isOpen={openSections[serviceName] || false}
+                  onToggle={(open) => toggleSection(serviceName, open)}
+                />
+              </div>
+            ))
+          )}
         </div>
 
-        {!selectedDeploymentId &&
+        {((!selectedDeploymentId &&
           Object.entries(authScopes?.serviceClientMap || {}).some(([serviceName]) => {
             const method = authMethods?.find((m: any) => m.name === serviceName)
             return method?.type === 'embedded_wallet'
-          }) && (
+          })) && !isWalletOnlyFlow) && (
             <Card className="border-primary-100">
               <CardHeader>
                 <CardTitle className="text-primary-800">Access Policies</CardTitle>
@@ -1023,30 +1151,37 @@ function RouteComponent() {
           <CardContent>
             <div className="space-y-3 text-sm">
               <div className="flex justify-between">
-                <span className="text-primary-400">Package:</span>
-                <span className="text-primary-800 font-medium">{packageDetails?.name}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-primary-400">Version:</span>
-                <span className="text-primary-800">v{packageDetails?.latestVersion}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-primary-400">Deployment:</span>
-                <span className="text-primary-800 capitalize">
-                  {selectedDeploymentId
-                    ? `Using: ${selectedDeploymentDetails?.name || `Deployment ${selectedDeploymentDetails?.deploymentId.slice(0, 8)}`}`
-                    : 'New deployment'}
+                <span className="text-primary-400">{isWalletOnlyFlow ? 'Application:' : 'Package:'}</span>
+                <span className="text-primary-800 font-medium">
+                  {isWalletOnlyFlow ? oauthClient?.name : packageDetails?.name}
                 </span>
               </div>
-              {!selectedDeploymentId && (
-                <div className="flex justify-between">
-                  <span className="text-primary-400">Auth Methods:</span>
-                  <span className="text-primary-800">
-                    {Object.keys(selectedAuthConnections).length > 0 ? Object.keys(selectedAuthConnections).join(', ') : 'None selected'}
-                  </span>
-                </div>
+              {!isWalletOnlyFlow && (
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-primary-400">Version:</span>
+                    <span className="text-primary-800">v{packageDetails?.latestVersion}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-primary-400">Deployment:</span>
+                    <span className="text-primary-800 capitalize">
+                      {selectedDeploymentId
+                        ? `Using: ${selectedDeploymentDetails?.name || `Deployment ${selectedDeploymentDetails?.deploymentId.slice(0, 8)}`}`
+                        : 'New deployment'}
+                    </span>
+                  </div>
+                </>
               )}
-              {!selectedDeploymentId && (
+              <div className="flex justify-between">
+                <span className="text-primary-400">{isWalletOnlyFlow ? 'Wallet Connection:' : 'Auth Methods:'}</span>
+                <span className="text-primary-800">
+                  {isWalletOnlyFlow
+                    ? (Object.values(selectedAuthConnections)[0] ? 'Selected' : 'None selected')
+                    : (Object.keys(selectedAuthConnections).length > 0 ? Object.keys(selectedAuthConnections).join(', ') : 'None selected')
+                  }
+                </span>
+              </div>
+              {!isWalletOnlyFlow && (
                 <div className="flex justify-between">
                   <span className="text-primary-400">Policy Rules:</span>
                   <span className="text-primary-800">
