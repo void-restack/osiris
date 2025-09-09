@@ -9,7 +9,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Edit, X, Check, ChevronsUpDown, Settings, Rocket, CheckCircle, AlertCircle, Loader2 } from "lucide-react"
+import { Edit, X, Check, ChevronsUpDown, Settings, Rocket, Loader2 } from "lucide-react"
 import { type WorkflowStep } from "./workflow-step-item"
 import { cn } from "@/lib/utils"
 import { useQueryClient, useQuery } from "@tanstack/react-query"
@@ -42,10 +42,30 @@ export function EditStepDialog({ open, onOpenChange, onEditStep, step, workflowD
     const deployPackage = useDeployPackageMutation()
     const authorizeFrontend = useAuthorizeFrontendMutation()
 
-    const [name, setName] = useState("")
-    const [prompt, setPrompt] = useState("")
-    const [mcpProviders, setMcpProviders] = useState<any[]>([])
-    const [knowledgeBases, setKnowledgeBases] = useState<any[]>([])
+    const getDefaultValuesForChain = (chainValue: string) => {
+        if (chainValue.startsWith('evm:')) {
+            return {
+                pathFormat: 'PATH_FORMAT_BIP32',
+                path: "m/44'/60'/0'/0/0",
+                curve: 'CURVE_SECP256K1',
+                addressFormat: 'ADDRESS_FORMAT_ETHEREUM'
+            }
+        } else if (chainValue.startsWith('solana:')) {
+            return {
+                pathFormat: 'PATH_FORMAT_BIP32',
+                path: "m/44'/501'/0'/0'",
+                curve: 'CURVE_ED25519',
+                addressFormat: 'ADDRESS_FORMAT_SOLANA'
+            }
+        }
+        return {
+            pathFormat: '',
+            path: '',
+            curve: '',
+            addressFormat: ''
+        }
+    }
+
     const [existingDeployedMcps, setExistingDeployedMcps] = useState<any[]>([])
 
     const [mcpCommandOpen, setMcpCommandOpen] = useState(false)
@@ -79,6 +99,27 @@ export function EditStepDialog({ open, onOpenChange, onEditStep, step, workflowD
         deploymentId?: string;
     }>({ status: 'idle' })
     const [policyJson, setPolicyJson] = useState<string>('{\n  "allow": [{}],\n  "deny": []\n}')
+
+    const [secretData, setSecretData] = useState<Record<string, any>>({})
+    const [walletData, setWalletData] = useState<{
+        accounts: Array<{
+            chains: string[];
+            pathFormat: string;
+            path: string;
+            curve: string;
+            addressFormat: string;
+        }>;
+    }>({
+        accounts: [
+            {
+                chains: ['evm:eip155:1'],
+                pathFormat: '',
+                path: '',
+                curve: '',
+                addressFormat: ''
+            }
+        ]
+    })
 
     const TOTAL_STEPS = 3
 
@@ -133,12 +174,12 @@ export function EditStepDialog({ open, onOpenChange, onEditStep, step, workflowD
 
     const { data: userAuth } = useQuery({
         ...hubQueries.userAuthOptions(),
-        enabled: !!authScopes?.serviceClients && currentStep === '2.1'
+        enabled: !!authScopes?.serviceClients && currentStep === '2.1' && isAuthenticated
     })
 
     const { data: authMethods } = useQuery({
         ...hubQueries.authMethodsOptions(),
-        enabled: !!authScopes?.serviceClients && currentStep === '2.1'
+        enabled: !!authScopes?.serviceClients && currentStep === '2.1' && isAuthenticated
     })
 
     const { data: deploymentAuthScopes } = useQuery({
@@ -148,8 +189,10 @@ export function EditStepDialog({ open, onOpenChange, onEditStep, step, workflowD
 
     const { data: deploymentUserAuth } = useQuery({
         ...hubQueries.userAuthOptions(),
-        enabled: !!deploymentAuthScopes?.serviceClients && currentStep === '2.2'
+        enabled: !!deploymentAuthScopes?.serviceClients && currentStep === '2.2' && isAuthenticated
     })
+
+    const { data: user } = useQuery(userQueries.meOptions(isAuthenticated))
 
     const handleMcpSelect = useCallback((mcp: any) => {
         const mcpId = mcp.id || mcp.packageId
@@ -196,7 +239,6 @@ export function EditStepDialog({ open, onOpenChange, onEditStep, step, workflowD
     const handleNext = useCallback(() => {
         if (typeof currentStep === 'number' && currentStep < TOTAL_STEPS) {
             if (currentStep === 1 && formData.mcpProviders.length === 0) {
-                // Skip to Step 3 (confirmation) if no MCPs selected
                 setCurrentStep(3)
             } else {
                 setCurrentStep(prev => (prev as number) + 1)
@@ -207,7 +249,6 @@ export function EditStepDialog({ open, onOpenChange, onEditStep, step, workflowD
     const handlePrevious = useCallback(() => {
         if (typeof currentStep === 'number' && currentStep > 1) {
             if (currentStep === 3 && formData.mcpProviders.length === 0) {
-                // Go back to Step 1 if we skipped Step 2
                 setCurrentStep(1)
             } else {
                 setCurrentStep(prev => (prev as number) - 1)
@@ -220,7 +261,6 @@ export function EditStepDialog({ open, onOpenChange, onEditStep, step, workflowD
             case 1:
                 return formData.name.trim() !== "" && formData.prompt.trim() !== ""
             case 2:
-                // Only require deployed MCPs if MCPs were selected
                 if (formData.mcpProviders.length === 0) return true
                 const deployedMcps = formData.mcpProviders.filter(mcp => {
                     const mcpId = mcp.id || mcp.packageId
@@ -228,7 +268,6 @@ export function EditStepDialog({ open, onOpenChange, onEditStep, step, workflowD
                 })
                 return deployedMcps.length > 0
             case 3:
-                // Only require deployed MCPs if MCPs were selected
                 if (formData.mcpProviders.length === 0) return true
                 const deployedMcpsStep3 = formData.mcpProviders.filter(mcp => {
                     const mcpId = mcp.id || mcp.packageId
@@ -282,36 +321,119 @@ export function EditStepDialog({ open, onOpenChange, onEditStep, step, workflowD
             setConnectionState({ status: 'connecting' })
 
             const requiredServices = Object.keys(authScopes?.serviceClientMap || {})
-            const missingServices = requiredServices.filter(service => !selectedConnections[service])
+            const serviceName = requiredServices[0]
 
-            if (missingServices.length > 0) {
-                toast.error(`Please select connections for: ${missingServices.join(', ')}`)
+            if (!serviceName) {
+                toast.error("No service found for this MCP")
+                setConnectionState({ status: 'idle' })
                 return
             }
 
-            for (const serviceName of requiredServices) {
-                const connectionId = selectedConnections[serviceName]
-                const permissions = selectedPermissions[serviceName] || []
-
-                await createServiceConnection.mutateAsync({
-                    serviceClientName: serviceName,
-                    scopes: permissions.map(permission => permission.id),
-                    name: authHubName,
-                    redirectUri: window.location.href,
-                    preventRedirect: true, // Prevent page redirect
-                })
+            const serviceClient = authScopes?.serviceClients?.find((sc: any) => sc.name === serviceName)
+            if (!serviceClient) {
+                toast.error("Service client not found")
+                setConnectionState({ status: 'idle' })
+                return
             }
 
-            setConnectionState({ status: 'success' })
-            toast.success('OAuth configuration saved successfully!')
+            let connectionId: string
+
+            switch (serviceClient.type) {
+                case 'oauth':
+                    await createServiceConnection.mutateAsync({
+                        serviceClientName: serviceName,
+                        scopes: selectedPermissions[serviceName]?.map(permission => permission.id) || [],
+                        name: authHubName,
+                        redirectUri: window.location.href,
+                        preventRedirect: true
+                    })
+                    connectionId = 'connected'
+                    toast.success(`${serviceName} OAuth connection created successfully!`)
+                    break
+
+                case 'secret_sharing':
+                    const metadata = serviceClient.metadata
+                    if (metadata?.required) {
+                        for (const field of metadata.required) {
+                            if (!secretData[field]) {
+                                toast.error(`${metadata.properties?.[field]?.title || field} is required`)
+                                setConnectionState({ status: 'idle' })
+                                return
+                            }
+                        }
+                    }
+                    const secretResult = await createSecretSharing.mutateAsync({
+                        serviceClientId: serviceClient.clientId,
+                        name: authHubName,
+                        secret: secretData
+                    })
+                    connectionId = secretResult?.[0]?.id || 'created'
+                    toast.success(`${serviceName} connection created successfully!`)
+                    break
+
+                case 'embedded_wallet':
+                    if (!authHubName.trim()) {
+                        toast.error("Authentication Hub Name is required")
+                        setConnectionState({ status: 'idle' })
+                        return
+                    }
+                    if (!walletData.accounts[0]?.chains[0] || walletData.accounts[0].chains[0].trim() === '') {
+                        toast.error("At least one blockchain chain is required")
+                        setConnectionState({ status: 'idle' })
+                        return
+                    }
+
+                    const processedAccounts = walletData.accounts
+                        .filter(account => account.chains.some(chain => chain.trim() !== ''))
+                        .map(account => {
+                            const firstChain = account.chains.find(chain => chain.trim() !== '')
+                            const defaults = getDefaultValuesForChain(firstChain || '')
+
+                            return {
+                                ...account,
+                                pathFormat: account.pathFormat || defaults.pathFormat,
+                                path: account.path || defaults.path,
+                                curve: account.curve || defaults.curve,
+                                addressFormat: account.addressFormat || defaults.addressFormat
+                            }
+                        })
+
+                    const walletResult = await createWallet.mutateAsync({
+                        name: authHubName,
+                        accounts: processedAccounts
+                    })
+                    connectionId = walletResult?.[0]?.id || 'created'
+                    toast.success(`${serviceName} wallet created successfully!`)
+                    break
+
+                default:
+                    toast.error("Unknown authentication type")
+                    setConnectionState({ status: 'idle' })
+                    return
+            }
+
+            setConnectionState({ status: 'success', connectionId })
+
+            const mcpId = selectedMcpForConfig.id || selectedMcpForConfig.packageId
+            setMcpStatuses(prev => ({
+                ...prev,
+                [mcpId]: {
+                    ...prev[mcpId],
+                    oauthStatus: 'configured',
+                    oauthData: { serviceName, connectionId }
+                }
+            }))
+
+            // Invalidate user auth queries to refresh connection data
+            queryClient.invalidateQueries({ queryKey: ['user-auth'] })
 
             setTimeout(() => {
                 handleBackToEdit()
             }, 1500)
 
         } catch (error: any) {
-            console.error("OAuth configuration error:", error)
-            const errorMessage = error?.message || "Failed to create OAuth connection"
+            console.error("Authentication configuration error:", error)
+            const errorMessage = error?.message || "Failed to create connection"
             setConnectionState({ status: 'error', error: errorMessage })
             toast.error(errorMessage)
         }
@@ -384,6 +506,10 @@ export function EditStepDialog({ open, onOpenChange, onEditStep, step, workflowD
             }))
 
             toast.success('MCP deployed successfully!')
+
+            // Invalidate queries to refresh deployment data
+            queryClient.invalidateQueries({ queryKey: ['user-auth'] })
+            queryClient.invalidateQueries({ queryKey: ['packages'] })
 
             setTimeout(() => {
                 handleBackToEdit()
@@ -464,6 +590,18 @@ export function EditStepDialog({ open, onOpenChange, onEditStep, step, workflowD
                 setConnectionState({ status: 'idle' })
                 setDeploymentState({ status: 'idle' })
                 setPolicyJson('{\n  "allow": [{}],\n  "deny": []\n}')
+                setSecretData({})
+                setWalletData({
+                    accounts: [
+                        {
+                            chains: ['evm:eip155:1'],
+                            pathFormat: '',
+                            path: '',
+                            curve: '',
+                            addressFormat: ''
+                        }
+                    ]
+                })
             }
         }
         onOpenChange(open)
@@ -692,7 +830,6 @@ export function EditStepDialog({ open, onOpenChange, onEditStep, step, workflowD
 
                         {/* Validation Message */}
                         {(() => {
-                            // Only show validation if MCPs are selected
                             if (formData.mcpProviders.length === 0) return null
 
                             const deployedMcps = formData.mcpProviders.filter(mcp => {
@@ -949,6 +1086,111 @@ export function EditStepDialog({ open, onOpenChange, onEditStep, step, workflowD
                                                             onSelectionChange={(perms: any[]) => handleServicePermissionSelect(serviceName, perms)}
                                                             initialSelected={selectedPermissions[serviceName] || []}
                                                         />
+                                                    </div>
+                                                )}
+
+                                                {/* Secret Sharing Form */}
+                                                {serviceClient.type === 'secret_sharing' && (
+                                                    <div className="space-y-2">
+                                                        <Label className="text-sm font-medium text-primary-400">Configuration:</Label>
+                                                        {serviceClient.metadata?.properties ? (
+                                                            <div className="space-y-4">
+                                                                {Object.entries(serviceClient.metadata.properties).map(([fieldKey, fieldConfig]: [string, any]) => (
+                                                                    <div key={fieldKey} className="space-y-2">
+                                                                        <Label htmlFor={fieldKey} className="text-sm font-medium">
+                                                                            {fieldConfig.title || fieldKey}
+                                                                            {serviceClient.metadata.required?.includes(fieldKey) && (
+                                                                                <span className="text-red-500 ml-1">*</span>
+                                                                            )}
+                                                                        </Label>
+                                                                        <Input
+                                                                            id={fieldKey}
+                                                                            type={fieldConfig.format === 'uri' ? 'url' : 'text'}
+                                                                            placeholder={fieldConfig.description || `Enter ${fieldConfig.title || fieldKey}`}
+                                                                            value={secretData[fieldKey] || ''}
+                                                                            onChange={(e) => setSecretData(prev => ({
+                                                                                ...prev,
+                                                                                [fieldKey]: e.target.value
+                                                                            }))}
+                                                                            required={serviceClient.metadata.required?.includes(fieldKey)}
+                                                                        />
+                                                                        {fieldConfig.description && (
+                                                                            <p className="text-xs text-primary-400">{fieldConfig.description}</p>
+                                                                        )}
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        ) : (
+                                                            <div className="py-8 text-center text-muted-foreground">
+                                                                <p className="text-sm">No configuration fields available</p>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+
+                                                {/* Wallet Form */}
+                                                {serviceClient.type === 'embedded_wallet' && (
+                                                    <div className="space-y-2">
+                                                        <Label className="text-sm font-medium text-primary-400">Wallet Configuration:</Label>
+                                                        <div className="space-y-4">
+                                                            <div className="space-y-2">
+                                                                <Label className="text-sm font-medium">
+                                                                    Blockchain Chains <span className="text-red-500">*</span>
+                                                                </Label>
+                                                                <div className="flex flex-wrap gap-2 mb-2">
+                                                                    {walletData.accounts[0]?.chains.map((chainValue, chainIndex) => {
+                                                                        const displayName = chainValue === 'evm:eip155:1' ? 'Ethereum' :
+                                                                            chainValue === 'evm:eip155:137' ? 'Polygon' :
+                                                                                chainValue === 'evm:eip155:999' ? 'Hyperliquid' :
+                                                                                    chainValue === 'evm:eip155:8453' ? 'Base' :
+                                                                                        chainValue === 'evm:eip155:42161' ? 'Arbitrum' :
+                                                                                            chainValue === 'solana:mainnet-beta' ? 'Solana Mainnet' : chainValue
+
+                                                                        return (
+                                                                            <div key={chainIndex} className="flex items-center gap-1 bg-primary-100 text-primary-700 px-2 py-1 rounded-md text-xs">
+                                                                                <span>{displayName}</span>
+                                                                                <Button
+                                                                                    type="button"
+                                                                                    variant="ghost"
+                                                                                    size="sm"
+                                                                                    className="h-auto p-0 text-primary-500 hover:text-primary-700"
+                                                                                    onClick={() => setWalletData(prev => ({
+                                                                                        ...prev,
+                                                                                        accounts: prev.accounts.map((acc, i) =>
+                                                                                            i === 0 ? { ...acc, chains: acc.chains.filter((_, ci) => ci !== chainIndex) } : acc
+                                                                                        )
+                                                                                    }))}
+                                                                                >
+                                                                                    ×
+                                                                                </Button>
+                                                                            </div>
+                                                                        )
+                                                                    })}
+                                                                </div>
+                                                                <select
+                                                                    onChange={(e) => {
+                                                                        const value = e.target.value
+                                                                        if (value && !walletData.accounts[0].chains.includes(value)) {
+                                                                            setWalletData(prev => ({
+                                                                                ...prev,
+                                                                                accounts: prev.accounts.map((acc, i) =>
+                                                                                    i === 0 ? { ...acc, chains: [...acc.chains, value] } : acc
+                                                                                )
+                                                                            }))
+                                                                        }
+                                                                    }}
+                                                                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                                                >
+                                                                    <option value="">Select blockchain chain</option>
+                                                                    <option value="evm:eip155:1">Ethereum</option>
+                                                                    <option value="evm:eip155:137">Polygon</option>
+                                                                    <option value="evm:eip155:999">Hyperliquid</option>
+                                                                    <option value="evm:eip155:8453">Base</option>
+                                                                    <option value="evm:eip155:42161">Arbitrum</option>
+                                                                    <option value="solana:mainnet-beta">Solana Mainnet</option>
+                                                                </select>
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 )}
 
