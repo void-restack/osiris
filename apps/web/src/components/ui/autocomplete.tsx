@@ -37,6 +37,8 @@ interface AutocompleteProps<T extends AutocompleteItem> {
 	onValueChange?: (value: string) => void;
 	showSearchButton?: boolean;
 	onSearchButtonClick?: () => void;
+	searchButtonText?: string;
+	showSearchIcon?: boolean;
 	bottomLeftContent?: React.ReactNode;
 	bottomRightContent?: React.ReactNode;
 	popularItems?: React.ReactNode;
@@ -59,6 +61,8 @@ export function Autocomplete<T extends AutocompleteItem>({
 	onValueChange,
 	showSearchButton = true,
 	onSearchButtonClick,
+	searchButtonText = "Search",
+	showSearchIcon = true,
 	bottomLeftContent,
 	bottomRightContent,
 	popularItems,
@@ -182,8 +186,8 @@ export function Autocomplete<T extends AutocompleteItem>({
 							disabled={!search.trim() || !isFocused}
 							className="-translate-y-1/2 absolute inset-shadow-search-btn top-1/2 right-2 sm:right-3 h-8 px-3 sm:h-9 sm:px-4 text-sm"
 						>
-							<span>Search</span>
-							<Search className="ml-1 h-4 w-4" />
+							<span>{searchButtonText}</span>
+							{showSearchIcon && <Search className="ml-1 h-4 w-4" />}
 						</Button>
 					)}
 				</div>

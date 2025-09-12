@@ -4,7 +4,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { chatQueries } from "@/lib/queries";
 import { useAuth } from "@/hooks/use-auth";
-import { Loader2, Edit, Calendar, Clock, User, Shield, ShieldCheck, ChevronDown, Search } from "lucide-react";
+import { Loader2, Edit, Calendar, Clock, User, Shield, ShieldCheck, ChevronDown, Search, Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import { Autocomplete } from "@/components/ui/autocomplete";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useAppStore, type WorkflowData } from "@/lib/store";
 import { cn } from "@/lib/utils";
+import { CreateWorkflowDialog } from "./create-workflow-dialog";
 
 const WORKFLOW_FILTERS = [
     { label: "All", value: "all", icon: User },
@@ -43,10 +44,12 @@ export default function WorkflowGrid() {
                 <div className="px-4 mb-14 w-full mx-auto">
                     <Autocomplete
                         className="mt-6"
+                        searchButtonText="Create"
                         placeholder='Describe what you want to do…'
                         onSearch={() => []}
                         footerText="Recent workflows"
                         bottomRightContent={<></>}
+                        showSearchIcon={false}
                     />
                 </div>
 
@@ -192,6 +195,7 @@ export function WorkflowGridView({ selectedFilter, onFilterChange, searchQuery, 
                 </div>
 
                 <div className="flex w-full items-start md:items-center justify-end gap-3">
+                    <CreateWorkflowDialog />
                     {/* Search Input */}
                     <div className="relative">
                         <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
