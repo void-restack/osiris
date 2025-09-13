@@ -140,17 +140,17 @@ const WorkflowStep = ({ step, index }: { step: any; index: number }) => {
                 )}
 
                 {/* Show timing information */}
-                {(step.startedAt || step.completedAt) && (
+                {(step.createdAt || step.updatedAt) && (
                     <TaskItem>
                         <div className="mt-2 text-xs text-muted-foreground">
-                            {step.startedAt && (
-                                <div>Started: {new Date(step.startedAt).toLocaleTimeString()}</div>
+                            {step.createdAt && (
+                                <div>Started: {new Date(step.createdAt).toLocaleTimeString()}</div>
                             )}
-                            {step.completedAt && (
-                                <div>Completed: {new Date(step.completedAt).toLocaleTimeString()}</div>
+                            {step.updatedAt && (
+                                <div>Completed: {new Date(step.updatedAt).toLocaleTimeString()}</div>
                             )}
-                            {step.startedAt && step.completedAt && (
-                                <div>Duration: {Math.round((new Date(step.completedAt).getTime() - new Date(step.startedAt).getTime()) / 1000)}s</div>
+                            {step.createdAt && step.updatedAt && (
+                                <div>Duration: {Math.round((new Date(step.updatedAt).getTime() - new Date(step.createdAt).getTime()) / 1000)}s</div>
                             )}
                         </div>
                     </TaskItem>
@@ -217,23 +217,23 @@ export function WorkflowExecutionSidebar() {
         selectedWorkflowExecution?.status === 'pending' ||
         (selectedWorkflowExecution?.status as any) === 'queued';
 
-    const executionId = isRunningExecution ? (selectedWorkflowExecution?.executionId || selectedWorkflowExecution?.id || null) : null;
+    const executionId = isRunningExecution ? (selectedWorkflowExecution?.id || null) : null;
     const workflowStream = useWorkflowStream(executionId);
 
     useEffect(() => {
         if (selectedWorkflowExecution && (workflowStream.status === 'completed' || workflowStream.status === 'failed')) {
             const updatedExecution = {
                 ...selectedWorkflowExecution,
-                status: workflowStream.status === 'completed' ? 'completed' : 'failed',
-                completedAt: new Date().toISOString()
+                status: workflowStream.status === 'completed' ? 'success' : 'failed',
+                updatedAt: new Date().toISOString()
             } as any;
             updateSelectedWorkflowExecution(updatedExecution);
         }
     }, [workflowStream.status, selectedWorkflowExecution, updateSelectedWorkflowExecution]);
 
     const { data: executionDetails, isLoading: isLoadingDetails } = useQuery({
-        ...chatQueries.workflowExecutionOptions(selectedWorkflowExecution?.executionId || ''),
-        enabled: !isRunningExecution && !!selectedWorkflowExecution?.executionId
+        ...chatQueries.workflowExecutionOptions(selectedWorkflowExecution?.id || ''),
+        enabled: !isRunningExecution && !!selectedWorkflowExecution?.id
     });
 
     if (!isWorkflowExecutionSidebarOpen || !selectedWorkflowExecution) {

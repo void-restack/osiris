@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useForm } from "@tanstack/react-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,19 +15,245 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Loader2 } from "lucide-react";
-import { useCreateWorkflowMutation } from "@/lib/mutations";
-import { WorkflowTriggers } from "./workflow-triggers";
-import { type WorkflowData } from "@/lib/store";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Badge } from "@/components/ui/badge";
+import { Plus, Loader2, X } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { packageQueries, knowledgeQueries } from "@/lib/queries";
+import { useCreateTemplateWorkflowMutation } from "@/lib/mutations";
+import { type TemplateWorkflowData } from "@/lib/store";
 
-interface CreateWorkflowDialogProps {
+interface CreateTemplateWorkflowDialogProps {
     children?: React.ReactNode;
 }
 
-export function CreateWorkflowDialog({ children }: CreateWorkflowDialogProps) {
+interface StepSelectorProps {
+    stepIndex: number;
+    packageIds: string[];
+    knowledgeBaseIds: string[];
+    onPackageIdsChange: (packageIds: string[]) => void;
+    onKnowledgeBaseIdsChange: (knowledgeBaseIds: string[]) => void;
+}
+
+function StepSelector({ stepIndex, packageIds, knowledgeBaseIds, onPackageIdsChange, onKnowledgeBaseIdsChange }: StepSelectorProps) {
+    const [mcpCommandOpen, setMcpCommandOpen] = useState(false);
+    const [kbCommandOpen, setKbCommandOpen] = useState(false);
+    const [mcpSearchQuery, setMcpSearchQuery] = useState("");
+    const [kbSearchQuery, setKbSearchQuery] = useState("");
+
+    const queryClient = useQueryClient();
+
+    // Fetch packages and knowledge bases
+    const { data: popularPackages } = useQuery({
+        ...packageQueries.popularOptions(),
+        select: (data) => data?.data || []
+    });
+
+    const { data: mcpSearchResults } = useQuery({
+        queryKey: ['packages', 'search', mcpSearchQuery],
+        queryFn: async () => {
+            if (!mcpSearchQuery || mcpSearchQuery.length < 2) return [];
+            const response = await queryClient.ensureQueryData(packageQueries.listOptions({
+                name: mcpSearchQuery,
+                page: 1,
+                limit: 12
+            }));
+            return response.data || [];
+        },
+        enabled: mcpSearchQuery.length >= 2,
+    });
+
+    const { data: popularKnowledgeBases } = useQuery({
+        ...knowledgeQueries.basesOptions({ isPublic: true, limit: 10 }),
+        select: (data) => data?.data || []
+    });
+
+    const { data: kbSearchResults } = useQuery({
+        queryKey: ['knowledge-bases', 'search', kbSearchQuery],
+        queryFn: async () => {
+            if (!kbSearchQuery || kbSearchQuery.length < 2) return [];
+            const response = await queryClient.ensureQueryData(knowledgeQueries.searchOptions({
+                name: kbSearchQuery,
+                isPublic: true,
+                page: 1,
+                limit: 12
+            }));
+            return response.data || [];
+        },
+        enabled: kbSearchQuery.length >= 2,
+    });
+
+    const addPackage = (provider: any) => {
+        const providerId = provider.id || provider.packageId;
+        if (!packageIds.includes(providerId)) {
+            onPackageIdsChange([...packageIds, providerId]);
+        }
+        setMcpCommandOpen(false);
+        setMcpSearchQuery("");
+    };
+
+    const removePackage = (providerId: string) => {
+        onPackageIdsChange(packageIds.filter(id => id !== providerId));
+    };
+
+    const addKnowledgeBase = (knowledgeBase: any) => {
+        const kbId = knowledgeBase.knowledgeBaseId || knowledgeBase.knowledge_bases?.knowledgeBaseId;
+        if (!knowledgeBaseIds.includes(kbId)) {
+            onKnowledgeBaseIdsChange([...knowledgeBaseIds, kbId]);
+        }
+        setKbCommandOpen(false);
+        setKbSearchQuery("");
+    };
+
+    const removeKnowledgeBase = (kbId: string) => {
+        onKnowledgeBaseIdsChange(knowledgeBaseIds.filter(id => id !== kbId));
+    };
+
+    return (
+        <div className="space-y-4">
+            <div className="space-y-2">
+                <Label className="text-sm text-primary-400">Packages</Label>
+                <Popover open={mcpCommandOpen} onOpenChange={setMcpCommandOpen}>
+                    <PopoverTrigger asChild>
+                        <Button
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={mcpCommandOpen}
+                            className="justify-between w-full"
+                        >
+                            Select packages...
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-full p-0">
+                        <Command>
+                            <CommandInput
+                                placeholder="Search packages..."
+                                value={mcpSearchQuery}
+                                onValueChange={setMcpSearchQuery}
+                            />
+                            <CommandList>
+                                <CommandEmpty>No packages found.</CommandEmpty>
+                                {(mcpSearchQuery.length >= 2 ? mcpSearchResults : popularPackages)?.length > 0 && (
+                                    <CommandGroup heading={mcpSearchQuery.length >= 2 ? "Search Results" : "Popular Packages"}>
+                                        {(mcpSearchQuery.length >= 2 ? mcpSearchResults : popularPackages)?.map((provider: any) => (
+                                            <CommandItem
+                                                key={provider.id || provider.packageId}
+                                                onSelect={() => addPackage(provider)}
+                                                className="cursor-pointer"
+                                            >
+                                                {provider.name}
+                                            </CommandItem>
+                                        ))}
+                                    </CommandGroup>
+                                )}
+                            </CommandList>
+                        </Command>
+                    </PopoverContent>
+                </Popover>
+                {packageIds.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                        {packageIds.map((pkgId: string) => {
+                            const provider = [...(popularPackages || []), ...(mcpSearchResults || [])].find(p => (p.id || p.packageId) === pkgId);
+                            return (
+                                <Badge key={pkgId} variant="secondary" className="flex items-center gap-1">
+                                    {provider?.name || pkgId}
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-auto p-0 text-muted-foreground hover:text-foreground"
+                                        onClick={() => removePackage(pkgId)}
+                                    >
+                                        <X size={12} />
+                                    </Button>
+                                </Badge>
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
+
+            <div className="space-y-2">
+                <Label className="text-sm text-primary-400">Knowledge Bases</Label>
+                <Popover open={kbCommandOpen} onOpenChange={setKbCommandOpen}>
+                    <PopoverTrigger asChild>
+                        <Button
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={kbCommandOpen}
+                            className="justify-between w-full"
+                        >
+                            Select knowledge bases...
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-full p-0">
+                        <Command>
+                            <CommandInput
+                                placeholder="Search knowledge bases..."
+                                value={kbSearchQuery}
+                                onValueChange={setKbSearchQuery}
+                            />
+                            <CommandList>
+                                <CommandEmpty>No knowledge bases found.</CommandEmpty>
+                                {(kbSearchQuery.length >= 2 ? kbSearchResults : popularKnowledgeBases)?.length > 0 && (
+                                    <CommandGroup heading={kbSearchQuery.length >= 2 ? "Search Results" : "Popular Knowledge Bases"}>
+                                        {(kbSearchQuery.length >= 2 ? kbSearchResults : popularKnowledgeBases)?.map((kb: any) => {
+                                            const kbData = kb.knowledge_bases || kb;
+                                            const kbId = kbData.knowledgeBaseId;
+                                            const kbName = kbData.name;
+                                            return (
+                                                <CommandItem
+                                                    key={kbId}
+                                                    onSelect={() => addKnowledgeBase(kb)}
+                                                    className="cursor-pointer"
+                                                >
+                                                    {kbName}
+                                                </CommandItem>
+                                            );
+                                        })}
+                                    </CommandGroup>
+                                )}
+                            </CommandList>
+                        </Command>
+                    </PopoverContent>
+                </Popover>
+                {knowledgeBaseIds.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                        {knowledgeBaseIds.map((kbId: string) => {
+                            const kb = [...(popularKnowledgeBases || []), ...(kbSearchResults || [])].find(k => {
+                                const kbData = k.knowledge_bases || k;
+                                return kbData.knowledgeBaseId === kbId;
+                            });
+                            const kbData = kb?.knowledge_bases || kb;
+                            const kbName = kbData?.name || kbId;
+                            return (
+                                <Badge key={kbId} variant="secondary" className="flex items-center gap-1">
+                                    {kbName}
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-auto p-0 text-muted-foreground hover:text-foreground"
+                                        onClick={() => removeKnowledgeBase(kbId)}
+                                    >
+                                        <X size={12} />
+                                    </Button>
+                                </Badge>
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+export function CreateTemplateWorkflowDialog({ children }: CreateTemplateWorkflowDialogProps) {
     const [open, setOpen] = useState(false);
-    const [timeBasedTrigger, setTimeBasedTrigger] = useState<WorkflowData['timeBasedTrigger']>(null);
-    const createWorkflowMutation = useCreateWorkflowMutation();
+
+    const queryClient = useQueryClient();
+    const createTemplateWorkflowMutation = useCreateTemplateWorkflowMutation();
 
     const form = useForm({
         defaultValues: {
@@ -39,16 +265,15 @@ export function CreateWorkflowDialog({ children }: CreateWorkflowDialogProps) {
             workflow: [
                 {
                     name: "",
-                    deploymentId: [],
-                    knowledgeBaseIds: [],
+                    packageIds: [] as string[],
+                    knowledgeBaseIds: [] as string[],
                     prompt: "",
                 },
             ],
         },
         onSubmit: async ({ value }) => {
             try {
-                // Prepare the data object with all required fields
-                const workflowData: any = {
+                const templateData: any = {
                     title: value.title,
                     description: value.description,
                     imageUrl: value.imageUrl?.trim() || "",
@@ -56,19 +281,18 @@ export function CreateWorkflowDialog({ children }: CreateWorkflowDialogProps) {
                     isPublic: value.isPublic,
                     workflow: value.workflow.map(step => ({
                         name: step.name,
-                        deploymentId: step.deploymentId,
+                        packageIds: step.packageIds,
                         knowledgeBaseIds: step.knowledgeBaseIds,
                         prompt: step.prompt,
                     })),
-                    timeBasedTrigger: timeBasedTrigger || undefined,
                 };
 
-                await createWorkflowMutation.mutateAsync(workflowData);
+                await createTemplateWorkflowMutation.mutateAsync(templateData);
+
                 setOpen(false);
                 form.reset();
-                setTimeBasedTrigger(null);
             } catch (error) {
-                console.error("Failed to create workflow:", error);
+                console.error("Failed to create template workflow:", error);
             }
         },
     });
@@ -78,8 +302,8 @@ export function CreateWorkflowDialog({ children }: CreateWorkflowDialogProps) {
             ...form.getFieldValue("workflow"),
             {
                 name: "",
-                deploymentId: [],
-                knowledgeBaseIds: [],
+                packageIds: [] as string[],
+                knowledgeBaseIds: [] as string[],
                 prompt: "",
             },
         ]);
@@ -95,25 +319,21 @@ export function CreateWorkflowDialog({ children }: CreateWorkflowDialogProps) {
         }
     };
 
-    const handleTriggerUpdate = (newTrigger: WorkflowData['timeBasedTrigger']) => {
-        setTimeBasedTrigger(newTrigger);
-    };
-
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
                 {children || (
                     <Button variant="outline2">
                         <Plus className="h-4 w-4" />
-                        <span>Create Workflow</span>
+                        <span>Create Template</span>
                     </Button>
                 )}
             </DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[80vh]">
                 <DialogHeader>
-                    <DialogTitle>Create New Workflow</DialogTitle>
+                    <DialogTitle>Create New Template</DialogTitle>
                     <DialogDescription>
-                        Create a new workflow by defining its steps and configuration.
+                        Create a new workflow template by defining its steps and packages.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -126,10 +346,8 @@ export function CreateWorkflowDialog({ children }: CreateWorkflowDialogProps) {
                         }}
                         className="space-y-6"
                     >
-                        {/* Basic Information */}
-                        <div className="space-y-4">
-                            <h3 className="text-lg font-medium">Basic Information</h3>
-
+                        <div className="space-y-2">
+                            <Label htmlFor="title">Title</Label>
                             <form.Field
                                 name="title"
                                 validators={{
@@ -138,102 +356,89 @@ export function CreateWorkflowDialog({ children }: CreateWorkflowDialogProps) {
                                 }}
                             >
                                 {(field) => (
-                                    <div className="space-y-2">
-                                        <Label htmlFor={field.name}>Title *</Label>
+                                    <>
                                         <Input
-                                            id={field.name}
+                                            id="title"
+                                            placeholder="Enter template title"
                                             value={field.state.value}
-                                            onBlur={field.handleBlur}
                                             onChange={(e) => field.handleChange(e.target.value)}
-                                            placeholder="Enter workflow title"
                                         />
-                                        {field.state.meta.errors && (
-                                            <p className="text-sm text-red-600">{field.state.meta.errors[0]}</p>
+                                        {field.state.meta.errors.length > 0 && (
+                                            <p className="text-sm text-red-500">
+                                                {field.state.meta.errors[0]}
+                                            </p>
                                         )}
-                                    </div>
-                                )}
-                            </form.Field>
-
-                            <form.Field
-                                name="description"
-                                validators={{
-                                    onChange: ({ value }) =>
-                                        !value ? "Description is required" : undefined,
-                                }}
-                            >
-                                {(field) => (
-                                    <div className="space-y-2">
-                                        <Label htmlFor={field.name}>Description *</Label>
-                                        <Textarea
-                                            id={field.name}
-                                            value={field.state.value}
-                                            onBlur={field.handleBlur}
-                                            onChange={(e) => field.handleChange(e.target.value)}
-                                            placeholder="Describe what this workflow does"
-                                            rows={3}
-                                        />
-                                        {field.state.meta.errors && (
-                                            <p className="text-sm text-red-600">{field.state.meta.errors[0]}</p>
-                                        )}
-                                    </div>
-                                )}
-                            </form.Field>
-
-                            <form.Field name="imageUrl">
-                                {(field) => (
-                                    <div className="space-y-2">
-                                        <Label htmlFor={field.name}>Image URL</Label>
-                                        <Input
-                                            id={field.name}
-                                            value={field.state.value}
-                                            onBlur={field.handleBlur}
-                                            onChange={(e) => field.handleChange(e.target.value)}
-                                            placeholder="https://example.com/image.png"
-                                        />
-                                    </div>
-                                )}
-                            </form.Field>
-
-                            <form.Field name="coverImageUrl">
-                                {(field) => (
-                                    <div className="space-y-2">
-                                        <Label htmlFor={field.name}>Cover Image URL</Label>
-                                        <Input
-                                            id={field.name}
-                                            value={field.state.value}
-                                            onBlur={field.handleBlur}
-                                            onChange={(e) => field.handleChange(e.target.value)}
-                                            placeholder="https://example.com/cover.png"
-                                        />
-                                    </div>
-                                )}
-                            </form.Field>
-
-                            <form.Field name="isPublic">
-                                {(field) => (
-                                    <div className="flex items-center space-x-2">
-                                        <Switch
-                                            id={field.name}
-                                            checked={field.state.value}
-                                            onCheckedChange={field.handleChange}
-                                        />
-                                        <Label htmlFor={field.name}>Make this workflow public</Label>
-                                    </div>
+                                    </>
                                 )}
                             </form.Field>
                         </div>
 
-                        {/* Workflow Steps */}
+                        <div className="space-y-2">
+                            <Label htmlFor="description">Description</Label>
+                            <form.Field name="description">
+                                {(field) => (
+                                    <Textarea
+                                        id="description"
+                                        placeholder="Enter template description"
+                                        value={field.state.value}
+                                        onChange={(e) => field.handleChange(e.target.value)}
+                                        rows={3}
+                                    />
+                                )}
+                            </form.Field>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="imageUrl">Image URL</Label>
+                            <form.Field name="imageUrl">
+                                {(field) => (
+                                    <Input
+                                        id="imageUrl"
+                                        placeholder="Enter image URL (optional)"
+                                        value={field.state.value}
+                                        onChange={(e) => field.handleChange(e.target.value)}
+                                    />
+                                )}
+                            </form.Field>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="coverImageUrl">Cover Image URL</Label>
+                            <form.Field name="coverImageUrl">
+                                {(field) => (
+                                    <Input
+                                        id="coverImageUrl"
+                                        placeholder="Enter cover image URL (optional)"
+                                        value={field.state.value}
+                                        onChange={(e) => field.handleChange(e.target.value)}
+                                    />
+                                )}
+                            </form.Field>
+                        </div>
+
+                        <div className="flex items-center space-x-2">
+                            <form.Field name="isPublic">
+                                {(field) => (
+                                    <Switch
+                                        id="isPublic"
+                                        checked={field.state.value}
+                                        onCheckedChange={field.handleChange}
+                                    />
+                                )}
+                            </form.Field>
+                            <Label htmlFor="isPublic">Make this template public</Label>
+                        </div>
+
                         <div className="space-y-4">
                             <div className="flex items-center justify-between">
-                                <h3 className="text-lg font-medium">Workflow Steps</h3>
+                                <Label>Template Steps</Label>
                                 <Button
                                     type="button"
                                     variant="outline"
                                     size="sm"
                                     onClick={addWorkflowStep}
                                 >
-                                    <Plus className="h-4 w-4 mr-2" />
+                                    <Plus className="h-4 w-4" />
                                     Add Step
                                 </Button>
                             </div>
@@ -248,7 +453,7 @@ export function CreateWorkflowDialog({ children }: CreateWorkflowDialogProps) {
                                                     {field.state.value.length > 1 && (
                                                         <Button
                                                             type="button"
-                                                            variant="outline"
+                                                            variant="ghost"
                                                             size="sm"
                                                             onClick={() => removeWorkflowStep(index)}
                                                         >
@@ -257,60 +462,51 @@ export function CreateWorkflowDialog({ children }: CreateWorkflowDialogProps) {
                                                     )}
                                                 </div>
 
-                                                <form.Field name={`workflow[${index}].name`}>
-                                                    {(stepField) => (
-                                                        <div className="space-y-2">
-                                                            <Label htmlFor={`step-${index}-name`}>Step Name *</Label>
+                                                <div className="space-y-2">
+                                                    <Label htmlFor={`step-${index}-name`}>Step Name</Label>
+                                                    <form.Field name={`workflow[${index}].name`}>
+                                                        {(stepField) => (
                                                             <Input
                                                                 id={`step-${index}-name`}
-                                                                value={stepField.state.value}
-                                                                onBlur={stepField.handleBlur}
-                                                                onChange={(e) => stepField.handleChange(e.target.value)}
                                                                 placeholder="Enter step name"
+                                                                value={stepField.state.value}
+                                                                onChange={(e) => stepField.handleChange(e.target.value)}
                                                             />
-                                                            {stepField.state.meta.errors && (
-                                                                <p className="text-sm text-red-600">{stepField.state.meta.errors[0]}</p>
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                </form.Field>
+                                                        )}
+                                                    </form.Field>
+                                                </div>
 
-                                                <form.Field name={`workflow[${index}].prompt`}>
-                                                    {(stepField) => (
-                                                        <div className="space-y-2">
-                                                            <Label htmlFor={`step-${index}-prompt`}>Prompt *</Label>
+                                                <div className="space-y-2">
+                                                    <Label htmlFor={`step-${index}-prompt`}>Prompt</Label>
+                                                    <form.Field name={`workflow[${index}].prompt`}>
+                                                        {(stepField) => (
                                                             <Textarea
                                                                 id={`step-${index}-prompt`}
+                                                                placeholder="Enter step prompt"
                                                                 value={stepField.state.value}
-                                                                onBlur={stepField.handleBlur}
                                                                 onChange={(e) => stepField.handleChange(e.target.value)}
-                                                                placeholder="Enter the prompt for this step"
                                                                 rows={3}
                                                             />
-                                                            {stepField.state.meta.errors && (
-                                                                <p className="text-sm text-red-600">{stepField.state.meta.errors[0]}</p>
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                </form.Field>
-
-                                                {/* TODO: Add deployment and knowledge base selection */}
-                                                <div className="text-sm text-gray-500">
-                                                    Deployment and Knowledge Base selection will be implemented in the next iteration.
+                                                        )}
+                                                    </form.Field>
                                                 </div>
+
+                                                <StepSelector
+                                                    stepIndex={index}
+                                                    packageIds={step.packageIds || []}
+                                                    knowledgeBaseIds={step.knowledgeBaseIds || []}
+                                                    onPackageIdsChange={(packageIds) => {
+                                                        form.setFieldValue(`workflow[${index}].packageIds`, packageIds);
+                                                    }}
+                                                    onKnowledgeBaseIdsChange={(knowledgeBaseIds) => {
+                                                        form.setFieldValue(`workflow[${index}].knowledgeBaseIds`, knowledgeBaseIds);
+                                                    }}
+                                                />
                                             </div>
                                         ))}
                                     </div>
                                 )}
                             </form.Field>
-                        </div>
-
-                        {/* Triggers Section */}
-                        <div className="space-y-4">
-                            <h3 className="text-lg font-medium">Triggers</h3>
-                            <WorkflowTriggers
-                                onUpdate={handleTriggerUpdate}
-                            />
                         </div>
                     </form>
                 </ScrollArea>
@@ -326,12 +522,12 @@ export function CreateWorkflowDialog({ children }: CreateWorkflowDialogProps) {
                     <Button
                         type="submit"
                         onClick={() => form.handleSubmit()}
-                        disabled={createWorkflowMutation.isPending}
+                        disabled={createTemplateWorkflowMutation.isPending}
                     >
-                        {createWorkflowMutation.isPending && (
+                        {createTemplateWorkflowMutation.isPending && (
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         )}
-                        Create Workflow
+                        Create Template
                     </Button>
                 </DialogFooter>
             </DialogContent>

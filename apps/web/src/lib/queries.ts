@@ -1512,7 +1512,11 @@ export const chatQueries = {
   workflow: (id: string) => [...chatQueries.workflows(), id] as const,
   workflowExecutions: (workflowId: string) => [...chatQueries.workflows(), workflowId, "executions"] as const,
   workflowExecution: (executionId: string) => [...chatQueries.all(), "execution", executionId] as const,
-  workflowStream: (executionId: string) => [...chatQueries.all(), "stream", executionId] as const,
+  workflowJob: (jobId: string, queueName: string) => [...chatQueries.all(), "job", jobId, queueName] as const,
+
+  // Template Workflow Queries
+  templateWorkflows: () => [...chatQueries.all(), "template-workflows"] as const,
+  templateWorkflow: (id: string) => [...chatQueries.templateWorkflows(), id] as const,
 
   conversationsOptions: (enabled: boolean = true) =>
     queryOptions({
@@ -1633,6 +1637,7 @@ export const chatQueries = {
                     })
                   ),
                   isPublic: z.boolean(),
+                  templateWorkflowId: z.string().uuid().optional(),
                   agentId: z.string().uuid().nullable(),
                   knowledgeBaseId: z.string().uuid().nullable(),
                   serviceClient: z.any().nullable(),
@@ -1685,6 +1690,7 @@ export const chatQueries = {
                 })
               ),
               isPublic: z.boolean(),
+              templateWorkflowId: z.string().uuid().optional(),
               agentId: z.string().uuid().nullable(),
               knowledgeBaseId: z.string().uuid().nullable(),
               serviceClient: z.any().nullable(),
@@ -1725,20 +1731,39 @@ export const chatQueries = {
       queryFn: async () => {
         const response = await api(`/chat/workflow/execution/${workflowId}`, {
           schema: responseSchema(
-            z.array(
-              z.object({
-                executionId: z.string().uuid(),
-                workflowId: z.string().uuid(),
-                userId: z.string().uuid(),
-                status: z.enum(["pending", "running", "completed", "failed"]),
-                result: z.any().optional(),
-                error: z.string().optional(),
-                startedAt: z.string().datetime(),
-                completedAt: z.string().datetime().optional(),
-                createdAt: z.string().datetime(),
-                updatedAt: z.string().datetime(),
-              })
-            )
+            z.object({
+              data: z.array(
+                z.object({
+                  id: z.string().uuid(),
+                  flowId: z.string().uuid(),
+                  trigger: z.object({
+                    selfExecution: z.boolean(),
+                    timeBasedTrigger: z.object({
+                      rrule: z.string(),
+                      startTime: z.string().datetime(),
+                      endTime: z.string().datetime().optional(),
+                    }).optional(),
+                  }),
+                  results: z.array(
+                    z.object({
+                      stepId: z.number(),
+                      status: z.enum(["yet-to-be-executed", "pending", "running", "success", "failed"]),
+                      errorReason: z.string().optional(),
+                      result: z.string().optional(),
+                      toolCalls: z.any().optional(),
+                    })
+                  ),
+                  createdAt: z.string().datetime(),
+                  updatedAt: z.string().datetime(),
+                })
+              ),
+              pagination: z.object({
+                total: z.number(),
+                page: z.number(),
+                limit: z.number(),
+                totalPages: z.number(),
+              }),
+            })
           ),
         });
         if (response.status === "FAILED") {
@@ -1756,28 +1781,151 @@ export const chatQueries = {
         const response = await api(`/chat/workflow/execution/id/${executionId}`, {
           schema: responseSchema(
             z.object({
-              executionId: z.string().uuid(),
-              workflowId: z.string().uuid(),
-              userId: z.string().uuid(),
-              status: z.enum(["pending", "running", "completed", "failed"]),
-              result: z.any().optional(),
-              error: z.string().optional(),
-              steps: z.array(
+              id: z.string().uuid(),
+              flowId: z.string().uuid(),
+              trigger: z.object({
+                selfExecution: z.boolean(),
+                timeBasedTrigger: z.object({
+                  rrule: z.string(),
+                  startTime: z.string().datetime(),
+                  endTime: z.string().datetime().optional(),
+                }).optional(),
+              }),
+              results: z.array(
                 z.object({
-                  stepId: z.string().uuid(),
-                  name: z.string(),
-                  status: z.enum(["pending", "running", "completed", "failed"]),
-                  input: z.any().optional(),
-                  output: z.any().optional(),
-                  error: z.string().optional(),
-                  startedAt: z.string().datetime().optional(),
-                  completedAt: z.string().datetime().optional(),
+                  stepId: z.number(),
+                  status: z.enum(["yet-to-be-executed", "pending", "running", "success", "failed"]),
+                  errorReason: z.string().optional(),
+                  result: z.string().optional(),
+                  toolCalls: z.any().optional(),
                 })
               ),
-              startedAt: z.string().datetime(),
-              completedAt: z.string().datetime().optional(),
               createdAt: z.string().datetime(),
               updatedAt: z.string().datetime(),
+            })
+          ),
+        });
+        if (response.status === "FAILED") {
+          throw new Error(response.error);
+        }
+        return response.data;
+      },
+      enabled: enabled,
+    }),
+
+  workflowJobOptions: (jobId: string, queueName: string = "workflow-execution", enabled: boolean = true) =>
+    queryOptions({
+      queryKey: chatQueries.workflowJob(jobId, queueName),
+      queryFn: async () => {
+        const response = await api(`/chat/workflow/job/${jobId}?queueName=${queueName}`, {
+          schema: responseSchema(
+            z.object({
+              id: z.string(),
+              status: z.enum(["waiting", "active", "completed", "failed", "delayed", "paused", "stuck", "not_found"]),
+              progress: z.number().optional(),
+              failedReason: z.string().optional(),
+              data: z.any().optional(),
+              timestamp: z.number().optional(),
+            })
+          ),
+        });
+        if (response.status === "FAILED") {
+          throw new Error(response.error);
+        }
+        return response.data;
+      },
+      enabled: enabled,
+      refetchInterval: enabled ? 2000 : false, // Poll every 2 seconds when enabled
+    }),
+
+  // Template Workflow Query Options
+  templateWorkflowsOptions: (filters?: {
+    name?: string;
+    page?: number;
+    limit?: number;
+  }) =>
+    queryOptions({
+      queryKey: [...chatQueries.templateWorkflows(), filters],
+      queryFn: async () => {
+        const searchParams = new URLSearchParams();
+        if (filters?.name) searchParams.set("name", filters.name);
+        if (filters?.page) searchParams.set("page", String(filters.page));
+        if (filters?.limit) searchParams.set("limit", String(filters.limit));
+
+        const response = await api(`/chat/template-workflows?${searchParams}`, {
+          schema: responseSchema(
+            z.object({
+              data: z.array(
+                z.object({
+                  id: z.string().uuid(),
+                  title: z.string(),
+                  description: z.string(),
+                  imageUrl: z.string().optional(),
+                  coverImageUrl: z.string().optional(),
+                  workflow: z.array(
+                    z.object({
+                      name: z.string(),
+                      packageIds: z.array(z.string().uuid()),
+                      knowledgeBaseIds: z.array(z.string().uuid()).optional(),
+                      prompt: z.string(),
+                    })
+                  ),
+                  isPublic: z.boolean(),
+                  ownerId: z.string().uuid(),
+                  createdAt: z.string().datetime(),
+                  updatedAt: z.string().datetime(),
+                })
+              ),
+              pagination: z.object({
+                total: z.number(),
+                page: z.number(),
+                limit: z.number(),
+                totalPages: z.number(),
+              }),
+            })
+          ),
+        });
+        if (response.status === "FAILED") {
+          throw new Error(response.error);
+        }
+        return response;
+      },
+      staleTime: 2 * 60 * 1000,
+    }),
+
+  templateWorkflowOptions: (id: string, enabled: boolean = true) =>
+    queryOptions({
+      queryKey: chatQueries.templateWorkflow(id),
+      queryFn: async () => {
+        const response = await api(`/chat/template-workflow/${id}`, {
+          schema: responseSchema(
+            z.object({
+              id: z.string().uuid(),
+              title: z.string(),
+              description: z.string(),
+              imageUrl: z.string().optional(),
+              coverImageUrl: z.string().optional(),
+              workflow: z.array(
+                z.object({
+                  name: z.string(),
+                  packageIds: z.array(z.string().uuid()),
+                  knowledgeBaseIds: z.array(z.string().uuid()).optional(),
+                  prompt: z.string(),
+                })
+              ),
+              isPublic: z.boolean(),
+              ownerId: z.string().uuid(),
+              createdAt: z.string().datetime(),
+              updatedAt: z.string().datetime(),
+              packages: z.record(z.string(), z.object({
+                name: z.string(),
+                shortDescription: z.string(),
+                url: z.string().url(),
+              })),
+              knowledgeBases: z.record(z.string(), z.object({
+                name: z.string(),
+                description: z.string().optional(),
+              })),
             })
           ),
         });

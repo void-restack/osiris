@@ -70,6 +70,41 @@ export const useWorkflowStream = (executionId: string | null) => {
                 }));
                 break;
 
+            case 'step_pending':
+                setState(prev => {
+                    const updated = { ...prev.currentStep };
+                    if (updated.results && data.stepIndex !== undefined) {
+                        updated.results[data.stepIndex] = {
+                            ...updated.results[data.stepIndex],
+                            status: 'yet-to-be-executed',
+                            stepName: data.stepName
+                        };
+                    }
+                    return {
+                        ...prev,
+                        currentStep: updated,
+                        status: 'connected'
+                    };
+                });
+                break;
+
+            case 'step_progress':
+                setState(prev => {
+                    const updated = { ...prev.currentStep };
+                    if (updated.results && data.stepIndex !== undefined) {
+                        updated.results[data.stepIndex] = {
+                            ...updated.results[data.stepIndex],
+                            progress: data.progress
+                        };
+                    }
+                    return {
+                        ...prev,
+                        currentStep: updated,
+                        progress: data.progress
+                    };
+                });
+                break;
+
             case 'step_started':
                 setState(prev => {
                     const updated = { ...prev.currentStep };
@@ -77,7 +112,7 @@ export const useWorkflowStream = (executionId: string | null) => {
                         updated.results[data.stepIndex] = {
                             ...updated.results[data.stepIndex],
                             status: 'running',
-                            name: data.stepName
+                            stepName: data.stepName
                         };
                     }
                     return {
@@ -97,7 +132,7 @@ export const useWorkflowStream = (executionId: string | null) => {
                             ...updated.results[data.stepIndex],
                             status: type === 'step_completed' ? 'success' : 'failed',
                             ...(data.result && { result: data.result }),
-                            ...(data.error && { error: data.error })
+                            ...(data.errorReason && { errorReason: data.errorReason })
                         };
                     }
                     return {
@@ -162,7 +197,7 @@ export const useWorkflowStream = (executionId: string | null) => {
                 setState(prev => ({
                     ...prev,
                     status: 'failed',
-                    error: data.error || 'Workflow failed'
+                    error: data.errorReason || 'Workflow failed'
                 }));
                 break;
 

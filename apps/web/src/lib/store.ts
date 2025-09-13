@@ -49,6 +49,7 @@ export interface WorkflowData {
     knowledgeBaseIds: string[];
   }>;
   isPublic: boolean;
+  templateWorkflowId?: string;
   agentId: string | null;
   knowledgeBaseId: string | null;
   serviceClient: any | null;
@@ -74,19 +75,42 @@ export interface WorkflowData {
   updatedAt: string;
 }
 
-export interface WorkflowExecutionData {
-  executionId: string;
-  workflowId: string;
-  workflowTitle: string;
-  status: "pending" | "running" | "completed" | "failed" | "queued";
-  startedAt: string;
-  completedAt?: string;
-  // Optional fields for API compatibility
-  id?: string; // API uses 'id' instead of 'executionId'
-  flowId?: string; // API uses 'flowId' instead of 'workflowId'
-  createdAt?: string; // API fallback for startedAt
-  updatedAt?: string; // API fallback for completedAt
+export interface TemplateWorkflowData {
+  id: string;
+  title: string;
+  description: string;
+  imageUrl?: string;
+  coverImageUrl?: string;
+  workflow: Array<{
+    name: string;
+    packageIds: string[];
+    knowledgeBaseIds?: string[];
+    prompt: string;
+  }>;
+  isPublic: boolean;
+  ownerId: string;
+  createdAt: string;
+  updatedAt: string;
+  packages?: Record<string, {
+    name: string;
+    shortDescription: string;
+    url: string;
+  }>;
+  knowledgeBases?: Record<string, {
+    name: string;
+    description?: string;
+  }>;
 }
+
+export interface WorkflowExecutionData {
+  id: string;
+  flowId: string;
+  workflowTitle: string;
+  status: "yet-to-be-executed" | "pending" | "running" | "success" | "failed" | "queued";
+  createdAt: string;
+  updatedAt: string;
+}
+
 
 interface AppState {
   mcpView: McpViewType;

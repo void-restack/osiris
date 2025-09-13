@@ -31,6 +31,7 @@ interface AddStepDialogProps {
     insertIndex: number
     nextStepName?: string
     prevStepName?: string
+    isTemplate?: boolean // New prop to indicate if this is for template editing
 }
 
 type StepData = {
@@ -49,7 +50,7 @@ interface McpStatus {
 
 const TOTAL_STEPS = 3
 
-export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, nextStepName, prevStepName }: AddStepDialogProps) {
+export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, nextStepName, prevStepName, isTemplate = false }: AddStepDialogProps) {
     const queryClient = useQueryClient()
     const [currentStep, setCurrentStep] = useState<number | '2.1' | '2.2'>(1)
     const [mcpCommandOpen, setMcpCommandOpen] = useState(false)
@@ -192,13 +193,17 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
         select: (data) => data?.data || []
     })
 
+    // For templates, we might need to check if the template is public to restrict knowledge base selection
+    // This would be passed as a prop in a real implementation
+    const isPublicTemplate = false // This should come from props in real implementation
+
     const { data: kbSearchResults } = useQuery({
         queryKey: ['knowledge-bases', 'search', kbSearchQuery],
         queryFn: async () => {
             if (!kbSearchQuery || kbSearchQuery.length < 2) return [];
             const response = await queryClient.ensureQueryData(knowledgeQueries.searchOptions({
                 name: kbSearchQuery,
-                isPublic: true,
+                isPublic: isTemplate && isPublicTemplate ? true : undefined, // For public templates, only show public knowledge bases
                 page: 1,
                 limit: 12
             }));
@@ -254,6 +259,8 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
             case 1:
                 return formData.name.trim().length > 0 && formData.prompt.trim().length > 0
             case 2:
+                // For templates, skip deployment validation
+                if (isTemplate) return true
                 if (formData.mcpProviders.length === 0) return true
                 const deployedMcps = formData.mcpProviders.filter(mcp => {
                     const mcpId = mcp.id || mcp.packageId
@@ -261,6 +268,8 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
                 })
                 return deployedMcps.length > 0
             case 3:
+                // For templates, skip deployment validation
+                if (isTemplate) return true
                 if (formData.mcpProviders.length === 0) return true
                 const deployedMcpsStep3 = formData.mcpProviders.filter(mcp => {
                     const mcpId = mcp.id || mcp.packageId
@@ -277,20 +286,40 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
 
     const handleNext = () => {
         if (validateCurrentStep() && typeof currentStep === 'number' && currentStep < TOTAL_STEPS) {
-            if (currentStep === 1 && formData.mcpProviders.length === 0) {
-                setCurrentStep(3)
+            if (isTemplate) {
+                // For templates, skip deployment steps and go directly to step 3
+                if (currentStep === 1) {
+                    setCurrentStep(3)
+                } else {
+                    setCurrentStep(prev => (prev as number) + 1)
+                }
             } else {
-                setCurrentStep(prev => (prev as number) + 1)
+                // Original logic for regular workflows
+                if (currentStep === 1 && formData.mcpProviders.length === 0) {
+                    setCurrentStep(3)
+                } else {
+                    setCurrentStep(prev => (prev as number) + 1)
+                }
             }
         }
     }
 
     const handlePrevious = () => {
         if (typeof currentStep === 'number' && currentStep > 1) {
-            if (currentStep === 3 && formData.mcpProviders.length === 0) {
-                setCurrentStep(1)
+            if (isTemplate) {
+                // For templates, skip deployment steps
+                if (currentStep === 3) {
+                    setCurrentStep(1)
+                } else {
+                    setCurrentStep(prev => (prev as number) - 1)
+                }
             } else {
-                setCurrentStep(prev => (prev as number) - 1)
+                // Original logic for regular workflows
+                if (currentStep === 3 && formData.mcpProviders.length === 0) {
+                    setCurrentStep(1)
+                } else {
+                    setCurrentStep(prev => (prev as number) - 1)
+                }
             }
         } else if (currentStep === '2.1' || currentStep === '2.2') {
             setCurrentStep(2)
@@ -595,22 +624,44 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
 
         if (!formData.name.trim() || !formData.prompt.trim()) return
 
-        const deploymentIds = formData.mcpProviders
-            .map(mcp => {
-                const mcpId = mcp.id || mcp.packageId
-                const status = mcpStatuses[mcpId]
-                return status?.deploymentStatus === 'deployed' ? status.deploymentData?.deploymentId : null
-            })
-            .filter(Boolean)
+        if (isTemplate) {
+            // For templates, use packageIds instead of deploymentIds
+            const packageIds = formData.mcpProviders
+                .map(mcp => mcp.id || mcp.packageId)
+                .filter(Boolean)
 
-        onAddStep({
-            name: formData.name.trim(),
-            mcpProvider: formData.mcpProviders[0]?.name || "",
-            prompt: formData.prompt.trim(),
-            mcpProviders: formData.mcpProviders,
-            knowledgeBases: formData.knowledgeBases,
-            deploymentIds: deploymentIds,
-        })
+            const knowledgeBaseIds = formData.knowledgeBases
+                .map(kb => kb.knowledgeBaseId || kb.knowledge_bases?.knowledgeBaseId)
+                .filter(Boolean)
+
+            onAddStep({
+                name: formData.name.trim(),
+                mcpProvider: formData.mcpProviders[0]?.name || "",
+                prompt: formData.prompt.trim(),
+                mcpProviders: formData.mcpProviders,
+                knowledgeBases: formData.knowledgeBases,
+                packageIds: packageIds,
+                knowledgeBaseIds: knowledgeBaseIds,
+            })
+        } else {
+            // Original logic for regular workflows
+            const deploymentIds = formData.mcpProviders
+                .map(mcp => {
+                    const mcpId = mcp.id || mcp.packageId
+                    const status = mcpStatuses[mcpId]
+                    return status?.deploymentStatus === 'deployed' ? status.deploymentData?.deploymentId : null
+                })
+                .filter(Boolean)
+
+            onAddStep({
+                name: formData.name.trim(),
+                mcpProvider: formData.mcpProviders[0]?.name || "",
+                prompt: formData.prompt.trim(),
+                mcpProviders: formData.mcpProviders,
+                knowledgeBases: formData.knowledgeBases,
+                deploymentIds: deploymentIds,
+            })
+        }
 
         resetForm()
         onOpenChange(false)
@@ -822,6 +873,73 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
                     </div>
                 )
             case 2:
+                // For templates, skip deployment step entirely
+                if (isTemplate) {
+                    return (
+                        <div className="space-y-6">
+                            <div className="text-center">
+                                <h3 className="text-lg font-medium mb-2">Ready to Create Step</h3>
+                                <p className="text-sm text-primary-300">Review your step configuration before creating</p>
+                            </div>
+
+                            <div className="space-y-4">
+                                <div className="p-4 border rounded-lg bg-primary-50">
+                                    <h4 className="font-medium text-primary-800 mb-2">Step Details</h4>
+                                    <div className="space-y-2 text-sm">
+                                        <div>
+                                            <span className="text-primary-400">Name:</span>
+                                            <span className="ml-2 text-primary-800">{formData.name}</span>
+                                        </div>
+                                        <div>
+                                            <span className="text-primary-400">Prompt:</span>
+                                            <span className="ml-2 text-primary-800">{formData.prompt}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {formData.mcpProviders.length > 0 && (
+                                    <div className="p-4 border rounded-lg bg-green-50">
+                                        <h4 className="font-medium text-green-800 mb-2">Selected Packages</h4>
+                                        <div className="space-y-2">
+                                            {formData.mcpProviders.map((mcp) => (
+                                                <div key={mcp.id || mcp.packageId} className="flex items-center justify-between text-sm">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-6 h-6 rounded bg-primary-100 flex items-center justify-center">
+                                                            <span className="text-xs font-medium">{mcp.name.charAt(0).toUpperCase()}</span>
+                                                        </div>
+                                                        <span className="text-primary-800">{mcp.name}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                                                        <span className="text-green-700 font-medium">Selected</span>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {formData.knowledgeBases.length > 0 && (
+                                    <div className="p-4 border rounded-lg bg-blue-50">
+                                        <h4 className="font-medium text-blue-800 mb-2">Knowledge Bases</h4>
+                                        <div className="flex flex-wrap gap-2">
+                                            {formData.knowledgeBases.map((kb) => {
+                                                const kbData = kb.knowledge_bases || kb
+                                                const kbName = kbData.name
+                                                return (
+                                                    <Badge key={kbData.knowledgeBaseId} variant="secondary" className="text-xs">
+                                                        {kbName.length > 20 ? `${kbName.substring(0, 20)}...` : kbName}
+                                                    </Badge>
+                                                )
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )
+                }
+
                 return (
                     <div className="space-y-6">
                         <div className="space-y-4">

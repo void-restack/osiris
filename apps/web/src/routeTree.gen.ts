@@ -19,6 +19,7 @@ import { Route as HubMcpIndexRouteImport } from './routes/_hub/mcp.index'
 import { Route as HubKnowledgeIndexRouteImport } from './routes/_hub/knowledge/index'
 import { Route as HubAuthIndexRouteImport } from './routes/_hub/auth.index'
 import { Route as HubWorkflowWorkflowIdRouteImport } from './routes/_hub/workflow.$workflowId'
+import { Route as HubTemplateTemplateIdRouteImport } from './routes/_hub/template.$templateId'
 import { Route as HubMcpMcpIdRouteImport } from './routes/_hub/mcp.$mcpId'
 import { Route as HubKnowledgeNewRouteImport } from './routes/_hub/knowledge/new'
 import { Route as HubKnowledgeIdRouteImport } from './routes/_hub/knowledge/$id'
@@ -73,6 +74,11 @@ const HubWorkflowWorkflowIdRoute = HubWorkflowWorkflowIdRouteImport.update({
   path: '/workflow/$workflowId',
   getParentRoute: () => HubRouteRoute,
 } as any)
+const HubTemplateTemplateIdRoute = HubTemplateTemplateIdRouteImport.update({
+  id: '/template/$templateId',
+  path: '/template/$templateId',
+  getParentRoute: () => HubRouteRoute,
+} as any)
 const HubMcpMcpIdRoute = HubMcpMcpIdRouteImport.update({
   id: '/mcp/$mcpId',
   path: '/mcp/$mcpId',
@@ -103,6 +109,7 @@ export interface FileRoutesByFullPath {
   '/knowledge/$id': typeof HubKnowledgeIdRoute
   '/knowledge/new': typeof HubKnowledgeNewRoute
   '/mcp/$mcpId': typeof HubMcpMcpIdRoute
+  '/template/$templateId': typeof HubTemplateTemplateIdRoute
   '/workflow/$workflowId': typeof HubWorkflowWorkflowIdRoute
   '/auth': typeof HubAuthIndexRoute
   '/knowledge': typeof HubKnowledgeIndexRoute
@@ -118,6 +125,7 @@ export interface FileRoutesByTo {
   '/knowledge/$id': typeof HubKnowledgeIdRoute
   '/knowledge/new': typeof HubKnowledgeNewRoute
   '/mcp/$mcpId': typeof HubMcpMcpIdRoute
+  '/template/$templateId': typeof HubTemplateTemplateIdRoute
   '/workflow/$workflowId': typeof HubWorkflowWorkflowIdRoute
   '/auth': typeof HubAuthIndexRoute
   '/knowledge': typeof HubKnowledgeIndexRoute
@@ -135,6 +143,7 @@ export interface FileRoutesById {
   '/_hub/knowledge/$id': typeof HubKnowledgeIdRoute
   '/_hub/knowledge/new': typeof HubKnowledgeNewRoute
   '/_hub/mcp/$mcpId': typeof HubMcpMcpIdRoute
+  '/_hub/template/$templateId': typeof HubTemplateTemplateIdRoute
   '/_hub/workflow/$workflowId': typeof HubWorkflowWorkflowIdRoute
   '/_hub/auth/': typeof HubAuthIndexRoute
   '/_hub/knowledge/': typeof HubKnowledgeIndexRoute
@@ -152,6 +161,7 @@ export interface FileRouteTypes {
     | '/knowledge/$id'
     | '/knowledge/new'
     | '/mcp/$mcpId'
+    | '/template/$templateId'
     | '/workflow/$workflowId'
     | '/auth'
     | '/knowledge'
@@ -167,6 +177,7 @@ export interface FileRouteTypes {
     | '/knowledge/$id'
     | '/knowledge/new'
     | '/mcp/$mcpId'
+    | '/template/$templateId'
     | '/workflow/$workflowId'
     | '/auth'
     | '/knowledge'
@@ -183,6 +194,7 @@ export interface FileRouteTypes {
     | '/_hub/knowledge/$id'
     | '/_hub/knowledge/new'
     | '/_hub/mcp/$mcpId'
+    | '/_hub/template/$templateId'
     | '/_hub/workflow/$workflowId'
     | '/_hub/auth/'
     | '/_hub/knowledge/'
@@ -269,6 +281,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HubWorkflowWorkflowIdRouteImport
       parentRoute: typeof HubRouteRoute
     }
+    '/_hub/template/$templateId': {
+      id: '/_hub/template/$templateId'
+      path: '/template/$templateId'
+      fullPath: '/template/$templateId'
+      preLoaderRoute: typeof HubTemplateTemplateIdRouteImport
+      parentRoute: typeof HubRouteRoute
+    }
     '/_hub/mcp/$mcpId': {
       id: '/_hub/mcp/$mcpId'
       path: '/mcp/$mcpId'
@@ -306,6 +325,7 @@ interface HubRouteRouteChildren {
   HubKnowledgeIdRoute: typeof HubKnowledgeIdRoute
   HubKnowledgeNewRoute: typeof HubKnowledgeNewRoute
   HubMcpMcpIdRoute: typeof HubMcpMcpIdRoute
+  HubTemplateTemplateIdRoute: typeof HubTemplateTemplateIdRoute
   HubWorkflowWorkflowIdRoute: typeof HubWorkflowWorkflowIdRoute
   HubAuthIndexRoute: typeof HubAuthIndexRoute
   HubKnowledgeIndexRoute: typeof HubKnowledgeIndexRoute
@@ -319,6 +339,7 @@ const HubRouteRouteChildren: HubRouteRouteChildren = {
   HubKnowledgeIdRoute: HubKnowledgeIdRoute,
   HubKnowledgeNewRoute: HubKnowledgeNewRoute,
   HubMcpMcpIdRoute: HubMcpMcpIdRoute,
+  HubTemplateTemplateIdRoute: HubTemplateTemplateIdRoute,
   HubWorkflowWorkflowIdRoute: HubWorkflowWorkflowIdRoute,
   HubAuthIndexRoute: HubAuthIndexRoute,
   HubKnowledgeIndexRoute: HubKnowledgeIndexRoute,

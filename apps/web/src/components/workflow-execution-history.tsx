@@ -56,9 +56,9 @@ const ExecutionCard = ({
     onViewExecution: (execution: any) => void;
 }) => {
     // Handle both API response format and our internal format
-    const startDateStr = execution.startedAt || execution.createdAt;
-    const completedDateStr = execution.completedAt || execution.updatedAt;
-    const executionId = execution.executionId || execution.id;
+    const startDateStr = execution.createdAt;
+    const completedDateStr = execution.updatedAt;
+    const executionId = execution.id;
 
     // Safely parse dates
     const startedAt = startDateStr ? new Date(startDateStr) : null;
@@ -110,14 +110,34 @@ export function WorkflowExecutionHistory({
 
     const handleViewExecution = (execution: any) => {
         const executionData: WorkflowExecutionData = {
-            executionId: execution.executionId || execution.id,
-            workflowId: execution.workflowId || execution.flowId || workflowId,
+            id: execution.id,
+            flowId: execution.flowId,
             workflowTitle: workflowTitle,
-            status: execution.status || 'completed', // Default to completed for API executions
-            startedAt: execution.startedAt || execution.createdAt,
-            completedAt: execution.completedAt || execution.updatedAt,
+            status: getExecutionStatus(execution),
+            createdAt: execution.createdAt,
+            updatedAt: execution.updatedAt,
         };
         openWorkflowExecutionSidebar(executionData);
+    };
+
+    const getExecutionStatus = (execution: any): "yet-to-be-executed" | "pending" | "running" | "success" | "failed" | "queued" => {
+        const results = execution.results || [];
+        const allCompleted = results.every((step: any) =>
+            step.status === 'success' || step.status === 'failed'
+        );
+
+        if (allCompleted) {
+            const hasFailures = results.some((step: any) => step.status === 'failed');
+            return hasFailures ? 'failed' : 'success';
+        }
+
+        const hasRunning = results.some((step: any) => step.status === 'running');
+        if (hasRunning) return 'running';
+
+        const hasPending = results.some((step: any) => step.status === 'pending');
+        if (hasPending) return 'pending';
+
+        return 'yet-to-be-executed';
     };
 
     if (isLoading) {
@@ -175,8 +195,8 @@ export function WorkflowExecutionHistory({
                 <ScrollArea className="h-[calc(100vh-480px)] w-full">
                     <div className="space-y-4 w-full">
                         {sortedExecutions.map((execution: any) => {
-                            const executionId = execution.executionId || execution.id;
-                            const currentExecutionId = currentExecution?.executionId || currentExecution?.id;
+                            const executionId = execution.id;
+                            const currentExecutionId = currentExecution?.id;
                             return (
                                 <ExecutionCard
                                     key={executionId}

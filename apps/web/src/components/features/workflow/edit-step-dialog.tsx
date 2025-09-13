@@ -29,9 +29,10 @@ interface EditStepDialogProps {
     onEditStep: (step: WorkflowStep) => void
     step: WorkflowStep | null
     workflowData?: any
+    isTemplate?: boolean // New prop to indicate if this is for template editing
 }
 
-export function EditStepDialog({ open, onOpenChange, onEditStep, step, workflowData }: EditStepDialogProps) {
+export function EditStepDialog({ open, onOpenChange, onEditStep, step, workflowData, isTemplate = false }: EditStepDialogProps) {
     const queryClient = useQueryClient()
     const { isAuthenticated } = useAuth()
 
@@ -125,27 +126,64 @@ export function EditStepDialog({ open, onOpenChange, onEditStep, step, workflowD
 
     useEffect(() => {
         if (step && workflowData) {
-            const deployedMcps = (step.deploymentIds || []).map((deploymentId: string) => {
-                const agentInfo = workflowData.agents?.[deploymentId]
-                if (agentInfo) {
-                    return {
-                        deploymentId,
-                        packageId: agentInfo.packageId,
-                        name: agentInfo.name,
-                        shortDescription: agentInfo.shortDescription,
-                        url: agentInfo.url
+            if (isTemplate) {
+                // For templates, use packageIds and knowledgeBaseIds
+                const templatePackages = (step.packageIds || []).map((packageId: string) => {
+                    const packageInfo = workflowData.packages?.[packageId]
+                    if (packageInfo) {
+                        return {
+                            packageId,
+                            name: packageInfo.name,
+                            shortDescription: packageInfo.shortDescription,
+                            url: packageInfo.url
+                        }
                     }
-                }
-                return null
-            }).filter(Boolean)
+                    return null
+                }).filter(Boolean)
 
-            setFormData({
-                name: step.name,
-                prompt: step.prompt,
-                mcpProviders: step.mcpProviders || [],
-                knowledgeBases: step.knowledgeBases || []
-            })
-            setExistingDeployedMcps(deployedMcps)
+                const templateKnowledgeBases = (step.knowledgeBaseIds || []).map((kbId: string) => {
+                    const kbInfo = workflowData.knowledgeBases?.[kbId]
+                    if (kbInfo) {
+                        return {
+                            id: kbId,
+                            name: kbInfo.name,
+                            description: kbInfo.description
+                        }
+                    }
+                    return null
+                }).filter(Boolean)
+
+                setFormData({
+                    name: step.name,
+                    prompt: step.prompt,
+                    mcpProviders: templatePackages,
+                    knowledgeBases: templateKnowledgeBases
+                })
+                setExistingDeployedMcps([]) // No deployments for templates
+            } else {
+                // For regular workflows, use deploymentIds
+                const deployedMcps = (step.deploymentIds || []).map((deploymentId: string) => {
+                    const agentInfo = workflowData.agents?.[deploymentId]
+                    if (agentInfo) {
+                        return {
+                            deploymentId,
+                            packageId: agentInfo.packageId,
+                            name: agentInfo.name,
+                            shortDescription: agentInfo.shortDescription,
+                            url: agentInfo.url
+                        }
+                    }
+                    return null
+                }).filter(Boolean)
+
+                setFormData({
+                    name: step.name,
+                    prompt: step.prompt,
+                    mcpProviders: step.mcpProviders || [],
+                    knowledgeBases: step.knowledgeBases || []
+                })
+                setExistingDeployedMcps(deployedMcps)
+            }
         } else {
             setFormData({
                 name: "",
@@ -155,7 +193,7 @@ export function EditStepDialog({ open, onOpenChange, onEditStep, step, workflowD
             })
             setExistingDeployedMcps([])
         }
-    }, [step, workflowData])
+    }, [step, workflowData, isTemplate])
 
     const { data: popularMcps } = useQuery(packageQueries.popularOptions())
 
@@ -238,29 +276,50 @@ export function EditStepDialog({ open, onOpenChange, onEditStep, step, workflowD
 
     const handleNext = useCallback(() => {
         if (typeof currentStep === 'number' && currentStep < TOTAL_STEPS) {
-            if (currentStep === 1 && formData.mcpProviders.length === 0) {
-                setCurrentStep(3)
+            if (isTemplate) {
+                // For templates, skip step 2 (deployment) and go directly to step 3
+                if (currentStep === 1) {
+                    setCurrentStep(3)
+                } else {
+                    setCurrentStep(prev => (prev as number) + 1)
+                }
             } else {
-                setCurrentStep(prev => (prev as number) + 1)
+                // For regular workflows, use existing logic
+                if (currentStep === 1 && formData.mcpProviders.length === 0) {
+                    setCurrentStep(3)
+                } else {
+                    setCurrentStep(prev => (prev as number) + 1)
+                }
             }
         }
-    }, [currentStep, formData.mcpProviders.length])
+    }, [currentStep, formData.mcpProviders.length, isTemplate])
 
     const handlePrevious = useCallback(() => {
         if (typeof currentStep === 'number' && currentStep > 1) {
-            if (currentStep === 3 && formData.mcpProviders.length === 0) {
-                setCurrentStep(1)
+            if (isTemplate) {
+                // For templates, skip step 2 (deployment) and go directly to step 1
+                if (currentStep === 3) {
+                    setCurrentStep(1)
+                } else {
+                    setCurrentStep(prev => (prev as number) - 1)
+                }
             } else {
-                setCurrentStep(prev => (prev as number) - 1)
+                // For regular workflows, use existing logic
+                if (currentStep === 3 && formData.mcpProviders.length === 0) {
+                    setCurrentStep(1)
+                } else {
+                    setCurrentStep(prev => (prev as number) - 1)
+                }
             }
         }
-    }, [currentStep, formData.mcpProviders.length])
+    }, [currentStep, formData.mcpProviders.length, isTemplate])
 
     const validateCurrentStep = () => {
         switch (currentStep) {
             case 1:
                 return formData.name.trim() !== "" && formData.prompt.trim() !== ""
             case 2:
+                if (isTemplate) return true // Skip validation for templates
                 if (formData.mcpProviders.length === 0) return true
                 const deployedMcps = formData.mcpProviders.filter(mcp => {
                     const mcpId = mcp.id || mcp.packageId
@@ -268,6 +327,7 @@ export function EditStepDialog({ open, onOpenChange, onEditStep, step, workflowD
                 })
                 return deployedMcps.length > 0
             case 3:
+                if (isTemplate) return true // For templates, step 3 is just a review
                 if (formData.mcpProviders.length === 0) return true
                 const deployedMcpsStep3 = formData.mcpProviders.filter(mcp => {
                     const mcpId = mcp.id || mcp.packageId
@@ -528,26 +588,46 @@ export function EditStepDialog({ open, onOpenChange, onEditStep, step, workflowD
 
         if (!formData.name.trim() || !formData.prompt.trim() || !step) return
 
-        const remainingDeploymentIds = existingDeployedMcps.map(mcp => mcp.deploymentId)
+        if (isTemplate) {
+            // For templates, use packageIds and knowledgeBaseIds
+            const packageIds = formData.mcpProviders.map(mcp => mcp.packageId || mcp.id).filter(Boolean)
+            const knowledgeBaseIds = formData.knowledgeBases.map(kb => {
+                const kbData = kb.knowledge_bases || kb
+                return kbData.knowledgeBaseId || kbData.id
+            }).filter(Boolean)
 
-        const newDeploymentIds = formData.mcpProviders
-            .map(mcp => {
-                const mcpId = mcp.id || mcp.packageId
-                const status = mcpStatuses[mcpId]
-                return status?.deploymentStatus === 'deployed' ? status.deploymentData?.deploymentId : null
+            onEditStep({
+                ...step,
+                name: formData.name.trim(),
+                prompt: formData.prompt.trim(),
+                mcpProviders: formData.mcpProviders,
+                knowledgeBases: formData.knowledgeBases,
+                packageIds: packageIds,
+                knowledgeBaseIds: knowledgeBaseIds,
             })
-            .filter(Boolean)
+        } else {
+            // For regular workflows, use deploymentIds
+            const remainingDeploymentIds = existingDeployedMcps.map(mcp => mcp.deploymentId)
 
-        const allDeploymentIds = [...remainingDeploymentIds, ...newDeploymentIds]
+            const newDeploymentIds = formData.mcpProviders
+                .map(mcp => {
+                    const mcpId = mcp.id || mcp.packageId
+                    const status = mcpStatuses[mcpId]
+                    return status?.deploymentStatus === 'deployed' ? status.deploymentData?.deploymentId : null
+                })
+                .filter(Boolean)
 
-        onEditStep({
-            ...step,
-            name: formData.name.trim(),
-            prompt: formData.prompt.trim(),
-            mcpProviders: formData.mcpProviders,
-            knowledgeBases: formData.knowledgeBases,
-            deploymentIds: allDeploymentIds, // Updated deployment IDs
-        })
+            const allDeploymentIds = [...remainingDeploymentIds, ...newDeploymentIds]
+
+            onEditStep({
+                ...step,
+                name: formData.name.trim(),
+                prompt: formData.prompt.trim(),
+                mcpProviders: formData.mcpProviders,
+                knowledgeBases: formData.knowledgeBases,
+                deploymentIds: allDeploymentIds, // Updated deployment IDs
+            })
+        }
 
         onOpenChange(false)
     }
@@ -716,8 +796,8 @@ export function EditStepDialog({ open, onOpenChange, onEditStep, step, workflowD
                                 <div className="space-y-2">
                                     <Label className="text-sm text-primary-400">Selected MCPs</Label>
                                     <div className="flex flex-wrap gap-2">
-                                        {formData.mcpProviders.map((mcp) => {
-                                            const mcpId = mcp.id || mcp.packageId
+                                        {formData.mcpProviders.map((mcp, index) => {
+                                            const mcpId = mcp.id || mcp.packageId || `mcp-${index}`
                                             return (
                                                 <Badge key={mcpId} variant="secondary" className="text-xs flex items-center gap-1">
                                                     {mcp.name}
@@ -796,9 +876,9 @@ export function EditStepDialog({ open, onOpenChange, onEditStep, step, workflowD
                                 <div className="space-y-2">
                                     <Label className="text-sm text-primary-400">Selected Knowledge Bases</Label>
                                     <div className="flex flex-wrap gap-2">
-                                        {formData.knowledgeBases.map((kb) => {
+                                        {formData.knowledgeBases.map((kb, index) => {
                                             const kbData = kb.knowledge_bases || kb
-                                            const kbId = kbData.knowledgeBaseId
+                                            const kbId = kbData.knowledgeBaseId || kbData.id || `kb-${index}`
                                             const kbName = kbData.name
                                             return (
                                                 <Badge key={kbId} variant="secondary" className="text-xs flex items-center gap-1">
@@ -851,8 +931,8 @@ export function EditStepDialog({ open, onOpenChange, onEditStep, step, workflowD
 
                         {/* MCPs List */}
                         <div className="space-y-4">
-                            {formData.mcpProviders.map((mcp) => {
-                                const mcpId = mcp.id || mcp.packageId
+                            {formData.mcpProviders.map((mcp, index) => {
+                                const mcpId = mcp.id || mcp.packageId || `mcp-deploy-${index}`
                                 const status = mcpStatuses[mcpId] || { oauthStatus: 'not_configured', deploymentStatus: 'not_deployed' }
                                 return (
                                     <div key={mcpId} className="p-4 w-full border rounded-lg">
@@ -906,11 +986,11 @@ export function EditStepDialog({ open, onOpenChange, onEditStep, step, workflowD
                                 <div className="space-y-2">
                                     <Label className="text-sm font-medium text-primary-400">Selected Knowledge Bases</Label>
                                     <div className="flex flex-wrap gap-2">
-                                        {formData.knowledgeBases.map((kb) => {
+                                        {formData.knowledgeBases.map((kb, index) => {
                                             const kbData = kb.knowledge_bases || kb
                                             const kbName = kbData.name
                                             return (
-                                                <Badge key={kbData.knowledgeBaseId} variant="secondary" className="text-xs">
+                                                <Badge key={kbData.knowledgeBaseId || kbData.id || `kb-step2-${index}`} variant="secondary" className="text-xs">
                                                     {kbName.length > 20 ? `${kbName.substring(0, 20)}...` : kbName}
                                                 </Badge>
                                             )
@@ -944,10 +1024,12 @@ export function EditStepDialog({ open, onOpenChange, onEditStep, step, workflowD
                             </div>
                             {formData.mcpProviders.length > 0 && (
                                 <div className="p-4 border rounded-lg bg-green-50">
-                                    <h4 className="font-medium text-green-800 mb-2">Deployed MCPs</h4>
+                                    <h4 className="font-medium text-green-800 mb-2">
+                                        {isTemplate ? "Selected Packages" : "Deployed MCPs"}
+                                    </h4>
                                     <div className="space-y-2">
-                                        {formData.mcpProviders.map((mcp) => {
-                                            const mcpId = mcp.id || mcp.packageId
+                                        {formData.mcpProviders.map((mcp, index) => {
+                                            const mcpId = mcp.id || mcp.packageId || `mcp-step3-${index}`
                                             const status = mcpStatuses[mcpId]
                                             const isDeployed = status?.deploymentStatus === 'deployed'
 
@@ -959,19 +1041,21 @@ export function EditStepDialog({ open, onOpenChange, onEditStep, step, workflowD
                                                         </div>
                                                         <span className="text-primary-800">{mcp.name}</span>
                                                     </div>
-                                                    <div className="flex items-center gap-2">
-                                                        {isDeployed ? (
-                                                            <>
-                                                                <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                                                                <span className="text-green-700 font-medium">Deployed</span>
-                                                            </>
-                                                        ) : (
-                                                            <>
-                                                                <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
-                                                                <span className="text-yellow-700 font-medium">Not Deployed</span>
-                                                            </>
-                                                        )}
-                                                    </div>
+                                                    {!isTemplate && (
+                                                        <div className="flex items-center gap-2">
+                                                            {isDeployed ? (
+                                                                <>
+                                                                    <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                                                                    <span className="text-green-700 font-medium">Deployed</span>
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
+                                                                    <span className="text-yellow-700 font-medium">Not Deployed</span>
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             )
                                         })}
@@ -981,19 +1065,26 @@ export function EditStepDialog({ open, onOpenChange, onEditStep, step, workflowD
 
                             {formData.mcpProviders.length === 0 && (
                                 <div className="p-4 border rounded-lg bg-gray-50">
-                                    <h4 className="font-medium text-gray-800 mb-2">No MCPs Selected</h4>
-                                    <p className="text-sm text-gray-600">This step will be saved without any MCP integrations.</p>
+                                    <h4 className="font-medium text-gray-800 mb-2">
+                                        {isTemplate ? "No Packages Selected" : "No MCPs Selected"}
+                                    </h4>
+                                    <p className="text-sm text-gray-600">
+                                        {isTemplate
+                                            ? "This step will be saved without any package integrations."
+                                            : "This step will be saved without any MCP integrations."
+                                        }
+                                    </p>
                                 </div>
                             )}
                             {formData.knowledgeBases.length > 0 && (
                                 <div className="p-4 border rounded-lg bg-blue-50">
                                     <h4 className="font-medium text-blue-800 mb-2">Knowledge Bases</h4>
                                     <div className="flex flex-wrap gap-2">
-                                        {formData.knowledgeBases.map((kb) => {
+                                        {formData.knowledgeBases.map((kb, index) => {
                                             const kbData = kb.knowledge_bases || kb
                                             const kbName = kbData.name
                                             return (
-                                                <Badge key={kbData.knowledgeBaseId} variant="secondary" className="text-xs">
+                                                <Badge key={kbData.knowledgeBaseId || kbData.id || `kb-step3-${index}`} variant="secondary" className="text-xs">
                                                     {kbName.length > 20 ? `${kbName.substring(0, 20)}...` : kbName}
                                                 </Badge>
                                             )

@@ -1503,6 +1503,7 @@ export const useCreateWorkflowMutation = () => {
         prompt: string;
       }>;
       isPublic?: boolean;
+      templateWorkflowId?: string;
       timeBasedTrigger?: {
         rrule: string;
         startTime: string;
@@ -1513,8 +1514,7 @@ export const useCreateWorkflowMutation = () => {
         body: data,
         schema: responseSchema(
           z.object({
-            workflowId: z.string().uuid(),
-            userId: z.string().uuid(),
+            id: z.string().uuid(),
             title: z.string(),
             description: z.string(),
             imageUrl: z.string().optional(),
@@ -1528,21 +1528,13 @@ export const useCreateWorkflowMutation = () => {
               })
             ),
             isPublic: z.boolean(),
+            templateWorkflowId: z.string().uuid().optional(),
             timeBasedTrigger: z.object({
               rrule: z.string(),
               startTime: z.string().datetime(),
             }).optional(),
-            agents: z.record(z.string(), z.object({
-              packageId: z.string().uuid(),
-              name: z.string(),
-              shortDescription: z.string(),
-              url: z.string().url(),
-            })).optional(),
-            knowledgeBases: z.record(z.string(), z.object({
-              id: z.string().uuid(),
-              name: z.string(),
-              description: z.string().optional(),
-            })).optional(),
+            nextExecution: z.string().datetime().nullable(),
+            ownerId: z.string().uuid(),
             createdAt: z.string().datetime(),
             updatedAt: z.string().datetime(),
           })
@@ -1581,6 +1573,7 @@ export const useUpdateWorkflowMutation = () => {
         prompt: string;
       }>;
       isPublic?: boolean;
+      templateWorkflowId?: string;
       timeBasedTrigger?: {
         rrule: string;
         startTime: string;
@@ -1606,6 +1599,7 @@ export const useUpdateWorkflowMutation = () => {
               })
             ),
             isPublic: z.boolean(),
+            templateWorkflowId: z.string().uuid().optional(),
             agentId: z.string().uuid().nullable(),
             knowledgeBaseId: z.string().uuid().nullable(),
             serviceClient: z.any().nullable(),
@@ -1692,11 +1686,10 @@ export const useExecuteWorkflowMutation = () => {
         body: data,
         schema: responseSchema(
           z.object({
+            jobId: z.string(),
             executionId: z.string().uuid(),
-            workflowId: z.string().uuid(),
-            status: z.enum(["pending", "running", "completed", "failed"]),
             message: z.string(),
-            startedAt: z.string().datetime(),
+            status: z.string(),
           })
         ),
       });
@@ -1717,6 +1710,228 @@ export const useExecuteWorkflowMutation = () => {
     },
   });
 };
+
+// ===== TEMPLATE WORKFLOW MUTATIONS =====
+export const useCreateTemplateWorkflowMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: {
+      title: string;
+      description: string;
+      imageUrl?: string;
+      coverImageUrl?: string;
+      workflow: Array<{
+        name: string;
+        packageIds: string[];
+        knowledgeBaseIds?: string[];
+        prompt: string;
+      }>;
+      isPublic?: boolean;
+    }) => {
+      const response = await api("/chat/template-workflows", {
+        method: "POST",
+        body: data,
+        schema: responseSchema(
+          z.object({
+            id: z.string().uuid(),
+            title: z.string(),
+            description: z.string(),
+            imageUrl: z.string().optional(),
+            coverImageUrl: z.string().optional(),
+            workflow: z.array(
+              z.object({
+                name: z.string(),
+                packageIds: z.array(z.string().uuid()),
+                knowledgeBaseIds: z.array(z.string().uuid()).optional(),
+                prompt: z.string(),
+              })
+            ),
+            isPublic: z.boolean(),
+            ownerId: z.string().uuid(),
+            createdAt: z.string().datetime(),
+            updatedAt: z.string().datetime(),
+          })
+        ),
+      });
+      if (response.status === "FAILED") {
+        throw new Error(response.error);
+      }
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: chatQueries.templateWorkflows() });
+      toast.success("Template workflow created successfully");
+    },
+    onError: (error) => {
+      console.error("Failed to create template workflow:", error);
+      toast.error(error.message || "Failed to create template workflow");
+    },
+  });
+};
+
+export const useUpdateTemplateWorkflowMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: {
+      templateId: string;
+      title?: string;
+      description?: string;
+      imageUrl?: string;
+      coverImageUrl?: string;
+      workflow?: Array<{
+        name: string;
+        packageIds: string[];
+        knowledgeBaseIds?: string[];
+        prompt: string;
+      }>;
+      isPublic?: boolean;
+    }) => {
+      const { templateId, ...updateData } = data;
+      const response = await api(`/chat/template-workflows/${templateId}`, {
+        method: "PATCH",
+        body: updateData,
+        schema: responseSchema(
+          z.object({
+            id: z.string().uuid(),
+            title: z.string(),
+            description: z.string(),
+            imageUrl: z.string().optional(),
+            coverImageUrl: z.string().optional(),
+            workflow: z.array(
+              z.object({
+                name: z.string(),
+                packageIds: z.array(z.string().uuid()),
+                knowledgeBaseIds: z.array(z.string().uuid()).optional(),
+                prompt: z.string(),
+              })
+            ),
+            isPublic: z.boolean(),
+            ownerId: z.string().uuid(),
+            createdAt: z.string().datetime(),
+            updatedAt: z.string().datetime(),
+          })
+        ),
+      });
+      if (response.status === "FAILED") {
+        throw new Error(response.error);
+      }
+      return response.data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: chatQueries.templateWorkflows() });
+      queryClient.invalidateQueries({
+        queryKey: chatQueries.templateWorkflow(variables.templateId),
+      });
+      toast.success("Template workflow updated successfully");
+    },
+    onError: (error) => {
+      console.error("Failed to update template workflow:", error);
+      toast.error(error.message || "Failed to update template workflow");
+    },
+  });
+};
+
+export const useDeleteTemplateWorkflowMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (templateId: string) => {
+      const response = await api(`/chat/template-workflow/${templateId}`, {
+        method: "DELETE",
+        schema: responseSchema(
+          z.object({
+            message: z.string(),
+          })
+        ),
+      });
+      if (response.status === "FAILED") {
+        throw new Error(response.error);
+      }
+      return response.data;
+    },
+    onSuccess: (data, templateId) => {
+      queryClient.removeQueries({ queryKey: chatQueries.templateWorkflow(templateId) });
+      queryClient.invalidateQueries({ queryKey: chatQueries.templateWorkflows() });
+      toast.success(data.message || "Template workflow deleted successfully");
+    },
+    onError: (error) => {
+      console.error("Failed to delete template workflow:", error);
+      toast.error(error.message || "Failed to delete template workflow");
+    },
+  });
+};
+
+export const useCreateWorkflowFromTemplateMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: {
+      templateWorkflowId: string;
+      title: string;
+      description: string;
+      imageUrl?: string;
+      coverImageUrl?: string;
+      workflow: Array<{
+        name: string;
+        deploymentId: string[];
+        knowledgeBaseIds?: string[];
+        prompt: string;
+      }>;
+      isPublic?: boolean;
+      timeBasedTrigger?: {
+        rrule: string;
+        startTime: string;
+      };
+    }) => {
+      const response = await api("/chat/workflows", {
+        method: "POST",
+        body: data,
+        schema: responseSchema(
+          z.object({
+            id: z.string().uuid(),
+            title: z.string(),
+            description: z.string(),
+            imageUrl: z.string().optional(),
+            coverImageUrl: z.string().optional(),
+            workflow: z.array(
+              z.object({
+                name: z.string(),
+                deploymentId: z.array(z.string().uuid()),
+                knowledgeBaseIds: z.array(z.string().uuid()).optional(),
+                prompt: z.string(),
+              })
+            ),
+            isPublic: z.boolean(),
+            templateWorkflowId: z.string().uuid().optional(),
+            timeBasedTrigger: z.object({
+              rrule: z.string(),
+              startTime: z.string().datetime(),
+            }).optional(),
+            nextExecution: z.string().datetime().nullable(),
+            ownerId: z.string().uuid(),
+            createdAt: z.string().datetime(),
+            updatedAt: z.string().datetime(),
+          })
+        ),
+      });
+      if (response.status === "FAILED") {
+        throw new Error(response.error);
+      }
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: chatQueries.workflows() });
+      toast.success("Workflow created from template successfully");
+    },
+    onError: (error) => {
+      console.error("Failed to create workflow from template:", error);
+      toast.error(error.message || "Failed to create workflow from template");
+    },
+  });
+};
+
 
 // export const useWorkflowStreamMutation = () => {
 //   return useMutation({

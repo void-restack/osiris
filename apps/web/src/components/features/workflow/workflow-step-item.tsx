@@ -17,13 +17,17 @@ export interface WorkflowStep {
     knowledgeBases?: Array<any>
     // Deployment IDs for API
     deploymentIds?: string[]
+    // Package IDs for templates
+    packageIds?: string[]
+    // Knowledge base IDs for templates
+    knowledgeBaseIds?: string[]
 }
 
 interface SortableStepItemProps {
     step: WorkflowStep
     index: number
-    onEdit: (step: WorkflowStep) => void
-    onDelete: (stepId: string) => void
+    onEdit?: (step: WorkflowStep) => void
+    onDelete?: (stepId: string) => void
 }
 
 export function SortableStepItem({ step, index, onEdit, onDelete }: SortableStepItemProps) {
@@ -51,13 +55,15 @@ export function SortableStepItem({ step, index, onEdit, onDelete }: SortableStep
       `}
         >
             {/* Drag Handle */}
-            <div
-                {...attributes}
-                {...listeners}
-                className="cursor-grab active:cursor-grabbing text-primary-300 hover:text-primary-500"
-            >
-                <GripVertical size={20} />
-            </div>
+            {(onEdit || onDelete) && (
+                <div
+                    {...attributes}
+                    {...listeners}
+                    className="cursor-grab active:cursor-grabbing text-primary-300 hover:text-primary-500"
+                >
+                    <GripVertical size={20} />
+                </div>
+            )}
 
             {/* Step Number and Content */}
             <div className="flex items-center gap-4 flex-1">
@@ -77,35 +83,45 @@ export function SortableStepItem({ step, index, onEdit, onDelete }: SortableStep
             </div>
 
             {/* Edit Button and More Options */}
-            <div className="flex items-center gap-2">
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 w-8 p-0"
-                    onClick={() => onEdit(step)}
-                >
-                    <Edit size={16} />
-                </Button>
-
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                            <MoreHorizontal size={16} />
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => onEdit(step)}>
-                            Edit Step
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                            className="text-red-600"
-                            onClick={() => onDelete(step.id)}
+            {(onEdit || onDelete) && (
+                <div className="flex items-center gap-2">
+                    {onEdit && (
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            onClick={() => onEdit(step)}
                         >
-                            Delete Step
-                        </DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
-            </div>
+                            <Edit size={16} />
+                        </Button>
+                    )}
+
+                    {(onEdit || onDelete) && (
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                    <MoreHorizontal size={16} />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                {onEdit && (
+                                    <DropdownMenuItem onClick={() => onEdit(step)}>
+                                        Edit Step
+                                    </DropdownMenuItem>
+                                )}
+                                {onDelete && (
+                                    <DropdownMenuItem
+                                        className="text-red-600"
+                                        onClick={() => onDelete(step.id)}
+                                    >
+                                        Delete Step
+                                    </DropdownMenuItem>
+                                )}
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    )}
+                </div>
+            )}
         </div>
     )
 }

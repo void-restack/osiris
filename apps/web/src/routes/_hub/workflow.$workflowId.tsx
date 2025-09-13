@@ -23,10 +23,10 @@ function RouteComponent() {
     const [currentExecution, setCurrentExecution] = useState<WorkflowExecutionData | null>(null)
 
     useEffect(() => {
-        if (selectedWorkflowExecution && currentExecution?.executionId === selectedWorkflowExecution.executionId) {
+        if (selectedWorkflowExecution && currentExecution?.id === selectedWorkflowExecution.id) {
             setCurrentExecution(selectedWorkflowExecution)
         }
-    }, [selectedWorkflowExecution, currentExecution?.executionId])
+    }, [selectedWorkflowExecution, currentExecution?.id])
 
     const { data: workflow, isLoading, error } = useQuery(
         chatQueries.workflowOptions(workflowId)
@@ -45,11 +45,12 @@ function RouteComponent() {
 
                 // Create execution data
                 const executionData: WorkflowExecutionData = {
-                    executionId: result.executionId,
-                    workflowId: result.workflowId,
+                    id: result.executionId,
+                    flowId: workflow.id,
                     workflowTitle: workflow.title,
                     status: result.status,
-                    startedAt: result.startedAt,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
                 }
 
                 // Set current execution and switch to history tab

@@ -171,28 +171,31 @@ export function PermissionSelector({
       {selectedPermissions.length > 0 && (
         <div className="mb-4">
           <h3 className="mb-2 text-[13px]">Selected Permissions ({selectedPermissions.length})</h3>
-          <div className="flex flex-wrap gap-2" ref={selectedsContainerRef}>
-            {selectedPermissions.map((permission, index) => (
-              <div
-                key={`selected-${permission.id}-${index}`}
-                className="flex items-center gap-1.5 rounded-md bg-primary-50 px-2 py-0.5 text-[13px]"
-              >
-                <span className="font-medium text-xs">{permission.label}</span>
-                <button
-                  type="button"
-                  onClick={() => removeSelectedPermission(permission.id)}
-                  className="rounded-full p-0.5 transition-colors hover:bg-muted"
+          <ScrollArea className="max-h-20 overflow-y-scroll">
+            <div className="flex flex-wrap gap-2 pr-4" ref={selectedsContainerRef}>
+              {selectedPermissions.map((permission, index) => (
+                <div
+                  key={`selected-${permission.id}-${index}`}
+                  className="flex items-center gap-1.5 rounded-md bg-primary-50 px-2 py-0.5 text-[13px]"
                 >
-                  <X className="h-3 w-3 text-muted-foreground" />
-                </button>
-              </div>
-            ))}
-          </div>
+                  <span className="font-medium text-xs">{permission.label}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeSelectedPermission(permission.id)}
+                    className="rounded-full p-0.5 transition-colors hover:bg-muted"
+                  >
+                    <X className="h-3 w-3 text-muted-foreground" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
         </div>
       )}
 
       {/* Available Permissions */}
-      <ScrollArea className="h-full max-h-72 overflow-y-scroll">
+      {/* <ScrollArea className="h-full max-h-72 overflow-y-scroll"> */}
+      <ScrollArea className="max-h-20 overflow-y-scroll">
         <div className="space-y-4 px-3">
           {filteredPermissions.length > 0 ? (
             filteredPermissions.map((permission) => {
@@ -225,6 +228,7 @@ export function PermissionSelector({
           )}
         </div>
       </ScrollArea>
+      {/* </ScrollArea> */}
     </div>
   );
 }
