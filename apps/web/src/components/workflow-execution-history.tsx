@@ -120,7 +120,7 @@ export function WorkflowExecutionHistory({
         openWorkflowExecutionSidebar(executionData);
     };
 
-    const getExecutionStatus = (execution: any): "yet-to-be-executed" | "pending" | "running" | "success" | "failed" | "queued" => {
+    const getExecutionStatus = (execution: any): "yet-to-be-executed" | "pending" | "success" | "failed" | "queued" => {
         const results = execution.results || [];
         const allCompleted = results.every((step: any) =>
             step.status === 'success' || step.status === 'failed'
@@ -131,9 +131,7 @@ export function WorkflowExecutionHistory({
             return hasFailures ? 'failed' : 'success';
         }
 
-        const hasRunning = results.some((step: any) => step.status === 'running');
-        if (hasRunning) return 'running';
-
+        // Backend uses 'pending' for running steps, not 'running'
         const hasPending = results.some((step: any) => step.status === 'pending');
         if (hasPending) return 'pending';
 
@@ -167,7 +165,12 @@ export function WorkflowExecutionHistory({
         );
     }
 
-    const allExecutions = currentExecution ? [currentExecution, ...(executions || [])] : executions || [];
+    // Combine current execution with executions, avoiding duplicates
+    const executionsList = executions || [];
+    const allExecutions = currentExecution
+        ? [currentExecution, ...executionsList.filter((exec: any) => exec.id !== currentExecution.id)]
+        : executionsList;
+
     const sortedExecutions = allExecutions.sort((a: any, b: any) => {
         const dateA = a.startedAt || a.createdAt;
         const dateB = b.startedAt || b.createdAt;

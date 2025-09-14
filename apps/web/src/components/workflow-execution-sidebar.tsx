@@ -28,8 +28,7 @@ const StatusIcon = ({ status }: { status: string }) => {
         case 'failed':
         case 'error':
             return <XCircle className="h-4 w-4 text-red-600" />;
-        case 'running':
-        case 'pending':
+        case 'pending': // Backend uses 'pending' for running steps
             return <Loader2 className="h-4 w-4 text-blue-600 animate-spin" />;
         case 'queued':
             return <Clock className="h-4 w-4 text-orange-500" />;
@@ -46,8 +45,7 @@ const StatusBadge = ({ status }: { status: string }) => {
         'success': 'default',
         'failed': 'destructive',
         'error': 'destructive',
-        'running': 'secondary',
-        'pending': 'outline',
+        'pending': 'secondary', // Backend uses 'pending' for running steps
         'queued': 'outline',
         'yet-to-be-executed': 'secondary'
     }[status] || 'outline';
@@ -63,11 +61,14 @@ const StatusBadge = ({ status }: { status: string }) => {
 const WorkflowStep = ({ step, index }: { step: any; index: number }) => {
     const getTaskStatus = (status: string): 'pending' | 'in_progress' | 'completed' => {
         switch (status) {
-            case 'running':
+            case 'pending': // Backend uses 'pending' for running steps
                 return 'in_progress';
             case 'completed':
             case 'success':
                 return 'completed';
+            case 'failed':
+            case 'error':
+                return 'completed'; // Show as completed even if failed
             default:
                 return 'pending';
         }
@@ -213,10 +214,13 @@ export function WorkflowExecutionSidebar() {
         updateSelectedWorkflowExecution,
     } = useAppStore();
 
-    const isRunningExecution = selectedWorkflowExecution?.status === 'running' ||
-        selectedWorkflowExecution?.status === 'pending' ||
+    const isRunningExecution = selectedWorkflowExecution?.status === 'pending' ||
         (selectedWorkflowExecution?.status as any) === 'queued';
 
+    const isCompletedExecution = selectedWorkflowExecution?.status === 'success' ||
+        selectedWorkflowExecution?.status === 'failed';
+
+    // Only connect to stream for running executions
     const executionId = isRunningExecution ? (selectedWorkflowExecution?.id || null) : null;
     const workflowStream = useWorkflowStream(executionId);
 
@@ -233,7 +237,7 @@ export function WorkflowExecutionSidebar() {
 
     const { data: executionDetails, isLoading: isLoadingDetails } = useQuery({
         ...chatQueries.workflowExecutionOptions(selectedWorkflowExecution?.id || ''),
-        enabled: !isRunningExecution && !!selectedWorkflowExecution?.id
+        enabled: isCompletedExecution && !!selectedWorkflowExecution?.id
     });
 
     if (!isWorkflowExecutionSidebarOpen || !selectedWorkflowExecution) {
@@ -349,7 +353,7 @@ export function WorkflowExecutionSidebar() {
                     </>
                 )} */}
 
-                {/* Workflow Steps - Running Execution */}
+                {/* Workflow Steps - Only show for running executions */}
                 {isRunningExecution && workflowStream.currentStep?.results && (
                     <div className="space-y-4">
                         <h3 className="text-sm font-medium text-gray-900">Workflow Progress</h3>
@@ -386,8 +390,8 @@ export function WorkflowExecutionSidebar() {
                     </div>
                 )}
 
-                {/* Completed Execution Steps - From API */}
-                {!isRunningExecution && executionDetails?.results && (
+                {/* Completed Execution Steps - Only show for completed executions */}
+                {isCompletedExecution && executionDetails?.results && (
                     <div className="space-y-4">
                         <h3 className="text-sm font-medium text-gray-900">Completed Workflow</h3>
                         <div className="space-y-2 max-h-[calc(100vh-250px)] overflow-y-auto">
@@ -400,7 +404,7 @@ export function WorkflowExecutionSidebar() {
 
                 {/* Actions */}
                 <div className="flex w-full gap-3 p-2 rounded-b-lg border-t border-t-primary-100 items-center justify-center absolute bottom-0 left-0 right-0">
-                    {isRunningExecution && workflowStream.status === 'error' && (
+                    {isRunningExecution && !workflowStream.isConnected && (
                         <Button
                             onClick={workflowStream.retry}
                             variant="outline"

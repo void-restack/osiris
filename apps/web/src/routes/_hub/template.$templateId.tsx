@@ -5,7 +5,9 @@ import { Loader2, Copy } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { chatQueries } from '@/lib/queries'
 import WorkflowStepsContainer from '@/components/features/workflow/workflow-steps-container'
+import { CloneTemplateDialog } from '@/components/features/workflow/clone-template-dialog'
 import { useAuth } from '@/hooks/use-auth'
+import { useState } from 'react'
 
 export const Route = createFileRoute('/_hub/template/$templateId')({
     component: RouteComponent,
@@ -14,14 +16,14 @@ export const Route = createFileRoute('/_hub/template/$templateId')({
 function RouteComponent() {
     const { templateId } = Route.useParams()
     const { user, isLoading: userLoading } = useAuth()
+    const [cloneDialogOpen, setCloneDialogOpen] = useState(false)
 
     const { data: template, isLoading: templateLoading, error } = useQuery(
         chatQueries.templateWorkflowOptions(templateId)
     )
 
     const handleCloneTemplate = () => {
-        // TODO: Implement clone template functionality
-        console.log('Clone template functionality will be implemented later')
+        setCloneDialogOpen(true)
     }
 
     if (templateLoading || userLoading) {
@@ -89,6 +91,11 @@ function RouteComponent() {
                 </div>
             </div>
 
+            <CloneTemplateDialog
+                open={cloneDialogOpen}
+                onOpenChange={setCloneDialogOpen}
+                template={template}
+            />
         </div>
     )
 }

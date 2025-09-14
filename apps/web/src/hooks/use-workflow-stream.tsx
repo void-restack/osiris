@@ -30,11 +30,20 @@ export const useWorkflowStream = (executionId: string | null) => {
     const maxReconnectAttempts = 5;
 
     const getAuthHeaders = () => {
-        // Use the access token from the workspace rules
-        const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIzODlmYzFkOS0yMTdjLTRmZmQtYTM3Ny0wNjQ2NjlmZjZhMDkiLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3NTcyNjQwMjcsImV4cCI6MTc1NzM1MDQyN30.3MDlkXzRSYXR9lanXthF18bVLz9AB-yL2_IjwqExZaA';
+        // Get token from localStorage with fallback (same as api.ts)
+        const token = localStorage.getItem("access_token") ??
+            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIzODlmYzFkOS0yMTdjLTRmZmQtYTM3Ny0wNjQ2NjlmZjZhMDkiLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3NTc3NDAwNTQsImV4cCI6MTc1NzgyNjQ1NH0.4dE4jzKHa3WhaFvYl2MaUUfzUzy7wouocPmOpp-HGro";
+
+        console.log('🔑 Getting auth token:', token ? 'Found' : 'Not found');
+
+        if (!token) {
+            throw new Error('No access token found. Please log in again.');
+        }
+
         return {
             'Authorization': `Bearer ${token}`,
             'Accept': 'text/event-stream',
+            'Cache-Control': 'no-cache',
         };
     };
 
@@ -111,7 +120,7 @@ export const useWorkflowStream = (executionId: string | null) => {
                     if (updated.results && data.stepIndex !== undefined) {
                         updated.results[data.stepIndex] = {
                             ...updated.results[data.stepIndex],
-                            status: 'running',
+                            status: 'pending', // Backend uses 'pending' for running steps
                             stepName: data.stepName
                         };
                     }
@@ -188,7 +197,7 @@ export const useWorkflowStream = (executionId: string | null) => {
             case 'workflow_completed':
                 setState(prev => ({
                     ...prev,
-                    status: 'completed',
+                    status: 'completed', // Map backend 'workflow_completed' to frontend 'completed'
                     progress: 100
                 }));
                 break;
@@ -196,7 +205,7 @@ export const useWorkflowStream = (executionId: string | null) => {
             case 'workflow_failed':
                 setState(prev => ({
                     ...prev,
-                    status: 'failed',
+                    status: 'failed', // Map backend 'workflow_failed' to frontend 'failed'
                     error: data.errorReason || 'Workflow failed'
                 }));
                 break;
@@ -221,8 +230,11 @@ export const useWorkflowStream = (executionId: string | null) => {
 
     const connect = useCallback(async () => {
         if (!executionId || state.isConnected) {
+            console.log('🚫 Not connecting:', { executionId, isConnected: state.isConnected });
             return;
         }
+
+        console.log('🔌 Connecting to workflow stream for execution:', executionId);
 
         setState(prev => ({
             ...prev,
@@ -246,6 +258,11 @@ export const useWorkflowStream = (executionId: string | null) => {
                     // Handle authentication errors
                     if (response.status === 401) {
                         throw new Error('Authentication required. Please log in again.');
+                    }
+
+                    // Handle CORS errors
+                    if (response.status === 0) {
+                        throw new Error('CORS error: Unable to connect to the server. Please check your network connection.');
                     }
 
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
