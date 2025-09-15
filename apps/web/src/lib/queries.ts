@@ -104,6 +104,7 @@ export const packageQueries = {
     sortOrder?: string;
     page?: number;
     limit?: number;
+    isLive?: boolean;
   }) =>
     queryOptions({
       queryKey: packageQueries.list(filters),
@@ -122,6 +123,7 @@ export const packageQueries = {
         if (filters.sortOrder) params.set("sortOrder", filters.sortOrder);
         params.set("page", String(filters.page || 1));
         params.set("limit", String(filters.limit || 10));
+        if (filters.isLive) params.set("isLive", String(filters.isLive));
 
         const response = await api(`/packages?${params}`, {
           schema: z.object({
@@ -141,6 +143,7 @@ export const packageQueries = {
               search: z.string().optional(),
               name: z.string().optional(),
               publisherId: z.string().optional(),
+              isLive: z.boolean().optional(),
             }).optional(),
           }),
         });

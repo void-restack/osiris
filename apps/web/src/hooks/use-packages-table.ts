@@ -52,6 +52,7 @@ export function usePackagesTable({
             sortOrder?: string;
             page: number;
             limit: number;
+            isLive?: boolean;
         } = {
             page,
             limit,
@@ -76,6 +77,8 @@ export function usePackagesTable({
                 filters.isFree = false;
             }
         }
+
+        filters.isLive = true;
 
         // Merge custom filters
         return { ...filters, ...customFilters };

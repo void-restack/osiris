@@ -22,7 +22,7 @@ import { Plus, Loader2, X } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { packageQueries, knowledgeQueries } from "@/lib/queries";
 import { useCreateTemplateWorkflowMutation } from "@/lib/mutations";
-import { type TemplateWorkflowData } from "@/lib/store";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface CreateTemplateWorkflowDialogProps {
     children?: React.ReactNode;
@@ -44,7 +44,6 @@ function StepSelector({ stepIndex, packageIds, knowledgeBaseIds, onPackageIdsCha
 
     const queryClient = useQueryClient();
 
-    // Fetch packages and knowledge bases
     const { data: popularPackages } = useQuery({
         ...packageQueries.popularOptions(),
         select: (data) => data?.data || []
@@ -53,15 +52,16 @@ function StepSelector({ stepIndex, packageIds, knowledgeBaseIds, onPackageIdsCha
     const { data: mcpSearchResults } = useQuery({
         queryKey: ['packages', 'search', mcpSearchQuery],
         queryFn: async () => {
-            if (!mcpSearchQuery || mcpSearchQuery.length < 2) return [];
+            if (!mcpSearchQuery || mcpSearchQuery.length < 1) return [];
             const response = await queryClient.ensureQueryData(packageQueries.listOptions({
                 name: mcpSearchQuery,
                 page: 1,
-                limit: 12
+                limit: 12,
+                isLive: true
             }));
             return response.data || [];
         },
-        enabled: mcpSearchQuery.length >= 2,
+        enabled: mcpSearchQuery.length >= 1,
     });
 
     const { data: popularKnowledgeBases } = useQuery({
@@ -72,7 +72,7 @@ function StepSelector({ stepIndex, packageIds, knowledgeBaseIds, onPackageIdsCha
     const { data: kbSearchResults } = useQuery({
         queryKey: ['knowledge-bases', 'search', kbSearchQuery],
         queryFn: async () => {
-            if (!kbSearchQuery || kbSearchQuery.length < 2) return [];
+            if (!kbSearchQuery || kbSearchQuery.length < 1) return [];
             const response = await queryClient.ensureQueryData(knowledgeQueries.searchOptions({
                 name: kbSearchQuery,
                 isPublic: true,
@@ -81,7 +81,7 @@ function StepSelector({ stepIndex, packageIds, knowledgeBaseIds, onPackageIdsCha
             }));
             return response.data || [];
         },
-        enabled: kbSearchQuery.length >= 2,
+        enabled: kbSearchQuery.length >= 1,
     });
 
     const addPackage = (provider: any) => {
@@ -117,7 +117,7 @@ function StepSelector({ stepIndex, packageIds, knowledgeBaseIds, onPackageIdsCha
                 <Popover open={mcpCommandOpen} onOpenChange={setMcpCommandOpen}>
                     <PopoverTrigger asChild>
                         <Button
-                            variant="outline"
+                            variant="secondary"
                             role="combobox"
                             aria-expanded={mcpCommandOpen}
                             className="justify-between w-full"
@@ -134,14 +134,18 @@ function StepSelector({ stepIndex, packageIds, knowledgeBaseIds, onPackageIdsCha
                             />
                             <CommandList>
                                 <CommandEmpty>No packages found.</CommandEmpty>
-                                {(mcpSearchQuery.length >= 2 ? mcpSearchResults : popularPackages)?.length > 0 && (
-                                    <CommandGroup heading={mcpSearchQuery.length >= 2 ? "Search Results" : "Popular Packages"}>
-                                        {(mcpSearchQuery.length >= 2 ? mcpSearchResults : popularPackages)?.map((provider: any) => (
+                                {(mcpSearchQuery.length >= 1 ? mcpSearchResults : popularPackages)?.length > 0 && (
+                                    <CommandGroup heading={mcpSearchQuery.length >= 1 ? "Search Results" : "Popular Packages"}>
+                                        {(mcpSearchQuery.length >= 1 ? mcpSearchResults : popularPackages)?.map((provider: any) => (
                                             <CommandItem
                                                 key={provider.id || provider.packageId}
                                                 onSelect={() => addPackage(provider)}
                                                 className="cursor-pointer"
                                             >
+                                                <Avatar className="size-4">
+                                                    <AvatarImage src={provider.iconUrl} alt={provider.name} className="size-4 flex items-center justify-center" />
+                                                    <AvatarFallback>{provider.name.charAt(0).toUpperCase()}</AvatarFallback>
+                                                </Avatar>
                                                 {provider.name}
                                             </CommandItem>
                                         ))}
@@ -156,8 +160,14 @@ function StepSelector({ stepIndex, packageIds, knowledgeBaseIds, onPackageIdsCha
                         {packageIds.map((pkgId: string) => {
                             const provider = [...(popularPackages || []), ...(mcpSearchResults || [])].find(p => (p.id || p.packageId) === pkgId);
                             return (
-                                <Badge key={pkgId} variant="secondary" className="flex items-center gap-1">
-                                    {provider?.name || pkgId}
+                                <Badge key={pkgId} variant="secondary" className="flex items-center gap-1 pr-0">
+                                    <Avatar className="size-4">
+                                        <AvatarImage src={provider.iconUrl} alt={provider.name} className="size-4 flex items-center justify-center" />
+                                        <AvatarFallback>{provider.name.charAt(0).toUpperCase()}</AvatarFallback>
+                                    </Avatar>
+                                    <span>
+                                        {provider?.name || pkgId}
+                                    </span>
                                     <Button
                                         type="button"
                                         variant="ghost"
@@ -165,7 +175,7 @@ function StepSelector({ stepIndex, packageIds, knowledgeBaseIds, onPackageIdsCha
                                         className="h-auto p-0 text-muted-foreground hover:text-foreground"
                                         onClick={() => removePackage(pkgId)}
                                     >
-                                        <X size={12} />
+                                        <X size={4} />
                                     </Button>
                                 </Badge>
                             );
@@ -179,7 +189,7 @@ function StepSelector({ stepIndex, packageIds, knowledgeBaseIds, onPackageIdsCha
                 <Popover open={kbCommandOpen} onOpenChange={setKbCommandOpen}>
                     <PopoverTrigger asChild>
                         <Button
-                            variant="outline"
+                            variant="secondary"
                             role="combobox"
                             aria-expanded={kbCommandOpen}
                             className="justify-between w-full"
@@ -196,9 +206,9 @@ function StepSelector({ stepIndex, packageIds, knowledgeBaseIds, onPackageIdsCha
                             />
                             <CommandList>
                                 <CommandEmpty>No knowledge bases found.</CommandEmpty>
-                                {(kbSearchQuery.length >= 2 ? kbSearchResults : popularKnowledgeBases)?.length > 0 && (
-                                    <CommandGroup heading={kbSearchQuery.length >= 2 ? "Search Results" : "Popular Knowledge Bases"}>
-                                        {(kbSearchQuery.length >= 2 ? kbSearchResults : popularKnowledgeBases)?.map((kb: any) => {
+                                {(kbSearchQuery.length >= 1 ? kbSearchResults : popularKnowledgeBases)?.length > 0 && (
+                                    <CommandGroup heading={kbSearchQuery.length >= 1 ? "Search Results" : "Popular Knowledge Bases"}>
+                                        {(kbSearchQuery.length >= 1 ? kbSearchResults : popularKnowledgeBases)?.map((kb: any) => {
                                             const kbData = kb.knowledge_bases || kb;
                                             const kbId = kbData.knowledgeBaseId;
                                             const kbName = kbData.name;
@@ -208,7 +218,13 @@ function StepSelector({ stepIndex, packageIds, knowledgeBaseIds, onPackageIdsCha
                                                     onSelect={() => addKnowledgeBase(kb)}
                                                     className="cursor-pointer"
                                                 >
-                                                    {kbName}
+                                                    <Avatar className="size-4">
+                                                        <AvatarImage src={kb.iconUrl} alt={kbName} className="size-4 flex items-center justify-center" />
+                                                        <AvatarFallback>{kbName.charAt(0).toUpperCase()}</AvatarFallback>
+                                                    </Avatar>
+                                                    <span className="text-sm truncate">
+                                                        {kbName}
+                                                    </span>
                                                 </CommandItem>
                                             );
                                         })}
@@ -228,8 +244,14 @@ function StepSelector({ stepIndex, packageIds, knowledgeBaseIds, onPackageIdsCha
                             const kbData = kb?.knowledge_bases || kb;
                             const kbName = kbData?.name || kbId;
                             return (
-                                <Badge key={kbId} variant="secondary" className="flex items-center gap-1">
-                                    {kbName}
+                                <Badge key={kbId} variant="secondary" className="flex items-center gap-1 pr-0">
+                                    <Avatar className="size-4">
+                                        <AvatarImage src={kb.iconUrl} alt={kbName} className="size-4 flex items-center justify-center" />
+                                        <AvatarFallback>{kbName.charAt(0).toUpperCase()}</AvatarFallback>
+                                    </Avatar>
+                                    <span className="text-sm truncate">
+                                        {kbName}
+                                    </span>
                                     <Button
                                         type="button"
                                         variant="ghost"
@@ -252,7 +274,6 @@ function StepSelector({ stepIndex, packageIds, knowledgeBaseIds, onPackageIdsCha
 export function CreateTemplateWorkflowDialog({ children }: CreateTemplateWorkflowDialogProps) {
     const [open, setOpen] = useState(false);
 
-    const queryClient = useQueryClient();
     const createTemplateWorkflowMutation = useCreateTemplateWorkflowMutation();
 
     const form = useForm({
@@ -329,7 +350,7 @@ export function CreateTemplateWorkflowDialog({ children }: CreateTemplateWorkflo
                     </Button>
                 )}
             </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[80vh]">
+            <DialogContent className="max-h-[80vh] hidebar">
                 <DialogHeader>
                     <DialogTitle>Create New Template</DialogTitle>
                     <DialogDescription>
@@ -337,14 +358,14 @@ export function CreateTemplateWorkflowDialog({ children }: CreateTemplateWorkflo
                     </DialogDescription>
                 </DialogHeader>
 
-                <ScrollArea className="max-h-[60vh] pr-4">
+                <ScrollArea className="max-h-[60vh] overflow-auto p-0 hidebar">
                     <form
                         onSubmit={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
                             form.handleSubmit();
                         }}
-                        className="space-y-6"
+                        className="space-y-6 hidebar"
                     >
                         <div className="space-y-2">
                             <Label htmlFor="title">Title</Label>
@@ -361,6 +382,7 @@ export function CreateTemplateWorkflowDialog({ children }: CreateTemplateWorkflo
                                             id="title"
                                             placeholder="Enter template title"
                                             value={field.state.value}
+                                            className="focus:border-0 focus:ring-0 focus:outline-none"
                                             onChange={(e) => field.handleChange(e.target.value)}
                                         />
                                         {field.state.meta.errors.length > 0 && (
@@ -434,7 +456,7 @@ export function CreateTemplateWorkflowDialog({ children }: CreateTemplateWorkflo
                                 <Label>Template Steps</Label>
                                 <Button
                                     type="button"
-                                    variant="outline"
+                                    variant="outline2"
                                     size="sm"
                                     onClick={addWorkflowStep}
                                 >
@@ -447,7 +469,7 @@ export function CreateTemplateWorkflowDialog({ children }: CreateTemplateWorkflo
                                 {(field) => (
                                     <div className="space-y-4">
                                         {field.state.value.map((step, index) => (
-                                            <div key={index} className="border rounded-lg p-4 space-y-4">
+                                            <div key={index} className="border border-primary-100 border-dashed rounded-lg p-3 space-y-4">
                                                 <div className="flex items-center justify-between">
                                                     <h4 className="font-medium">Step {index + 1}</h4>
                                                     {field.state.value.length > 1 && (
@@ -511,16 +533,17 @@ export function CreateTemplateWorkflowDialog({ children }: CreateTemplateWorkflo
                     </form>
                 </ScrollArea>
 
-                <DialogFooter>
+                <DialogFooter className="flex items-center justify-between w-full border-t border-primary-100 pt-4">
                     <Button
                         type="button"
-                        variant="outline"
+                        variant="outline2"
                         onClick={() => setOpen(false)}
                     >
                         Cancel
                     </Button>
                     <Button
                         type="submit"
+                        className="inset-shadow-search-btn"
                         onClick={() => form.handleSubmit()}
                         disabled={createTemplateWorkflowMutation.isPending}
                     >

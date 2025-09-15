@@ -178,7 +178,8 @@ function RouteComponent() {
       const response = await queryClient.ensureQueryData(packageQueries.listOptions({
         search: searchQuery,
         page: 1,
-        limit: 12
+        limit: 12,
+        isLive: true
       }));
       return (response.data || []).map((pkg: any) => ({
         ...pkg,

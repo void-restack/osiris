@@ -40,6 +40,7 @@ function RouteComponent() {
 
     const handleExecuteWorkflow = async () => {
         if (workflow) {
+            console.log(workflow, "WORKFLOW")
             try {
                 const result = await executeWorkflowMutation.mutateAsync({ workflowId: workflow.id })
 
@@ -99,16 +100,25 @@ function RouteComponent() {
             </div>
 
             <div className='flex w-full flex-col'>
-                <div className='flex flex-col items-start gap-2 mb-8'>
+                <div className='flex w-full items-center justify-between gap-2 mb-8'>
                     <h2 className='text-primary-800 text-xl'>{workflow.title}</h2>
-                    {/* <div className="flex items-center gap-4 text-sm text-primary-300">
-                        <span>Last run: 2 hrs ago</span>
-                        {workflow.isPublic && (
-                            <span className="bg-green-50 text-green-600 px-2 py-1 rounded-full text-xs">
-                                Public
-                            </span>
+
+                    <Button
+                        onClick={handleExecuteWorkflow}
+                        disabled={executeWorkflowMutation.isPending}
+                        className=' bg-primary-800 hover:bg-primary-900 text-white inset-shadow-search-btn'
+                    >
+                        {executeWorkflowMutation.isPending ? (
+                            <>
+                                <Loader2 size={16} className='mr-2 animate-spin' />
+                                Starting...
+                            </>
+                        ) : (
+                            <>
+                                Start Workflow
+                            </>
                         )}
-                    </div> */}
+                    </Button>
                 </div>
 
                 <div className='flex w-full h-full'>
@@ -120,7 +130,7 @@ function RouteComponent() {
                         <div className='bg-primary-100 w-full h-[1px] -translate-y-[3px]' />
                         <TabsContent value='flow' className='w-full h-full'>
                             <WorkflowStepsContainer workflowData={workflow} />
-                            <div className='pt-4 w-full'>
+                            {/* <div className='pt-4 w-full'>
                                 <Button
                                     onClick={handleExecuteWorkflow}
                                     disabled={executeWorkflowMutation.isPending}
@@ -138,7 +148,7 @@ function RouteComponent() {
                                         </>
                                     )}
                                 </Button>
-                            </div>
+                            </div> */}
                         </TabsContent>
                         <TabsContent value='history' className='w-full'>
                             <WorkflowExecutionHistory

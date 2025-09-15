@@ -197,7 +197,7 @@ export function EditStepDialog({ open, onOpenChange, onEditStep, step, workflowD
 
     const { data: popularMcps } = useQuery(packageQueries.popularOptions())
 
-    const { data: searchedMcps } = useQuery(packageQueries.listOptions(mcpSearchQuery.length >= 2 ? { name: mcpSearchQuery } : { name: "" }))
+    const { data: searchedMcps } = useQuery(packageQueries.listOptions({ name: mcpSearchQuery, isLive: true }))
 
     const { data: knowledgeBasesData } = useQuery(knowledgeQueries.basesOptions(kbSearchQuery.length >= 2 ? { name: kbSearchQuery } : { name: "" }))
 

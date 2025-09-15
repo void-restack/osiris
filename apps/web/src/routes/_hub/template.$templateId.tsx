@@ -56,21 +56,31 @@ function RouteComponent() {
             </div>
 
             <div className='flex w-full flex-col'>
-                <div className='flex flex-col items-start gap-2 mb-8'>
-                    <h2 className='text-primary-800 text-xl'>{template.title}</h2>
-                    <div className="flex items-center gap-4 text-sm text-primary-300">
-                        <span>Template by {template.ownerId}</span>
-                        {template.isPublic && (
-                            <span className="bg-green-50 text-green-600 px-2 py-1 rounded-full text-xs">
-                                Public Template
-                            </span>
-                        )}
-                        {!template.isPublic && (
-                            <span className="bg-gray-50 text-gray-600 px-2 py-1 rounded-full text-xs">
-                                Private Template
-                            </span>
-                        )}
+                <div className='flex items-center justify-between gap-2 mb-8'>
+
+                    <div className='flex flex-col items-start gap-2'>
+                        <h2 className='text-primary-800 text-xl'>{template.title}</h2>
+                        <div className="flex items-center gap-4 text-sm text-primary-300">
+                            <span>Template by {template.ownerId}</span>
+                            {template.isPublic && (
+                                <span className="bg-green-50 text-green-600 px-2 py-1 rounded-full text-xs">
+                                    Public Template
+                                </span>
+                            )}
+                            {!template.isPublic && (
+                                <span className="bg-gray-50 text-gray-600 px-2 py-1 rounded-full text-xs">
+                                    Private Template
+                                </span>
+                            )}
+                        </div>
                     </div>
+
+                    <Button
+                        onClick={handleCloneTemplate}
+                        className='text-xs inset-shadow-search-btn'
+                    >
+                        Clone
+                    </Button>
                 </div>
 
                 <div className='w-full'>
@@ -80,13 +90,13 @@ function RouteComponent() {
                         isOwner={isOwner}
                     />
                     <div className='pt-4 w-full'>
-                        <Button
+                        {/* <Button
                             onClick={handleCloneTemplate}
                             className='w-full bg-primary-800 hover:bg-primary-900 text-white'
                         >
                             <Copy size={16} className='mr-2' />
                             Clone Template
-                        </Button>
+                        </Button> */}
                     </div>
                 </div>
             </div>

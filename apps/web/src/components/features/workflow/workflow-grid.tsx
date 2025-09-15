@@ -1,12 +1,11 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Link, useNavigate } from "@tanstack/react-router";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { chatQueries } from "@/lib/queries";
 import { useAuth } from "@/hooks/use-auth";
-import { Loader2, Edit, Calendar, Clock, User, Shield, ShieldCheck, ChevronDown, Search, Plus } from "lucide-react";
+import { Loader2, User, Shield, ChevronDown, Search, Plus } from "lucide-react";
 import { useMemo, useState } from "react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Autocomplete } from "@/components/ui/autocomplete";
@@ -19,8 +18,8 @@ import { CreateTemplateWorkflowDialog } from "./create-workflow-dialog";
 const WORKFLOW_FILTERS = [
     { label: "All", value: "all", icon: User },
     { label: "Public", value: "public", icon: Shield },
-    { label: "Private", value: "private", icon: ShieldCheck },
-    { label: "Scheduled", value: "scheduled", icon: Calendar },
+    // { label: "Private", value: "private", icon: ShieldCheck },
+    // { label: "Scheduled", value: "scheduled", icon: Calendar },
     // { label: "Manual", value: "manual", icon: Clock },
 ] as const;
 
@@ -347,7 +346,7 @@ export function WorkflowGridView({ selectedFilter, onFilterChange, searchQuery, 
 
                                 {/* Content */}
                                 <div className="space-y-3">
-                                    <p className="text-primary-300 text-sm line-clamp-2 leading-relaxed">
+                                    <p className="text-primary-300 text-sm line-clamp-1 leading-relaxed">
                                         {workflow.description}
                                     </p>
                                     <div className="flex items-center gap-2 text-xs text-primary-400">
@@ -561,7 +560,7 @@ export function TemplateWorkflowGridView({ selectedFilter, onFilterChange, searc
 
                                 {/* Content */}
                                 <div className="space-y-3">
-                                    <p className="text-primary-300 text-sm line-clamp-2 leading-relaxed">
+                                    <p className="text-primary-300 text-sm line-clamp-1 leading-relaxed">
                                         {template.description}
                                     </p>
                                     <div className="flex items-center gap-2 text-xs text-primary-400">

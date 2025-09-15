@@ -601,15 +601,7 @@ export function CloneTemplateDialog({ open, onOpenChange, template }: CloneTempl
         return requiredServices.every(service => selectedConnections[service])
     }
 
-    // Check if an MCP can be deployed based on available OAuth connections
     const canDeployMcp = (mcp: any) => {
-        // This is a simplified check - in a real implementation, you'd need to:
-        // 1. Get the auth scopes for this specific MCP
-        // 2. Check if the required OAuth services are available
-        // 3. Verify the connections have the right permissions
-
-        // For now, we'll use a simple heuristic:
-        // If the MCP status is 'configuring', it means OAuth was configured
         const mcpStatus = mcpStatuses[mcp.packageId]
         return mcpStatus === 'configuring' || mcpStatus === 'deployed'
     }
@@ -625,17 +617,15 @@ export function CloneTemplateDialog({ open, onOpenChange, template }: CloneTempl
         if (!workflowName.trim() || !workflowDescription.trim()) return
 
         try {
-            // Map package IDs to actual deployment IDs
             const packageIdToDeploymentId = new Map<string, string>()
 
-            // Get deployment IDs for all deployed packages
             Object.keys(mcpStatuses).forEach(packageId => {
                 if (mcpStatuses[packageId] === 'deployed' && deploymentIds[packageId]) {
                     packageIdToDeploymentId.set(packageId, deploymentIds[packageId])
                 }
             })
 
-            await createWorkflowFromTemplate.mutateAsync({
+            const data = await createWorkflowFromTemplate.mutateAsync({
                 templateWorkflowId: template.id,
                 title: workflowName.trim(),
                 description: workflowDescription.trim(),
@@ -659,11 +649,13 @@ export function CloneTemplateDialog({ open, onOpenChange, template }: CloneTempl
                 })
             })
 
+            console.log(data, "MUTATED WORKFLOW DATA")
+
             resetSessionState()
             onOpenChange(false)
 
-            // Redirect to the new workflow page
-            window.location.href = `/workflow/${createWorkflowFromTemplate.data?.id}`
+            // VERIFY: Ask satyam if the above api (createWorkflowFromTemplate) returns any data
+            window.location.href = `/workflow`
         } catch (error: any) {
             console.error("Failed to create workflow from template:", error)
         }
@@ -687,9 +679,9 @@ export function CloneTemplateDialog({ open, onOpenChange, template }: CloneTempl
                         <ScrollArea className="h-[500px]">
                             <div className="space-y-4">
                                 {allPackageIds.length > 0 && (
-                                    <div className="p-4 border rounded-lg">
-                                        <h4 className="font-medium mb-3 flex items-center gap-2">
-                                            Required Packages ({allPackageIds.length})
+                                    <div className="p-3 border border-dashed rounded-lg">
+                                        <h4 className="text-sm text-primary-400 mb-3 flex items-center gap-2">
+                                            Required Packages
                                         </h4>
                                         {isLoadingPackages ? (
                                             <div className="flex items-center justify-center py-4">
@@ -700,7 +692,7 @@ export function CloneTemplateDialog({ open, onOpenChange, template }: CloneTempl
                                             <div className="space-y-3">
                                                 {packages.map((pkg) => (
                                                     <div key={pkg.packageId} className="flex items-center gap-3 p-3 bg-white rounded-lg border">
-                                                        <Avatar className="size-8">
+                                                        <Avatar className="size-8 rounded-none">
                                                             <AvatarImage src={pkg.iconUrl} alt={pkg.name} />
                                                             <AvatarFallback className="text-xs">
                                                                 {pkg.name.charAt(0).toUpperCase()}
@@ -708,9 +700,9 @@ export function CloneTemplateDialog({ open, onOpenChange, template }: CloneTempl
                                                         </Avatar>
                                                         <div className="flex-1">
                                                             <h5 className="font-medium text-sm text-primary-800">{pkg.name}</h5>
-                                                            <p className="text-xs text-primary-400">{pkg.shortDescription}</p>
+                                                            <p className="text-xs text-primary-400 truncate line-clamp-1 max-w-[250px]">{pkg.shortDescription}</p>
                                                         </div>
-                                                        <Badge variant="secondary" className="text-xs">
+                                                        <Badge variant="secondary" className="text-[10px] uppercase">
                                                             {pkg.type}
                                                         </Badge>
                                                     </div>
@@ -721,9 +713,9 @@ export function CloneTemplateDialog({ open, onOpenChange, template }: CloneTempl
                                 )}
 
                                 {allKnowledgeBaseIds.length > 0 && (
-                                    <div className="p-4 border rounded-lg">
-                                        <h4 className="font-medium mb-3 flex items-center gap-2">
-                                            Required Knowledge Bases ({allKnowledgeBaseIds.length})
+                                    <div className="p-3 border border-dashed rounded-lg">
+                                        <h4 className="text-sm text-primary-400 mb-3 flex items-center gap-2">
+                                            Required Knowledge Bases
                                         </h4>
                                         {isLoadingKnowledgeBases ? (
                                             <div className="flex items-center justify-center py-4">
@@ -734,17 +726,17 @@ export function CloneTemplateDialog({ open, onOpenChange, template }: CloneTempl
                                             <div className="space-y-3">
                                                 {knowledgeBases.map((kb) => (
                                                     <div key={kb.knowledgeBaseId} className="flex items-center gap-3 p-3 bg-white rounded-lg border">
-                                                        <Avatar className="size-8">
+                                                        <Avatar className="size-8 rounded-none">
                                                             <AvatarImage src={kb.iconUrl} alt={kb.name} />
                                                             <AvatarFallback className="text-xs">
                                                                 {kb.name.charAt(0).toUpperCase()}
                                                             </AvatarFallback>
                                                         </Avatar>
                                                         <div className="flex-1">
-                                                            <h5 className="font-medium text-sm text-primary-800">{kb.name}</h5>
-                                                            <p className="text-xs text-primary-400">{kb.description}</p>
+                                                            <h5 className="font-medium text-sm text-primary-800 truncate line-clamp-1 max-w-[250px]">{kb.name}</h5>
+                                                            <p className="text-xs text-primary-400 truncate line-clamp-1 max-w-[250px]">{kb.description}</p>
                                                         </div>
-                                                        <Badge variant="secondary" className="text-xs">
+                                                        <Badge variant="secondary" className="text-[10px] uppercase">
                                                             {kb.isPublic ? 'Public' : 'Private'}
                                                         </Badge>
                                                     </div>
@@ -768,87 +760,85 @@ export function CloneTemplateDialog({ open, onOpenChange, template }: CloneTempl
             case 2:
                 return (
                     <div className="space-y-6">
-                        <div className="text-center">
+                        {/* <div className="text-center">
                             <h3 className="text-lg font-medium mb-2">Deploy Required Packages</h3>
                             <p className="text-sm text-primary-300">Configure OAuth and deploy the packages needed for this template</p>
-                        </div>
+                        </div> */}
 
                         <ScrollArea className="h-[400px]">
                             <div className="space-y-4">
                                 {packages.map((pkg) => {
                                     const status = mcpStatuses[pkg.packageId] || 'pending'
                                     return (
-                                        <div key={pkg.packageId} className="p-4 border rounded-lg">
+                                        <div key={pkg.packageId} className="p-4 border rounded-lg relative">
                                             <div className="flex items-center justify-between mb-3">
                                                 <div className="flex items-center gap-3">
-                                                    <Avatar className="size-10">
+                                                    <Avatar className="size-8 rounded-none">
                                                         <AvatarImage src={pkg.iconUrl} alt={pkg.name} />
                                                         <AvatarFallback className="text-sm">
                                                             {pkg.name.charAt(0).toUpperCase()}
                                                         </AvatarFallback>
                                                     </Avatar>
                                                     <div>
-                                                        <h4 className="font-medium">{pkg.name}</h4>
-                                                        <p className="text-sm text-primary-400">{pkg.shortDescription}</p>
+                                                        <h4 className="font-medium text-sm truncate line-clamp-1 max-w-[250px]">{pkg.name}</h4>
+                                                        <p className="text-xs text-primary-400 truncate line-clamp-1 max-w-[250px]">{pkg.shortDescription}</p>
                                                     </div>
                                                 </div>
-                                                <div className="flex items-center gap-2">
+
+
+                                                <div className="flex gap-2">
                                                     {status === 'pending' && (
-                                                        <Badge variant="secondary">Pending</Badge>
+                                                        <Button
+                                                            variant="outline"
+                                                            size="xs"
+                                                            onClick={() => handleConfigureOAuth(pkg)}
+                                                            className="flex items-center text-xs gap-2"
+                                                        >
+                                                            Configure
+                                                        </Button>
                                                     )}
                                                     {status === 'configuring' && (
-                                                        <Badge variant="outline" className="text-blue-600">
-                                                            <CheckCircle className="h-3 w-3 mr-1" />
-                                                            OAuth Ready
-                                                        </Badge>
+                                                        <Button
+                                                            size="xs"
+                                                            variant="outline"
+                                                            onClick={() => handleDeployMcp(pkg)}
+                                                            className="flex items-center text-xs gap-2"
+                                                            disabled={!canDeployMcp(pkg)}
+                                                        >
+                                                            Deploy Package
+                                                        </Button>
                                                     )}
                                                     {status === 'deployed' && (
-                                                        <Badge variant="default" className="bg-green-600">
-                                                            <CheckCircle className="h-3 w-3 mr-1" />
-                                                            Deployed
-                                                        </Badge>
-                                                    )}
-                                                    {status === 'error' && (
-                                                        <Badge variant="destructive">
-                                                            <AlertCircle className="h-3 w-3 mr-1" />
-                                                            Error
-                                                        </Badge>
+                                                        <Button
+                                                            size="xs"
+                                                            variant="outline"
+                                                            disabled
+                                                            className="flex items-center text-xs gap-2"
+                                                        >
+                                                            Already Deployed
+                                                        </Button>
                                                     )}
                                                 </div>
                                             </div>
 
-                                            <div className="flex gap-2">
+                                            <div className="flex items-center gap-2 absolute -bottom-3 right-2">
                                                 {status === 'pending' && (
-                                                    <Button
-                                                        size="sm"
-                                                        onClick={() => handleConfigureOAuth(pkg)}
-                                                        className="flex items-center gap-2"
-                                                    >
-                                                        <Settings className="h-4 w-4" />
-                                                        Configure OAuth
-                                                    </Button>
+                                                    <Badge variant="outline" className="bg-white">Pending</Badge>
                                                 )}
                                                 {status === 'configuring' && (
-                                                    <Button
-                                                        size="sm"
-                                                        onClick={() => handleDeployMcp(pkg)}
-                                                        className="flex items-center gap-2"
-                                                        disabled={!canDeployMcp(pkg)}
-                                                    >
-                                                        <Rocket className="h-4 w-4" />
-                                                        Deploy Package
-                                                    </Button>
+                                                    <Badge variant="outline" className="bg-white">
+                                                        OAuth Ready
+                                                    </Badge>
                                                 )}
                                                 {status === 'deployed' && (
-                                                    <Button
-                                                        size="sm"
-                                                        variant="outline"
-                                                        disabled
-                                                        className="flex items-center gap-2"
-                                                    >
-                                                        <CheckCircle className="h-4 w-4" />
-                                                        Already Deployed
-                                                    </Button>
+                                                    <Badge variant="outline" className="bg-white">
+                                                        Deployed
+                                                    </Badge>
+                                                )}
+                                                {status === 'error' && (
+                                                    <Badge variant="outline" className="bg-white">
+                                                        Error
+                                                    </Badge>
                                                 )}
                                             </div>
                                         </div>
@@ -868,8 +858,8 @@ export function CloneTemplateDialog({ open, onOpenChange, template }: CloneTempl
 
             case '2.1':
                 return (
-                    <div>
-                        <div className="text-center">
+                    <div className="space-y-6">
+                        {/* <div className="text-center">
                             <h3 className="text-lg font-medium mb-2">Configure OAuth for {selectedMcpForConfig?.name}</h3>
                             <p className="text-sm text-primary-300">
                                 Set up OAuth connections and permissions
@@ -877,9 +867,9 @@ export function CloneTemplateDialog({ open, onOpenChange, template }: CloneTempl
                                     ` (${authScopes.serviceClients.length} services required)`
                                 }
                             </p>
-                        </div>
+                        </div> */}
 
-                        <div className="flex items-center justify-center gap-4">
+                        {/* <div className="flex items-center justify-center gap-4">
                             <Avatar className="size-10">
                                 <AvatarImage src={user?.profileImageUrl} alt={user?.name || 'User'} />
                                 <AvatarFallback className="rounded-sm">
@@ -892,7 +882,7 @@ export function CloneTemplateDialog({ open, onOpenChange, template }: CloneTempl
                                     {selectedMcpForConfig?.name?.charAt(0).toUpperCase()}
                                 </AvatarFallback>
                             </Avatar>
-                        </div>
+                        </div> */}
 
                         <div className="space-y-2">
                             <Label htmlFor="auth_hub_name" className="text-sm font-medium">Connection Name</Label>
@@ -904,13 +894,13 @@ export function CloneTemplateDialog({ open, onOpenChange, template }: CloneTempl
                                 placeholder={`${selectedMcpForConfig?.name} connection`}
                                 disabled={connectionState.status === 'connecting'}
                             />
-                            <p className="text-xs text-primary-400">
+                            {/* <p className="text-xs text-primary-400">
                                 This will be the name for your OAuth connection. Individual service connections will be created automatically.
-                            </p>
+                            </p> */}
                         </div>
 
-                        <ScrollArea className="max-h-[400px]">
-                            <div className="pr-4">
+                        <ScrollArea className="max-h-[400px] hidebar">
+                            <div className="hidebar">
                                 {authScopes?.serviceClients?.map((serviceClient: any) => {
                                     const serviceName = serviceClient.name
                                     const requiredScopes = authScopes?.serviceClientMap?.[serviceName] || []
@@ -926,7 +916,7 @@ export function CloneTemplateDialog({ open, onOpenChange, template }: CloneTempl
                                     const initialSelected = selectedPermissions[mcpServiceKey] || []
 
                                     return (
-                                        <Accordion key={serviceName} type="single" collapsible className="border border-primary-100 rounded-[6px]">
+                                        <Accordion key={serviceName} type="single" collapsible className="border border-dashed border-primary-100 rounded-[6px]">
                                             <AccordionItem value={serviceName} className="border-none">
                                                 <AccordionTrigger className="px-4 py-3 hover:no-underline">
                                                     <div className="flex items-center gap-3 w-full">
@@ -1039,7 +1029,7 @@ export function CloneTemplateDialog({ open, onOpenChange, template }: CloneTempl
             case '2.2':
                 return (
                     <div className="space-y-6">
-                        <div className="text-center">
+                        {/* <div className="text-center">
                             <h3 className="text-lg font-medium mb-2">Deploy {selectedMcpForDeploy?.name}</h3>
                             <p className="text-sm text-primary-300">Configure deployment settings and policies</p>
                         </div>
@@ -1054,10 +1044,10 @@ export function CloneTemplateDialog({ open, onOpenChange, template }: CloneTempl
                                 </Avatar>
                                 <span className="text-xs text-primary-400">{selectedMcpForDeploy?.name}</span>
                             </div>
-                        </div>
+                        </div> */}
 
-                        <ScrollArea className="max-h-[400px]">
-                            <div className="pr-4 space-y-4">
+                        <ScrollArea className="max-h-[400px] px-2">
+                            <div className="space-y-4">
                                 {Object.keys(deploymentAuthScopes?.serviceClientMap || {}).map((serviceName) => {
                                     const serviceClient = deploymentAuthScopes?.serviceClients?.find((sc: any) => sc.name === serviceName)
                                     if (!serviceClient) return null
@@ -1207,14 +1197,14 @@ export function CloneTemplateDialog({ open, onOpenChange, template }: CloneTempl
             case 3:
                 return (
                     <div className="space-y-6">
-                        <div className="text-center">
+                        {/* <div className="text-center">
                             <h3 className="text-lg font-medium mb-2">Create Your Workflow</h3>
                             <p className="text-sm text-primary-300">Customize your workflow details</p>
-                        </div>
+                        </div> */}
 
                         <div className="space-y-4">
                             <div>
-                                <Label htmlFor="workflow-name">Workflow Name</Label>
+                                <Label htmlFor="workflow-name" className="text-sm text-primary-400 mb-1">Workflow Name</Label>
                                 <Input
                                     id="workflow-name"
                                     value={workflowName}
@@ -1224,7 +1214,7 @@ export function CloneTemplateDialog({ open, onOpenChange, template }: CloneTempl
                             </div>
 
                             <div>
-                                <Label htmlFor="workflow-description">Workflow Description</Label>
+                                <Label htmlFor="workflow-description" className="text-sm text-primary-400 mb-1">Workflow Description</Label>
                                 <Input
                                     id="workflow-description"
                                     value={workflowDescription}
@@ -1244,8 +1234,8 @@ export function CloneTemplateDialog({ open, onOpenChange, template }: CloneTempl
     return (
         <Dialog open={open} onOpenChange={handleDialogClose}>
             <DialogContent className="p-4 max-w-md max-h-[90vh] overflow-hidden">
-                <DialogHeader className="space-y-4">
-                    <DialogTitle className="text-primary-400 font-normal text-sm">Clone Template</DialogTitle>
+                <DialogHeader className="space-y-4 mb-4">
+                    <DialogTitle className="font-medium">Clone Template</DialogTitle>
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 space-y-6">
@@ -1253,15 +1243,15 @@ export function CloneTemplateDialog({ open, onOpenChange, template }: CloneTempl
                         {renderStepContent()}
                     </div>
 
-                    <div className="flex gap-3 pt-4 flex-shrink-0">
+                    <div className="flex gap-3 pt-4 flex-shrink-0 border-t border-primary-100">
                         {(typeof currentStep === 'number' && currentStep > 1) || currentStep === '2.1' || currentStep === '2.2' ? (
                             <Button
                                 type="button"
                                 variant="outline"
+                                size="xs"
                                 onClick={handlePrevious}
-                                className="flex items-center gap-2"
+                                className="flex items-center gap-2 rounded-sm p-3 font-normal"
                             >
-                                <ChevronLeft size={16} />
                                 {currentStep === '2.1' || currentStep === '2.2' ? 'Back to Packages' : 'Previous'}
                             </Button>
                         ) : null}
@@ -1269,18 +1259,20 @@ export function CloneTemplateDialog({ open, onOpenChange, template }: CloneTempl
                         <Button
                             type="button"
                             variant="outline"
+                            size="xs"
                             onClick={handleCancel}
-                            className="ml-auto"
+                            className="ml-auto rounded-sm p-3 font-normal"
                         >
                             Cancel
                         </Button>
 
                         {currentStep === '2.1' ? (
                             <Button
+                                size="xs"
                                 type="button"
                                 onClick={handleSaveAuthenticator}
                                 disabled={connectionState.status === 'connecting' || !authHubName.trim()}
-                                className="flex items-center gap-2 bg-primary-800 hover:bg-primary-900 text-white"
+                                className="flex items-center gap-2 text-xs rounded-sm p-3 font-normal inset-shadow-search-btn"
                             >
                                 {connectionState.status === 'connecting' ? (
                                     <>
@@ -1289,7 +1281,6 @@ export function CloneTemplateDialog({ open, onOpenChange, template }: CloneTempl
                                     </>
                                 ) : (
                                     <>
-                                        <Settings size={16} />
                                         Save OAuth Connection
                                     </>
                                 )}
@@ -1297,9 +1288,10 @@ export function CloneTemplateDialog({ open, onOpenChange, template }: CloneTempl
                         ) : currentStep === '2.2' ? (
                             <Button
                                 type="button"
+                                size="xs"
                                 onClick={handleDeployMcpPackage}
                                 disabled={deploymentState.status === 'deploying' || !isDeploymentFormValid()}
-                                className="flex items-center gap-2 bg-primary-800 hover:bg-primary-900 text-white"
+                                className="flex items-center gap-2 text-xs rounded-sm p-3 font-normal inset-shadow-search-btn"
                             >
                                 {deploymentState.status === 'deploying' ? (
                                     <>
@@ -1308,7 +1300,6 @@ export function CloneTemplateDialog({ open, onOpenChange, template }: CloneTempl
                                     </>
                                 ) : (
                                     <>
-                                        <Rocket size={16} />
                                         Deploy Package
                                     </>
                                 )}
@@ -1316,18 +1307,19 @@ export function CloneTemplateDialog({ open, onOpenChange, template }: CloneTempl
                         ) : typeof currentStep === 'number' && currentStep < TOTAL_STEPS ? (
                             <Button
                                 type="button"
+                                size="xs"
                                 onClick={handleNext}
                                 disabled={!validateCurrentStep()}
-                                className="flex items-center gap-2 bg-primary-800 hover:bg-primary-900 text-white"
+                                className="flex items-center gap-2 rounded-sm p-3 font-normal inset-shadow-search-btn"
                             >
                                 Next
-                                <ChevronRight size={16} />
                             </Button>
                         ) : (
                             <Button
                                 type="submit"
+                                size="xs"
                                 disabled={createWorkflowFromTemplate.isPending || !validateCurrentStep()}
-                                className="flex items-center gap-2 bg-primary-800 hover:bg-primary-900 text-white"
+                                className="flex items-center gap-2 bg-primary-800 hover:bg-primary-900 text-white rounded-sm p-3 font-normal inset-shadow-search-btn"
                             >
                                 {createWorkflowFromTemplate.isPending ? (
                                     <>
@@ -1337,7 +1329,6 @@ export function CloneTemplateDialog({ open, onOpenChange, template }: CloneTempl
                                 ) : (
                                     <>
                                         Create Workflow
-                                        <ChevronRight size={16} />
                                     </>
                                 )}
                             </Button>
