@@ -1,9 +1,8 @@
 import { X, Loader2, CheckCircle2, XCircle, Clock } from "lucide-react";
-import { useEffect } from "react";
+
 import { Button } from "@/components/ui/button";
 import { useAppStore } from "@/lib/store";
 import { Badge } from "@/components/ui/badge";
-import { useWorkflowStream } from "@/hooks/use-workflow-stream";
 import { useQuery } from "@tanstack/react-query";
 import { chatQueries } from "@/lib/queries";
 import {
@@ -285,56 +284,9 @@ export function WorkflowExecutionSidebar() {
             ))
     );
 
-    // Add debugging
-    useEffect(() => {
-        console.log('🔍 Workflow Execution Debug:', {
-            selectedWorkflowExecution,
-            isRunningExecution,
-            isCompletedExecution,
-            executionId: selectedWorkflowExecution?.id,
-            status: selectedWorkflowExecution?.status,
-            hasResults: !!selectedWorkflowExecution?.results,
-            resultsLength: selectedWorkflowExecution?.results?.length || 0
-        });
-    }, [selectedWorkflowExecution, isRunningExecution, isCompletedExecution]);
-
-    // Only connect to stream for running executions
-    const executionId = isRunningExecution ? (selectedWorkflowExecution?.id || null) : null;
-
-    console.log('🎯 Stream Connection Decision:', {
-        executionId,
-        willConnect: !!executionId,
-        reason: isRunningExecution ? 'is running' : 'not running or completed'
-    });
-
-    const workflowStream = useWorkflowStream(executionId);
-
-    // Debug stream state
-    useEffect(() => {
-        console.log('📡 Stream State Update:', {
-            isConnected: workflowStream.isConnected,
-            status: workflowStream.status,
-            error: workflowStream.error,
-            eventsCount: workflowStream.events.length,
-            hasCurrentStep: !!workflowStream.currentStep,
-            currentStepResults: workflowStream.currentStep?.results?.length || 0
-        });
-    }, [workflowStream]);
-
-    useEffect(() => {
-        if (selectedWorkflowExecution && (workflowStream.status === 'completed' || workflowStream.status === 'failed')) {
-            const updatedExecution = {
-                ...selectedWorkflowExecution,
-                status: workflowStream.status === 'completed' ? 'success' : 'failed',
-                updatedAt: new Date().toISOString()
-            } as any;
-            updateSelectedWorkflowExecution(updatedExecution);
-        }
-    }, [workflowStream.status, selectedWorkflowExecution, updateSelectedWorkflowExecution]);
-
     const { data: executionDetails, isLoading: isLoadingDetails } = useQuery({
         ...chatQueries.workflowExecutionOptions(selectedWorkflowExecution?.id || ''),
-        enabled: Boolean(isCompletedExecution && selectedWorkflowExecution?.id)
+        enabled: Boolean(selectedWorkflowExecution?.id)
     });
 
     if (!isWorkflowExecutionSidebarOpen || !selectedWorkflowExecution) {
@@ -352,23 +304,18 @@ export function WorkflowExecutionSidebar() {
         return `${Math.floor(diffMs / 86400000)}d ago`;
     };
 
-    // Get the current workflow status for display
+    const computedStatusFromResults = (results?: any[]) => {
+        if (!Array.isArray(results) || results.length === 0) return selectedWorkflowExecution.status || 'pending';
+        const anyRunning = results.some((s: any) => s.status === 'pending' || s.status === 'running' || s.status === 'yet-to-be-executed');
+        if (anyRunning) return 'pending';
+        const anyFailed = results.some((s: any) => s.status === 'failed');
+        return anyFailed ? 'failed' : 'success';
+    };
+
     const getCurrentWorkflowStatus = () => {
-        if (isRunningExecution) {
-            if (workflowStream.isConnected && workflowStream.status === 'connected') {
-                return 'running';
-            } else if (workflowStream.status === 'connecting') {
-                return 'connecting';
-            } else if (selectedWorkflowExecution.status === 'queued') {
-                return 'queued';
-            } else {
-                return 'pending';
-            }
-        } else if (isCompletedExecution) {
-            return selectedWorkflowExecution.status || 'completed';
-        } else {
-            return selectedWorkflowExecution.status || 'unknown';
-        }
+        const statusFromQuery = computedStatusFromResults(executionDetails?.results);
+        if (statusFromQuery) return statusFromQuery;
+        return selectedWorkflowExecution.status || 'pending';
     };
 
     return (
@@ -402,63 +349,24 @@ export function WorkflowExecutionSidebar() {
                     </div>
                 )}
 
-                {/* Connection error for running executions */}
-                {isRunningExecution && workflowStream.error && (
-                    <div className="space-y-4">
-                        <h3 className="text-sm font-medium text-red-600">Connection Error</h3>
-                        <div className="p-3 border border-red-200 bg-red-50 rounded-md">
-                            <p className="text-sm text-red-800">{workflowStream.error}</p>
-                        </div>
-                        <Button onClick={workflowStream.retry} variant="outline" size="sm">
-                            Retry Connection
-                        </Button>
-                    </div>
-                )}
+                {/* Connection error placeholder removed since streaming is disabled */}
 
-                {/* Recent events for running executions with many events */}
-                {isRunningExecution && workflowStream.events.length > 5 && (
-                    <div className="space-y-4">
-                        <Task defaultOpen={false}>
-                            <TaskTrigger title={`Events (${workflowStream.events.length})`} />
-                            <TaskContent>
-                                <div className="space-y-1 max-h-64 overflow-y-auto">
-                                    {workflowStream.events.slice(-10).map((event, index) => (
-                                        <div key={index} className="text-xs p-2 border rounded">
-                                            <div className="flex justify-between items-center">
-                                                <span className="font-mono text-blue-600 bg-blue-50 px-1 py-0.5 rounded">
-                                                    {event.type}
-                                                </span>
-                                                <span className="text-muted-foreground">
-                                                    {new Date(event.timestamp).toLocaleTimeString()}
-                                                </span>
-                                            </div>
-                                            {event.data && (
-                                                <div className="mt-1 text-gray-600">
-                                                    {JSON.stringify(event.data, null, 2).substring(0, 100)}...
-                                                </div>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                            </TaskContent>
-                        </Task>
-                    </div>
-                )}
+                {/* Events section removed since streaming is disabled */}
 
-                {/* Workflow Steps - Running execution with streaming data */}
-                {isRunningExecution && workflowStream.currentStep?.results && (
+                {/* Workflow Steps - show from polled execution details when running */}
+                {isRunningExecution && executionDetails?.results && (
                     <div className="space-y-4">
                         <h3 className="text-sm font-medium text-gray-900">Workflow Progress</h3>
                         <div className="space-y-2 max-h-[500px] overflow-y-auto">
-                            {workflowStream.currentStep.results.map((step: any, index: number) => (
+                            {executionDetails.results.map((step: any, index: number) => (
                                 <WorkflowStep key={step.stepId || index} step={step} index={index} />
                             ))}
                         </div>
                     </div>
                 )}
 
-                {/* Show initial step data for running execution without stream data */}
-                {isRunningExecution && !workflowStream.currentStep?.results && selectedWorkflowExecution.results && (
+                {/* Show initial step data for running execution without polled data */}
+                {isRunningExecution && !executionDetails?.results && selectedWorkflowExecution.results && (
                     <div className="space-y-4">
                         <h3 className="text-sm font-medium text-gray-900">Workflow Steps</h3>
                         <div className="space-y-2 max-h-[500px] overflow-y-auto">
@@ -469,8 +377,8 @@ export function WorkflowExecutionSidebar() {
                     </div>
                 )}
 
-                {/* Current Step Details - Running Execution without specific results */}
-                {isRunningExecution && !workflowStream.currentStep && !selectedWorkflowExecution.results && (
+                {/* Running state fallback */}
+                {isRunningExecution && !executionDetails?.results && (
                     <div className="space-y-4">
                         <h3 className="text-sm font-medium text-gray-900">Current Status</h3>
                         <Task defaultOpen={true}>
@@ -482,15 +390,6 @@ export function WorkflowExecutionSidebar() {
                                             <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
                                             <span className="text-sm">Processing workflow...</span>
                                         </div>
-                                        {workflowStream.isConnected ? (
-                                            <div className="text-xs text-green-600 bg-green-50 rounded p-2">
-                                                Connected to live updates
-                                            </div>
-                                        ) : (
-                                            <div className="text-xs text-yellow-600 bg-yellow-50 rounded p-2">
-                                                {workflowStream.status === 'connecting' ? 'Connecting...' : 'Disconnected from live updates'}
-                                            </div>
-                                        )}
                                     </div>
                                 </TaskItem>
                             </TaskContent>
@@ -524,17 +423,7 @@ export function WorkflowExecutionSidebar() {
 
                 {/* Actions */}
                 <div className="flex w-full gap-3 p-2 rounded-b-lg border-t border-t-primary-100 items-center justify-center absolute bottom-0 left-0 right-0">
-                    {isRunningExecution && !workflowStream.isConnected && !workflowStream.error && (
-                        <Button
-                            onClick={workflowStream.retry}
-                            variant="outline"
-                            size="sm"
-                            className="flex-1"
-                        >
-                            <Loader2 className="h-4 w-4 mr-2" />
-                            Retry Connection
-                        </Button>
-                    )}
+                    {/* Retry removed since streaming is disabled */}
                     <Button
                         variant="outline"
                         onClick={closeWorkflowExecutionSidebar}

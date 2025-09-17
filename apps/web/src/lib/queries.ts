@@ -1887,6 +1887,14 @@ export const chatQueries = {
         return response.data;
       },
       enabled: enabled,
+      refetchInterval: (query) => {
+        const executions = (query.state.data as any)?.data as any[] | undefined;
+        if (!executions || executions.length === 0) return false;
+        const hasPending = executions.some((exec: any) =>
+          Array.isArray(exec.results) && exec.results.some((s: any) => s.status === "pending" || s.status === "running" || s.status === "yet-to-be-executed")
+        );
+        return hasPending ? 2000 : false;
+      },
     }),
 
   workflowExecutionOptions: (executionId: string, enabled: boolean = true) =>
@@ -1926,6 +1934,14 @@ export const chatQueries = {
         return response.data;
       },
       enabled: enabled,
+      refetchInterval: (query) => {
+        const data = query.state.data as any | undefined;
+        if (!data) return enabled ? 2000 : false;
+        const results = data.results as any[] | undefined;
+        if (!Array.isArray(results)) return enabled ? 2000 : false;
+        const allTerminal = results.every((s: any) => s.status === "success" || s.status === "failed");
+        return allTerminal ? false : 2000;
+      },
     }),
 
   workflowJobOptions: (jobId: string, queueName: string = "workflow-execution", enabled: boolean = true) =>
