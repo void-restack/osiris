@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { useForm } from "@tanstack/react-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,13 +18,14 @@ import { Switch } from "@/components/ui/switch";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Loader2, X } from "lucide-react";
+import { Plus, Loader2, X, XIcon, Image, AlertCircleIcon } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { packageQueries, knowledgeQueries } from "@/lib/queries";
 import { useCreateTemplateWorkflowMutation } from "@/lib/mutations";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { WorkflowTriggers } from "./workflow-triggers";
-import { type WorkflowData } from "@/lib/store";
+
+import { useKnowledgeBaseUpload } from "@/hooks/use-knowledge-base-upload";
+import { useFileUpload } from "@/hooks/use-file-upload";
 
 interface CreateTemplateWorkflowDialogProps {
     children?: React.ReactNode;
@@ -275,17 +276,11 @@ function StepSelector({ stepIndex, packageIds, knowledgeBaseIds, onPackageIdsCha
 
 export function CreateTemplateWorkflowDialog({ children }: CreateTemplateWorkflowDialogProps) {
     const [open, setOpen] = useState(false);
-    const [timeBasedTrigger, setTimeBasedTrigger] = useState<WorkflowData['timeBasedTrigger']>(null);
+    const uploadHook = useKnowledgeBaseUpload();
 
     const createTemplateWorkflowMutation = useCreateTemplateWorkflowMutation();
 
-    const handleTriggerUpdate = useCallback((newTrigger: WorkflowData['timeBasedTrigger']) => {
-        if (JSON.stringify(newTrigger) === JSON.stringify(timeBasedTrigger)) return;
-        setTimeBasedTrigger(newTrigger);
-        form.setFieldValue("timeBasedTrigger", newTrigger);
-    }, [timeBasedTrigger]);
 
-    const workflowDataMemo = useMemo(() => ({ timeBasedTrigger }), [timeBasedTrigger]);
 
     const form = useForm({
         defaultValues: {
@@ -294,7 +289,6 @@ export function CreateTemplateWorkflowDialog({ children }: CreateTemplateWorkflo
             imageUrl: "",
             coverImageUrl: "",
             isPublic: false,
-            timeBasedTrigger: null as WorkflowData['timeBasedTrigger'],
             workflow: [
                 {
                     name: "",
@@ -306,13 +300,13 @@ export function CreateTemplateWorkflowDialog({ children }: CreateTemplateWorkflo
         },
         onSubmit: async ({ value }) => {
             try {
+                const { logoUrl, coverImageUrl } = await uploadHook.uploadFiles();
                 const templateData: any = {
                     title: value.title,
                     description: value.description,
-                    imageUrl: value.imageUrl?.trim() || "",
-                    coverImageUrl: value.coverImageUrl?.trim() || "",
+                    imageUrl: logoUrl || "",
+                    coverImageUrl: coverImageUrl || "",
                     isPublic: value.isPublic,
-                    timeBasedTrigger: value.timeBasedTrigger,
                     workflow: value.workflow.map(step => ({
                         name: step.name,
                         packageIds: step.packageIds,
@@ -325,7 +319,7 @@ export function CreateTemplateWorkflowDialog({ children }: CreateTemplateWorkflo
 
                 setOpen(false);
                 form.reset();
-                setTimeBasedTrigger(null);
+                uploadHook.reset();
             } catch (error) {
                 console.error("Failed to create template workflow:", error);
             }
@@ -424,32 +418,17 @@ export function CreateTemplateWorkflowDialog({ children }: CreateTemplateWorkflo
                             </form.Field>
                         </div>
 
-                        <div className="space-y-2">
-                            <Label htmlFor="imageUrl">Image URL</Label>
-                            <form.Field name="imageUrl">
-                                {(field) => (
-                                    <Input
-                                        id="imageUrl"
-                                        placeholder="Enter image URL (optional)"
-                                        value={field.state.value}
-                                        onChange={(e) => field.handleChange(e.target.value)}
-                                    />
-                                )}
-                            </form.Field>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="coverImageUrl">Cover Image URL</Label>
-                            <form.Field name="coverImageUrl">
-                                {(field) => (
-                                    <Input
-                                        id="coverImageUrl"
-                                        placeholder="Enter cover image URL (optional)"
-                                        value={field.state.value}
-                                        onChange={(e) => field.handleChange(e.target.value)}
-                                    />
-                                )}
-                            </form.Field>
+                        <div className="space-y-4">
+                            <div className="flex w-full flex-col gap-y-6 border-primary-100 border-b border-dashed pb-8">
+                                <AvatarUploader
+                                    onChange={uploadHook.setLogoFile}
+                                    uploadState={uploadHook.state}
+                                />
+                                <BannerUploader
+                                    onChange={uploadHook.setCoverImageFile}
+                                    uploadState={uploadHook.state}
+                                />
+                            </div>
                         </div>
 
                         <div className="flex items-center space-x-2">
@@ -465,13 +444,7 @@ export function CreateTemplateWorkflowDialog({ children }: CreateTemplateWorkflo
                             <Label htmlFor="isPublic">Make this template public</Label>
                         </div>
 
-                        <div className="space-y-4">
-                            <h3 className="text-sm font-medium text-gray-900">Triggers</h3>
-                            <WorkflowTriggers
-                                workflowData={workflowDataMemo as any}
-                                onUpdate={handleTriggerUpdate}
-                            />
-                        </div>
+
 
                         <div className="space-y-4">
                             <div className="flex items-center justify-between">
@@ -567,7 +540,7 @@ export function CreateTemplateWorkflowDialog({ children }: CreateTemplateWorkflo
                         type="submit"
                         className="inset-shadow-search-btn"
                         onClick={() => form.handleSubmit()}
-                        disabled={createTemplateWorkflowMutation.isPending}
+                        disabled={createTemplateWorkflowMutation.isPending || uploadHook.isUploading}
                     >
                         {createTemplateWorkflowMutation.isPending && (
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -575,7 +548,266 @@ export function CreateTemplateWorkflowDialog({ children }: CreateTemplateWorkflo
                         Create Template
                     </Button>
                 </DialogFooter>
+                {(createTemplateWorkflowMutation.isError || uploadHook.state.error) && (
+                    <div className="text-red-500 text-sm mt-2">
+                        {uploadHook.state.error || (createTemplateWorkflowMutation.error as Error)?.message}
+                    </div>
+                )}
             </DialogContent>
         </Dialog>
+    );
+}
+
+function AvatarUploader({
+    onChange,
+    uploadState,
+}: {
+    onChange: (file: File | null) => void;
+    uploadState: {
+        logoFile: File | null;
+        coverImageFile: File | null;
+        logoUrl: string | null;
+        coverImageUrl: string | null;
+        isUploading: boolean;
+        uploadProgress: {
+            logo: number;
+            coverImage: number;
+        };
+        error: string | null;
+    };
+}) {
+    const [
+        { files, isDragging },
+        {
+            removeFile,
+            openFileDialog,
+            getInputProps,
+            handleDragEnter,
+            handleDragLeave,
+            handleDragOver,
+            handleDrop,
+        },
+    ] = useFileUpload({
+        accept: "image/*",
+    });
+
+    const previewUrl = files[0]?.preview || null;
+
+    useEffect(() => {
+        const file = files[0]?.file instanceof File ? files[0].file : null;
+        onChange(file);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [files]);
+
+    return (
+        <div
+            className="flex cursor-pointer items-center gap-4 "
+            onClick={openFileDialog}
+            onDragEnter={handleDragEnter}
+            onDragLeave={handleDragLeave}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+            data-dragging={isDragging || undefined}
+            aria-label={previewUrl ? "Change image" : "Upload image"}
+        >
+            <div className="relative inline-flex">
+                <button className="relative flex size-[60px] items-center justify-center overflow-hidden rounded-[8px] border border-primary-100 border-dashed outline-none transition-colors hover:bg-accent/50 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 has-disabled:pointer-events-none has-[img]:border-none has-disabled:opacity-50 data-[dragging=true]:bg-accent/50">
+                    {previewUrl ? (
+                        <img
+                            className="size-full object-cover"
+                            src={previewUrl}
+                            alt={files[0]?.file?.name || "Uploaded image"}
+                            width={64}
+                            height={64}
+                            style={{ objectFit: "cover" }}
+                        />
+                    ) : (
+                        <div
+                            className="flex size-[60px] shrink-0 items-center justify-center rounded-[8px] bg-primary-00"
+                            aria-hidden="true"
+                        >
+                            <Image className="size-5 stroke-primary-400" />
+                        </div>
+                    )}
+                </button>
+                {previewUrl && (
+                    <Button
+                        onClick={() => removeFile(files[0]?.id)}
+                        size="icon"
+                        className="-top-1 -right-1 absolute size-6 rounded-full border-2 border-background shadow-none focus-visible:border-background"
+                        aria-label="Remove image"
+                    >
+                        <XIcon className="size-3.5" />
+                    </Button>
+                )}
+                <input
+                    {...getInputProps()}
+                    className="sr-only"
+                    aria-label="Upload image file"
+                    tabIndex={-1}
+                />
+            </div>
+            <div aria-live="polite" role="region" className="">
+                <p className="text-primary-800 text-sm">
+                    Upload Template icon
+                </p>
+                <p className="text-primary-400 text-sm">
+                    SVG, PNG, JPG or GIF (max. 400x400px)
+                </p>
+                {uploadState.isUploading && uploadState.uploadProgress.logo > 0 && (
+                    <div className="mt-2">
+                        <div className="text-xs text-primary-600 mb-1">
+                            Uploading image...
+                        </div>
+                        <div className="w-full bg-primary-100 rounded-full h-2">
+                            <div
+                                className="bg-primary-500 h-2 rounded-full transition-all duration-300"
+                                style={{ width: `${uploadState.uploadProgress.logo}%` }}
+                            />
+                        </div>
+                    </div>
+                )}
+                {uploadState.logoUrl && (
+                    <div className="text-xs text-green-600 mt-1">
+                        ✓ Image uploaded successfully
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+function BannerUploader({
+    onChange,
+    uploadState,
+}: {
+    onChange: (file: File | null) => void;
+    uploadState: {
+        logoFile: File | null;
+        coverImageFile: File | null;
+        logoUrl: string | null;
+        coverImageUrl: string | null;
+        isUploading: boolean;
+        uploadProgress: {
+            logo: number;
+            coverImage: number;
+        };
+        error: string | null;
+    };
+}) {
+    const maxSizeMB = 5;
+    const maxSize = maxSizeMB * 1024 * 1024;
+
+    const [
+        { files, isDragging, errors },
+        {
+            handleDragEnter,
+            handleDragLeave,
+            handleDragOver,
+            handleDrop,
+            openFileDialog,
+            removeFile,
+            getInputProps,
+        },
+    ] = useFileUpload({
+        accept: "image/*",
+        maxSize,
+    });
+
+    const previewUrl = files[0]?.preview || null;
+
+    useEffect(() => {
+        const file = files[0]?.file instanceof File ? files[0].file : null;
+        onChange(file);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [files]);
+
+    return (
+        <div className="flex flex-col gap-2">
+            <div className="relative">
+                <div
+                    role="button"
+                    onClick={openFileDialog}
+                    onDragEnter={handleDragEnter}
+                    onDragLeave={handleDragLeave}
+                    onDragOver={handleDragOver}
+                    onDrop={handleDrop}
+                    data-dragging={isDragging || undefined}
+                    className="relative flex min-h-[125px] flex-col items-center justify-center overflow-hidden rounded-[6px] border border-primary-100 px-5 py-4 transition-colors has-disabled:pointer-events-none has-[input:focus]:border-ring has-[img]:border-none has-disabled:opacity-50 has-[input:focus]:ring-[3px] has-[input:focus]:ring-ring/50 data-[dragging=true]:bg-accent/50"
+                >
+                    <input
+                        {...getInputProps()}
+                        className="sr-only"
+                        aria-label="Upload file"
+                    />
+                    {previewUrl ? (
+                        <div className="absolute inset-0">
+                            <img
+                                src={previewUrl}
+                                alt={files[0]?.file?.name || "Uploaded image"}
+                                className="size-full object-cover"
+                            />
+                        </div>
+                    ) : (
+                        <div className="flex flex-col items-center justify-center gap-y-2.5">
+                            <div
+                                className="flex size-[60px] shrink-0 items-center justify-center rounded-[8px] border border-primary-100 border-dashed bg-primary-00"
+                                aria-hidden="true"
+                            >
+                                <Image className="size-5 stroke-primary-400" />
+                            </div>
+                            <div className="text-center">
+                                <p className="mb-1.5 text-sm">Upload banner</p>
+                                <p className="text-primary-400 text-sm">
+                                    SVG, PNG, JPG or GIF (max. 400x400px)
+                                </p>
+                                {uploadState.isUploading &&
+                                    uploadState.uploadProgress.coverImage > 0 && (
+                                        <div className="mt-2">
+                                            <div className="text-xs text-primary-600 mb-1">
+                                                Uploading banner...
+                                            </div>
+                                            <div className="w-full bg-primary-100 rounded-full h-2">
+                                                <div
+                                                    className="bg-primary-500 h-2 rounded-full transition-all duration-300"
+                                                    style={{
+                                                        width: `${uploadState.uploadProgress.coverImage}%`,
+                                                    }}
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+                                {uploadState.coverImageUrl && (
+                                    <div className="text-xs text-green-600 mt-1">
+                                        ✓ Banner uploaded successfully
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
+                {previewUrl && (
+                    <div className="absolute top-4 right-4">
+                        <button
+                            type="button"
+                            className="z-50 flex size-8 cursor-pointer items-center justify-center rounded-full bg-black/60 text-white outline-none transition-[color,box-shadow] hover:bg-black/80 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                            onClick={() => removeFile(files[0]?.id)}
+                            aria-label="Remove image"
+                        >
+                            <XIcon className="size-4" aria-hidden="true" />
+                        </button>
+                    </div>
+                )}
+            </div>
+            {errors.length > 0 && (
+                <div
+                    className="flex items-center gap-1 text-destructive text-xs"
+                    role="alert"
+                >
+                    <AlertCircleIcon className="size-3 shrink-0" />
+                    <span>{errors[0]}</span>
+                </div>
+            )}
+        </div>
     );
 }

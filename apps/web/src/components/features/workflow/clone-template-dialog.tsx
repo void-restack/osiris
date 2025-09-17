@@ -973,18 +973,49 @@ export function CloneTemplateDialog({ open, onOpenChange, template }: CloneTempl
                                                         onValueChange={(value) => handleConnectionSelect(serviceName, value)}
                                                         className="space-y-3"
                                                     >
-                                                        {serviceConnections.map((connection: any) => {
+                                                        {[...serviceConnections].sort((a: any, b: any) => {
+                                                            const getIsReady = (conn: any) => {
+                                                                if (isEmbeddedWallet || isSecretSharing) return true
+                                                                const connScopes = conn.user_service_connections.scopes || []
+                                                                const req = Array.isArray(requiredScopes) ? requiredScopes : []
+                                                                return req.every((requiredScope: string) => {
+                                                                    const scopeWithoutPrefix = requiredScope.startsWith(`${serviceName}:`) ? requiredScope.replace(`${serviceName}:`, '') : requiredScope
+                                                                    const scopeWithPrefix = `${serviceName}:${requiredScope}`
+                                                                    return (
+                                                                        connScopes.includes(requiredScope) ||
+                                                                        connScopes.includes(scopeWithoutPrefix) ||
+                                                                        connScopes.includes(scopeWithPrefix)
+                                                                    )
+                                                                })
+                                                            }
+                                                            const aReady = getIsReady(a)
+                                                            const bReady = getIsReady(b)
+                                                            return Number(bReady) - Number(aReady)
+                                                        }).map((connection: any) => {
                                                             const radioId = `deploy-radio-${connection.user_service_connections.id}`
+                                                            const connectionScopes = connection.user_service_connections.scopes || []
+                                                            const requiredScopesArray = Array.isArray(requiredScopes) ? requiredScopes : []
+                                                            const hasAllRequiredScopes = requiredScopesArray.every((requiredScope) => {
+                                                                const scopeWithoutPrefix = requiredScope.startsWith(`${serviceName}:`) ? requiredScope.replace(`${serviceName}:`, '') : requiredScope
+                                                                const scopeWithPrefix = `${serviceName}:${requiredScope}`
+                                                                return (
+                                                                    connectionScopes.includes(requiredScope) ||
+                                                                    connectionScopes.includes(scopeWithoutPrefix) ||
+                                                                    connectionScopes.includes(scopeWithPrefix)
+                                                                )
+                                                            })
+                                                            const isDisabled = !isEmbeddedWallet && !isSecretSharing && permissions.length > 0 && !hasAllRequiredScopes
                                                             return (
                                                                 <div key={connection.user_service_connections.id} className="flex items-start space-x-3">
                                                                     <RadioGroupItem
                                                                         id={radioId}
                                                                         value={connection.user_service_connections.id}
                                                                         className="mt-1"
+                                                                        disabled={isDisabled}
                                                                     />
                                                                     <label
                                                                         htmlFor={radioId}
-                                                                        className="flex-1 p-3 border border-primary-100 rounded-sm hover:border-primary-200 transition-colors cursor-pointer"
+                                                                        className={`flex-1 p-3 border border-primary-100 rounded-sm transition-colors ${isDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:border-primary-200 cursor-pointer'}`}
                                                                     >
                                                                         <div className="flex items-center justify-between mb-2">
                                                                             <div className="flex items-center space-x-2">
@@ -1002,17 +1033,6 @@ export function CloneTemplateDialog({ open, onOpenChange, template }: CloneTempl
                                                                                         </Badge>
                                                                                     );
                                                                                 }
-                                                                                const connectionScopes = connection.user_service_connections.scopes || []
-                                                                                const requiredScopesArray = Array.isArray(requiredScopes) ? requiredScopes : []
-                                                                                const hasAllRequiredScopes = requiredScopesArray.every((requiredScope) => {
-                                                                                    const scopeWithoutPrefix = requiredScope.startsWith(`${serviceName}:`) ? requiredScope.replace(`${serviceName}:`, '') : requiredScope
-                                                                                    const scopeWithPrefix = `${serviceName}:${requiredScope}`
-                                                                                    return (
-                                                                                        connectionScopes.includes(requiredScope) ||
-                                                                                        connectionScopes.includes(scopeWithoutPrefix) ||
-                                                                                        connectionScopes.includes(scopeWithPrefix)
-                                                                                    )
-                                                                                })
                                                                                 if (hasAllRequiredScopes) {
                                                                                     return (
                                                                                         <Badge className="bg-green-100 text-green-800 px-2 py-1 text-xs font-medium">
@@ -1054,13 +1074,13 @@ export function CloneTemplateDialog({ open, onOpenChange, template }: CloneTempl
                                                                                     {connection.user_service_connections.metadata?.user?.email ||
                                                                                         connection.user_service_connections.metadata?.user?.name || 'No email available'}
                                                                                 </p>
-                                                                                <div className="flex flex-wrap gap-1">
+                                                                                {/* <div className="flex flex-wrap gap-1">
                                                                                     {connection.user_service_connections.scopes?.map((scope: string) => (
                                                                                         <Badge key={scope} className="rounded-sm bg-primary-100 px-2 py-0.5 text-xs text-primary-800">
                                                                                             {getScopeDisplayName(scope)}
                                                                                         </Badge>
                                                                                     ))}
-                                                                                </div>
+                                                                                </div> */}
                                                                             </>
                                                                         )}
                                                                     </label>
