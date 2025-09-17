@@ -21,7 +21,6 @@ import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
 import { creditQueries } from "@/lib/queries";
 import { Skeleton } from "./ui/skeleton";
-import { AddFundsModal } from "./features/wallet/add-funds-modal";
 
 const data = {
   navMain: [
@@ -146,16 +145,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               )}
               <ExternalLink className="size-4 text-primary-300 hover:text-primary-800" />
             </div>
-            <AddFundsModal>
-              <Button
-                variant="outline"
-                className="w-full text-primary-400"
-                icon={Wallet}
-                iconPlacement="right"
-              >
-                Add Funds
-              </Button>
-            </AddFundsModal>
+            <Button
+              variant="outline"
+              className="w-full text-primary-300 cursor-not-allowed opacity-60"
+              icon={Wallet}
+              iconPlacement="right"
+              disabled
+            >
+              Coming soon
+            </Button>
           </div>
         )}
       </SidebarFooter>

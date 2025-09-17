@@ -45,8 +45,8 @@ export default function WorkflowGrid() {
                 {/* Workflow Grid with Tabs */}
                 <div className="px-4 md:px-6 mb-24 sm:mb-28">
                     <div className="w-full max-w-full">
-                        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                            <TabsList className="w-full mb-6">
+                        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full z-20">
+                            <TabsList className="w-full mb-6 z-[100]">
                                 <TabsTrigger value="templates">Templates</TabsTrigger>
                                 <TabsTrigger value="my-workflows">My Workflows</TabsTrigger>
                             </TabsList>

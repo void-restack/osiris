@@ -392,10 +392,10 @@ export function WorkflowCreator({ className, onWorkflowCreated }: WorkflowCreato
                 </span>
             </div>
 
-            <div className="mx-auto flex max-w-md sm:max-w-full lg:max-w-[712px] flex-col gap-3 rounded-[18px] bg-primary-25 p-3 sm:p-4 shadow-[inset_0_1px_2px_0_rgba(0,0,0,0.05)] drop-shadow-[0_1px_1px_rgba(0,0,0,0.08)] relative">
+            <div className="mx-auto flex max-w-md sm:max-w-full lg:max-w-[712px] flex-col gap-3 rounded-[18px] bg-primary-25 p-3 sm:p-4 shadow-[inset_0_1px_2px_0_rgba(0,0,0,0.05)] drop-shadow-[0_1px_1px_rgba(0,0,0,0.08)] relative z-[100000]">
                 {/* Rich Text Editor */}
                 <div className="relative">
-                    <div className="relative h-[120px] overflow-hidden">
+                    <div className="relative h-[120px] overflow-visible">
                         <div
                             ref={editorRef}
                             contentEditable
@@ -442,7 +442,7 @@ export function WorkflowCreator({ className, onWorkflowCreated }: WorkflowCreato
                                 onChange={() => { }}
                             />
                         </div>
-                        <CommandList>
+                        <CommandList className="z-[99999] bg-white">
                             {isLoading ? (
                                 <CommandLoading>
                                     <div className="flex items-center justify-center p-4">
@@ -456,7 +456,7 @@ export function WorkflowCreator({ className, onWorkflowCreated }: WorkflowCreato
                                     </div>
                                 </CommandEmpty>
                             ) : (
-                                <CommandGroup>
+                                <CommandGroup className="z-[99999] bg-white">
                                     {suggestions.map((suggestion: any, i: number) => (
                                         <CommandItem
                                             key={`${suggestion.id}-${i}`}
