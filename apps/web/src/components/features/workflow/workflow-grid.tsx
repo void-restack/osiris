@@ -4,23 +4,20 @@ import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { chatQueries } from "@/lib/queries";
 import { useAuth } from "@/hooks/use-auth";
-import { Loader2, User, Shield, ChevronDown, Search, Plus } from "lucide-react";
+import { Loader2, User, Shield, ChevronDown, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Autocomplete } from "@/components/ui/autocomplete";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAppStore, type WorkflowData, type TemplateWorkflowData } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { CreateTemplateWorkflowDialog } from "./create-workflow-dialog";
+import { WorkflowCreator } from "./workflow-creator";
 
 const WORKFLOW_FILTERS = [
     { label: "All", value: "all", icon: User },
     { label: "Public", value: "public", icon: Shield },
-    // { label: "Private", value: "private", icon: ShieldCheck },
-    // { label: "Scheduled", value: "scheduled", icon: Calendar },
-    // { label: "Manual", value: "manual", icon: Clock },
 ] as const;
 
 export default function WorkflowGrid() {
@@ -28,29 +25,20 @@ export default function WorkflowGrid() {
     const [searchQuery, setSearchQuery] = useState('');
     const [activeTab, setActiveTab] = useState<string>("templates");
 
+    const handleWorkflowCreated = () => {
+        // Handle successful workflow creation
+        // You can add toast notifications, refresh queries, etc.
+        console.log('Workflow created successfully!');
+    };
+
     return (
         <div>
             <div className="flex flex-1 flex-col pt-4">
-                {/* Header */}
-                <div className="mx-auto mt-8 max-w-[496px] pb-6 text-center md:w-[496px]">
-                    <h2 className="mb-2 font-medium text-xl leading-3 tracking-tight">
-                        Add a Task or Workflow Description
-                    </h2>
-                    <span className="text-primary-300 text-sm">
-                        Add context for your task or flow. Use @ to reference MCPs or agents.
-                    </span>
-                </div>
-
-                {/* Simple Autocomplete */}
+                {/* WorkflowCreator replaces all the autocomplete logic */}
                 <div className="px-4 mb-14 w-full mx-auto">
-                    <Autocomplete
+                    <WorkflowCreator
                         className="mt-6"
-                        searchButtonText="Create"
-                        placeholder='Describe what you want to do…'
-                        onSearch={() => []}
-                        footerText="Recent workflows"
-                        bottomRightContent={<></>}
-                        showSearchIcon={false}
+                        onWorkflowCreated={handleWorkflowCreated}
                     />
                 </div>
 
@@ -86,7 +74,7 @@ export default function WorkflowGrid() {
 
                 {/* Bottom pagination */}
                 <div className="sticky rounded-b-xl bottom-0 border-t border-t-primary-100 flex w-full items-center overflow-hidden bg-primary-00 px-4 sm:px-6 py-2 sm:py-3 z-40">
-                    Workflow Footer
+                    {/* Workflow Footer */}
                 </div>
             </div>
         </div>
@@ -111,33 +99,21 @@ export function WorkflowGridView({ selectedFilter, onFilterChange, searchQuery, 
     const { user, isAuthenticated } = useAuth();
     const { openWorkflowEditSidebar } = useAppStore();
 
-    // Fetch public workflows
-    const { data: publicWorkflowsData, isLoading: isLoadingPublic, error: publicError } = useQuery(
-        chatQueries.workflowsOptions({ isPublic: true, limit: 20 })
-    );
-
-    // Fetch user's private workflows (only if authenticated)
-    const { data: privateWorkflowsData, isLoading: isLoadingPrivate, error: privateError } = useQuery({
-        ...chatQueries.workflowsOptions({ isPublic: false, limit: 20 }),
+    // Fetch user's workflows using the new myWorkflowsOptions query
+    const { data: workflowsData, isLoading, error } = useQuery({
+        ...chatQueries.myWorkflowsOptions(),
         enabled: isAuthenticated, // Only fetch if user is logged in
     });
 
-    // Combine, deduplicate, filter, and search workflows
+    // Filter and search workflows
     const workflows = useMemo(() => {
-        const publicWorkflows = publicWorkflowsData?.data || [];
-        const privateWorkflows = privateWorkflowsData?.data || [];
-
-        // Combine workflows and remove duplicates (in case a workflow appears in both lists)
-        const allWorkflows = [...publicWorkflows, ...privateWorkflows];
-        const uniqueWorkflows = allWorkflows.filter((workflow, index, self) =>
-            index === self.findIndex(w => w.id === workflow.id)
-        );
+        const allWorkflows = workflowsData?.data || [];
 
         // Apply search filter first
-        let searchFilteredWorkflows = uniqueWorkflows;
+        let searchFilteredWorkflows = allWorkflows;
         if (searchQuery && searchQuery.length >= 2) {
             const query = searchQuery.toLowerCase();
-            searchFilteredWorkflows = uniqueWorkflows.filter(workflow =>
+            searchFilteredWorkflows = allWorkflows.filter((workflow: WorkflowData) =>
                 workflow.title.toLowerCase().includes(query) ||
                 workflow.description.toLowerCase().includes(query) ||
                 workflow.workflow.some((step: any) =>
@@ -151,16 +127,16 @@ export function WorkflowGridView({ selectedFilter, onFilterChange, searchQuery, 
         let filteredWorkflows = searchFilteredWorkflows;
         switch (selectedFilter) {
             case "public":
-                filteredWorkflows = searchFilteredWorkflows.filter(w => w.isPublic);
+                filteredWorkflows = searchFilteredWorkflows.filter((w: WorkflowData) => w.isPublic);
                 break;
             case "private":
-                filteredWorkflows = searchFilteredWorkflows.filter(w => !w.isPublic);
+                filteredWorkflows = searchFilteredWorkflows.filter((w: WorkflowData) => !w.isPublic);
                 break;
             case "scheduled":
-                filteredWorkflows = searchFilteredWorkflows.filter(w => w.timeBasedTrigger);
+                filteredWorkflows = searchFilteredWorkflows.filter((w: WorkflowData) => w.timeBasedTrigger);
                 break;
             case "manual":
-                filteredWorkflows = searchFilteredWorkflows.filter(w => !w.timeBasedTrigger);
+                filteredWorkflows = searchFilteredWorkflows.filter((w: WorkflowData) => !w.timeBasedTrigger);
                 break;
             case "all":
             default:
@@ -168,17 +144,14 @@ export function WorkflowGridView({ selectedFilter, onFilterChange, searchQuery, 
         }
 
         // Sort by creation date (newest first)
-        return filteredWorkflows.sort((a, b) =>
+        return filteredWorkflows.sort((a: WorkflowData, b: WorkflowData) =>
             new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         );
-    }, [publicWorkflowsData, privateWorkflowsData, selectedFilter, searchQuery]);
+    }, [workflowsData, selectedFilter, searchQuery]);
 
     const handleEditWorkflow = (workflow: WorkflowData) => {
         openWorkflowEditSidebar(workflow);
     };
-
-    const isLoading = isLoadingPublic || (isAuthenticated && isLoadingPrivate);
-    const error = publicError || privateError;
 
     if (isLoading) {
         return (
@@ -265,7 +238,7 @@ export function WorkflowGridView({ selectedFilter, onFilterChange, searchQuery, 
 
             <ScrollArea className="relative h-[calc(100vh-560px)] hidebar">
                 <div className="grid w-full gap-6 pb-24 sm:pb-28 [grid-template-columns:repeat(auto-fill,minmax(280px,1fr))] md:[grid-template-columns:repeat(auto-fill,minmax(320px,1fr))]">
-                    {workflows.map((workflow) => (
+                    {workflows.map((workflow: WorkflowData) => (
                         <div
                             key={workflow.id}
                             className="relative group h-fit min-h-52 rounded-xl border border-primary-100 p-6  hover:border-primary-200 block cursor-pointer hover:bg-[#FAFAFA]"
@@ -322,26 +295,6 @@ export function WorkflowGridView({ selectedFilter, onFilterChange, searchQuery, 
                                             </h4>
                                         </div>
                                     </div>
-                                    {/* {isAuthenticated && (
-                                        <div
-                                            className="relative z-30 pointer-events-auto"
-                                            onClick={e => {
-                                                e.stopPropagation();
-                                            }}
-                                            onMouseDown={e => {
-                                                e.stopPropagation();
-                                            }}
-                                        >
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                className="h-8 px-2"
-                                                onClick={() => handleEditWorkflow(workflow)}
-                                            >
-                                                <Edit className="h-4 w-4" />
-                                            </Button>
-                                        </div>
-                                    )} */}
                                 </div>
 
                                 {/* Content */}

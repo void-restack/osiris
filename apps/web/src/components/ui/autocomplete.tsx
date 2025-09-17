@@ -22,6 +22,8 @@ interface AutocompleteItem {
 interface AutocompleteProps<T extends AutocompleteItem> {
 	onSearch: (query: string) => T[] | Promise<T[]>;
 	onSelect?: (item: T) => void;
+	customHandleSelect?: (item: T, defaultHandleSelect: (item: T) => void) => void;
+	onInput?: (event: React.FormEvent<HTMLInputElement>) => void;
 	placeholder?: string;
 	className?: string;
 	loading?: boolean;
@@ -47,6 +49,8 @@ interface AutocompleteProps<T extends AutocompleteItem> {
 export function Autocomplete<T extends AutocompleteItem>({
 	onSearch,
 	onSelect,
+	customHandleSelect,
+	onInput,
 	placeholder = "Search...",
 	className,
 	loading = false,
@@ -127,11 +131,19 @@ export function Autocomplete<T extends AutocompleteItem>({
 			(item) => getItemValue(item) === selectedValue,
 		);
 		if (selectedItem) {
-			const label = getItemLabel(selectedItem);
-			handleValueChange(label);
-			setOpen(false);
-			inputRef.current?.blur();
-			onSelect?.(selectedItem);
+			const defaultHandleSelect = (item: T) => {
+				const label = getItemLabel(item);
+				handleValueChange(label);
+				setOpen(false);
+				inputRef.current?.blur();
+				onSelect?.(item);
+			};
+
+			if (customHandleSelect) {
+				customHandleSelect(selectedItem, defaultHandleSelect);
+			} else {
+				defaultHandleSelect(selectedItem);
+			}
 		}
 	}
 
@@ -164,7 +176,13 @@ export function Autocomplete<T extends AutocompleteItem>({
 						ref={inputRef}
 						placeholder={placeholder}
 						value={search}
-						onInput={(e) => handleValueChange(e.currentTarget.value)}
+						onInput={(e) => {
+							if (onInput) {
+								onInput(e);
+							} else {
+								handleValueChange(e.currentTarget.value);
+							}
+						}}
 						onKeyDown={handleKeyDown}
 						onFocus={() => {
 							setOpen(true);

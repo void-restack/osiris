@@ -8,6 +8,65 @@ import WorkflowStepsContainer from '@/components/features/workflow/workflow-step
 import { CloneTemplateDialog } from '@/components/features/workflow/clone-template-dialog'
 import { useAuth } from '@/hooks/use-auth'
 import { useState } from 'react'
+import { cn } from '@/lib/utils'
+
+// Component to render formatted XML content with mentions
+function FormattedDescription({ content }: { content: string }) {
+    const parseXMLContent = (xmlContent: string) => {
+        const parts: React.ReactNode[] = [];
+        let currentIndex = 0;
+
+        // Regular expression to match XML tags
+        const xmlRegex = /<(package|knowledge-base)\s+id="([^"]+)"\s+name="([^"]+)"(?:\s+description="([^"]*)")?>([^<]*)<\/\1>/g;
+
+        let match;
+        while ((match = xmlRegex.exec(xmlContent)) !== null) {
+            const [fullMatch, type, id, name, description, content] = match;
+            const startIndex = match.index;
+
+            // Add text before the match
+            if (startIndex > currentIndex) {
+                const textBefore = xmlContent.substring(currentIndex, startIndex);
+                if (textBefore) {
+                    parts.push(textBefore);
+                }
+            }
+
+            // Add the mention component
+            parts.push(
+                <span
+                    key={`${type}-${id}-${startIndex}`}
+                    className={cn(
+                        'inline-flex items-center px-1 rounded-sm font-medium',
+                        type === 'package'
+                            ? 'bg-blue-100 text-blue-700'
+                            : 'bg-green-100 text-green-700'
+                    )}
+                >
+                    {type === 'package' ? '@' : '#'}{name}
+                </span>
+            );
+
+            currentIndex = startIndex + fullMatch.length;
+        }
+
+        // Add remaining text
+        if (currentIndex < xmlContent.length) {
+            const remainingText = xmlContent.substring(currentIndex);
+            if (remainingText) {
+                parts.push(remainingText);
+            }
+        }
+
+        return parts.length > 0 ? parts : xmlContent;
+    };
+
+    return (
+        <div className="whitespace-pre-wrap">
+            {parseXMLContent(content)}
+        </div>
+    );
+}
 
 export const Route = createFileRoute('/_hub/template/$templateId')({
     component: RouteComponent,
@@ -51,7 +110,7 @@ function RouteComponent() {
         <div className='px-8 pt-8 w-full flex flex-col'>
             <div className='relative'>
                 <ScrollArea className='w-full h-20 rounded-lg bg-primary-50 hidebar text-pretty p-2 mb-14'>
-                    {template.description}
+                    <FormattedDescription content={template.description} />
                 </ScrollArea>
             </div>
 

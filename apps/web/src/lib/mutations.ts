@@ -1932,6 +1932,105 @@ export const useCreateWorkflowFromTemplateMutation = () => {
   });
 };
 
+export const useCreateAITemplateWorkflowMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: { prompt: string }) => {
+      const response = await api("/chat/ai/template-workflows", {
+        method: "POST",
+        body: data,
+        schema: responseSchema(
+          z.object({
+            id: z.string().uuid(),
+            title: z.string(),
+            description: z.string(),
+            imageUrl: z.string().optional(),
+            coverImageUrl: z.string().optional(),
+            workflow: z.array(
+              z.object({
+                name: z.string(),
+                packageIds: z.array(z.string().uuid()),
+                knowledgeBaseIds: z.array(z.string().uuid()).optional(),
+                prompt: z.string(),
+              })
+            ),
+            isPublic: z.boolean(),
+            ownerId: z.string().uuid(),
+            createdAt: z.string().datetime(),
+            updatedAt: z.string().datetime(),
+          })
+        ),
+      });
+      if (response.status === "FAILED") {
+        throw new Error(response.error);
+      }
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: chatQueries.templateWorkflows() });
+      toast.success("AI template workflow created successfully");
+    },
+    onError: (error) => {
+      console.error("Failed to create AI template workflow:", error);
+      toast.error(error.message || "Failed to create AI template workflow");
+    },
+  });
+};
+
+export const useUpdateAITemplateWorkflowMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: {
+      templateId: string;
+      prompt: string;
+    }) => {
+      const { templateId, ...updateData } = data;
+      const response = await api(`/chat/ai/template-workflows/${templateId}`, {
+        method: "PATCH",
+        body: updateData,
+        schema: responseSchema(
+          z.object({
+            id: z.string().uuid(),
+            title: z.string(),
+            description: z.string(),
+            imageUrl: z.string().optional(),
+            coverImageUrl: z.string().optional(),
+            workflow: z.array(
+              z.object({
+                name: z.string(),
+                packageIds: z.array(z.string().uuid()),
+                knowledgeBaseIds: z.array(z.string().uuid()).optional(),
+                prompt: z.string(),
+              })
+            ),
+            isPublic: z.boolean(),
+            ownerId: z.string().uuid(),
+            createdAt: z.string().datetime(),
+            updatedAt: z.string().datetime(),
+          })
+        ),
+      });
+      if (response.status === "FAILED") {
+        throw new Error(response.error);
+      }
+      return response.data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: chatQueries.templateWorkflows() });
+      queryClient.invalidateQueries({
+        queryKey: chatQueries.templateWorkflow(variables.templateId),
+      });
+      toast.success("AI template workflow updated successfully");
+    },
+    onError: (error) => {
+      console.error("Failed to update AI template workflow:", error);
+      toast.error(error.message || "Failed to update AI template workflow");
+    },
+  });
+};
+
 
 // export const useWorkflowStreamMutation = () => {
 //   return useMutation({

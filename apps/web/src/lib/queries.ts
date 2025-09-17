@@ -1211,6 +1211,69 @@ export const knowledgeQueries = {
       },
       staleTime: 2 * 60 * 1000,
     }),
+
+  popular: (filters?: {
+    search?: string;
+    name?: string;
+    tags?: string;
+    sortBy?: 'name' | 'rating' | 'credits' | 'installs' | 'price' | 'recent';
+    sortOrder?: 'asc' | 'desc';
+    isPublic?: boolean;
+    startPrice?: number;
+    endPrice?: number;
+    page?: number;
+    limit?: number;
+  }) => [...knowledgeQueries.all(), "popular", ...(filters ? Object.entries(filters) : [])] as const,
+
+  popularOptions: (filters?: {
+    search?: string;
+    name?: string;
+    tags?: string;
+    sortBy?: 'name' | 'rating' | 'credits' | 'installs' | 'price' | 'recent';
+    sortOrder?: 'asc' | 'desc';
+    isPublic?: boolean;
+    startPrice?: number;
+    endPrice?: number;
+    page?: number;
+    limit?: number;
+  }) =>
+    queryOptions({
+      queryKey: knowledgeQueries.popular(filters),
+      queryFn: async () => {
+        const searchParams = new URLSearchParams();
+        if (filters?.search) searchParams.set("search", filters.search);
+        if (filters?.name) searchParams.set("name", filters.name);
+        if (filters?.tags) searchParams.set("tags", filters.tags);
+        if (filters?.sortBy) searchParams.set("sortBy", filters.sortBy);
+        if (filters?.sortOrder) searchParams.set("sortOrder", filters.sortOrder);
+        if (filters?.isPublic !== undefined) searchParams.set("isPublic", String(filters.isPublic));
+        if (filters?.startPrice !== undefined) searchParams.set("startPrice", String(filters.startPrice));
+        if (filters?.endPrice !== undefined) searchParams.set("endPrice", String(filters.endPrice));
+        if (filters?.page) searchParams.set("page", String(filters.page));
+        if (filters?.limit) searchParams.set("limit", String(filters.limit));
+
+        const endpoint = `/knowledge-base/popular?${searchParams}`;
+
+        const response = await api(endpoint, {
+          schema: z.object({
+            status: z.literal("SUCCESS"),
+            data: z.array(knowledgeBaseJoinedSchema),
+            pagination: z.object({
+              total: z.number(),
+              page: z.number(),
+              limit: z.number(),
+              totalPages: z.number(),
+            }),
+          }),
+        });
+
+        if (response.status === "FAILED") {
+          throw new Error(response.error);
+        }
+        return response;
+      },
+      staleTime: 10 * 60 * 1000,
+    }),
 };
 
 export const hubQueries = {
@@ -1516,6 +1579,55 @@ export const chatQueries = {
   workflowExecutions: (workflowId: string) => [...chatQueries.workflows(), workflowId, "executions"] as const,
   workflowExecution: (executionId: string) => [...chatQueries.all(), "execution", executionId] as const,
   workflowJob: (jobId: string, queueName: string) => [...chatQueries.all(), "job", jobId, queueName] as const,
+
+
+  myWorkflows: () => [...chatQueries.all(), "my-workflows"] as const,
+
+  myWorkflowsOptions: (enabled: boolean = true) =>
+    queryOptions({
+      queryKey: chatQueries.myWorkflows(),
+      queryFn: async () => {
+        const response = await api("/chat/workflows/my", {
+          schema: responseSchema(
+            z.object({
+              data: z.array(
+                z.object({
+                  id: z.string().uuid(),
+                  title: z.string(),
+                  description: z.string(),
+                  imageUrl: z.string().optional(),
+                  coverImageUrl: z.string().optional(),
+                  workflow: z.array(
+                    z.object({
+                      name: z.string(),
+                      deploymentId: z.array(z.string().uuid()),
+                      prompt: z.string(),
+                      knowledgeBaseIds: z.array(z.string()).optional(),
+                    })
+                  ),
+                  isPublic: z.boolean(),
+                  templateWorkflowId: z.string().uuid().optional(),
+                  ownerId: z.string().uuid(),
+                  createdAt: z.string().datetime(),
+                  updatedAt: z.string().datetime(),
+                })
+              ),
+              pagination: z.object({
+                total: z.number(),
+                page: z.number(),
+                limit: z.number(),
+                totalPages: z.number(),
+              }),
+            })
+          ),
+        });
+        if (response.status === "FAILED") {
+          throw new Error(response.error);
+        }
+        return response;
+      },
+      enabled: enabled,
+    }),
 
   // Template Workflow Queries
   templateWorkflows: () => [...chatQueries.all(), "template-workflows"] as const,
