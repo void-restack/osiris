@@ -109,6 +109,19 @@ export interface WorkflowExecutionData {
   status: "yet-to-be-executed" | "pending" | "running" | "success" | "failed" | "queued";
   createdAt: string;
   updatedAt: string;
+  results?: Array<{
+    stepId: number;
+    status: "yet-to-be-executed" | "pending" | "running" | "success" | "failed";
+    errorReason?: string;
+    result?: string;
+    toolCalls?: any;
+    stepName?: string;
+    name?: string;
+    output?: string;
+    error?: string;
+    createdAt?: string;
+    updatedAt?: string;
+  }>;
 }
 
 

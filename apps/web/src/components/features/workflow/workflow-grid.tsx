@@ -73,9 +73,9 @@ export default function WorkflowGrid() {
                 </div>
 
                 {/* Bottom pagination */}
-                <div className="sticky rounded-b-xl bottom-0 border-t border-t-primary-100 flex w-full items-center overflow-hidden bg-primary-00 px-4 sm:px-6 py-2 sm:py-3 z-40">
-                    {/* Workflow Footer */}
-                </div>
+                {/* <div className="sticky rounded-b-xl bottom-0 border-t border-t-primary-100 flex w-full items-center overflow-hidden bg-primary-00 px-4 sm:px-6 py-2 sm:py-3 z-40">
+           
+                </div> */}
             </div>
         </div>
     )
@@ -496,7 +496,9 @@ export function TemplateWorkflowGridView({ selectedFilter, onFilterChange, searc
                                         </Avatar>
                                         <div className="flex flex-col">
                                             <h4 className="font-medium text-primary-800 capitalize flex items-center gap-2">
-                                                {template.title}
+                                                <span className="truncate max-w-[200px] line-clamp-1">
+                                                    {template.title}
+                                                </span>
                                                 {template.isPublic ? (
                                                     <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full">
                                                         Public

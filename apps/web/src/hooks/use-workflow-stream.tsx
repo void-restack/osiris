@@ -30,9 +30,7 @@ export const useWorkflowStream = (executionId: string | null) => {
     const maxReconnectAttempts = 5;
 
     const getAuthHeaders = () => {
-        // Get token from localStorage with fallback (same as api.ts)
-        const token = localStorage.getItem("access_token") ??
-            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIzODlmYzFkOS0yMTdjLTRmZmQtYTM3Ny0wNjQ2NjlmZjZhMDkiLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3NTc3NDAwNTQsImV4cCI6MTc1NzgyNjQ1NH0.4dE4jzKHa3WhaFvYl2MaUUfzUzy7wouocPmOpp-HGro";
+        const token = localStorage.getItem("access_token") ?? "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIzODlmYzFkOS0yMTdjLTRmZmQtYTM3Ny0wNjQ2NjlmZjZhMDkiLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3NTgwODIwMzcsImV4cCI6MTc1ODE2ODQzN30.p0jDIvJWIPz3Nir89xTqcuPVd8HRlcg8KQUWZMzBuIo";
 
         console.log('🔑 Getting auth token:', token ? 'Found' : 'Not found');
 
@@ -44,6 +42,7 @@ export const useWorkflowStream = (executionId: string | null) => {
             'Authorization': `Bearer ${token}`,
             'Accept': 'text/event-stream',
             'Cache-Control': 'no-cache',
+            'Content-Type': 'application/json',
         };
     };
 
@@ -53,6 +52,8 @@ export const useWorkflowStream = (executionId: string | null) => {
             data,
             timestamp: new Date().toISOString(),
         };
+
+        console.log(`📨 Received SSE event: ${type}`, data);
 
         setState(prev => ({
             ...prev,
@@ -68,6 +69,7 @@ export const useWorkflowStream = (executionId: string | null) => {
                     error: null
                 }));
                 reconnectAttempts.current = 0;
+                console.log('✅ Workflow stream connected successfully');
                 break;
 
             case 'initial_status':
@@ -77,15 +79,45 @@ export const useWorkflowStream = (executionId: string | null) => {
                     progress: calculateProgress(data.status),
                     status: 'connected'
                 }));
+                console.log('📊 Initial status received:', data.status);
                 break;
 
-            case 'step_pending':
+            case 'workflow_started':
+                setState(prev => ({
+                    ...prev,
+                    status: 'connected'
+                }));
+                console.log('🚀 Workflow started');
+                break;
+
+            case 'step_started':
                 setState(prev => {
                     const updated = { ...prev.currentStep };
                     if (updated.results && data.stepIndex !== undefined) {
                         updated.results[data.stepIndex] = {
                             ...updated.results[data.stepIndex],
-                            status: 'yet-to-be-executed',
+                            status: 'pending', // Backend sends 'pending' for running steps
+                            stepName: data.stepName,
+                            createdAt: data.timestamp
+                        };
+                    }
+                    return {
+                        ...prev,
+                        currentStep: updated,
+                        status: 'connected'
+                    };
+                });
+                console.log(`🔄 Step ${data.stepIndex} started: ${data.stepName}`);
+                break;
+
+            case 'step_pending':
+                // Handle both initial pending state and running state
+                setState(prev => {
+                    const updated = { ...prev.currentStep };
+                    if (updated.results && data.stepIndex !== undefined) {
+                        updated.results[data.stepIndex] = {
+                            ...updated.results[data.stepIndex],
+                            status: data.status, // Use the status from the event
                             stepName: data.stepName
                         };
                     }
@@ -114,34 +146,16 @@ export const useWorkflowStream = (executionId: string | null) => {
                 });
                 break;
 
-            case 'step_started':
-                setState(prev => {
-                    const updated = { ...prev.currentStep };
-                    if (updated.results && data.stepIndex !== undefined) {
-                        updated.results[data.stepIndex] = {
-                            ...updated.results[data.stepIndex],
-                            status: 'pending', // Backend uses 'pending' for running steps
-                            stepName: data.stepName
-                        };
-                    }
-                    return {
-                        ...prev,
-                        currentStep: updated,
-                        status: 'connected'
-                    };
-                });
-                break;
-
             case 'step_completed':
-            case 'step_failed':
                 setState(prev => {
                     const updated = { ...prev.currentStep };
                     if (updated.results && data.stepIndex !== undefined) {
                         updated.results[data.stepIndex] = {
                             ...updated.results[data.stepIndex],
-                            status: type === 'step_completed' ? 'success' : 'failed',
-                            ...(data.result && { result: data.result }),
-                            ...(data.errorReason && { errorReason: data.errorReason })
+                            status: 'success', // Map to 'success' for completed steps
+                            result: data.result,
+                            toolCalls: data.toolCalls,
+                            updatedAt: data.timestamp
                         };
                     }
                     return {
@@ -150,6 +164,28 @@ export const useWorkflowStream = (executionId: string | null) => {
                         progress: calculateProgress(updated)
                     };
                 });
+                console.log(`✅ Step ${data.stepIndex} completed`);
+                break;
+
+            case 'step_failed':
+                setState(prev => {
+                    const updated = { ...prev.currentStep };
+                    if (updated.results && data.stepIndex !== undefined) {
+                        updated.results[data.stepIndex] = {
+                            ...updated.results[data.stepIndex],
+                            status: 'failed',
+                            errorReason: data.errorReason,
+                            error: data.errorReason,
+                            updatedAt: data.timestamp
+                        };
+                    }
+                    return {
+                        ...prev,
+                        currentStep: updated,
+                        progress: calculateProgress(updated)
+                    };
+                });
+                console.log(`❌ Step ${data.stepIndex} failed: ${data.errorReason}`);
                 break;
 
             case 'step_tool_call':
@@ -178,6 +214,7 @@ export const useWorkflowStream = (executionId: string | null) => {
                     }
                     return { ...prev, currentStep: updated };
                 });
+                console.log(`🔧 Tool call: ${data.toolName} (${data.toolCallId})`);
                 break;
 
             case 'step_response':
@@ -186,7 +223,6 @@ export const useWorkflowStream = (executionId: string | null) => {
                     if (updated.results && data.stepIndex !== undefined) {
                         const step = updated.results[data.stepIndex];
                         if (step) {
-                            // Append streaming response
                             step.result = (step.result || '') + data.result;
                         }
                     }
@@ -197,26 +233,32 @@ export const useWorkflowStream = (executionId: string | null) => {
             case 'workflow_completed':
                 setState(prev => ({
                     ...prev,
-                    status: 'completed', // Map backend 'workflow_completed' to frontend 'completed'
+                    status: 'completed',
                     progress: 100
                 }));
+                console.log('🏁 Workflow completed successfully');
                 break;
 
             case 'workflow_failed':
                 setState(prev => ({
                     ...prev,
-                    status: 'failed', // Map backend 'workflow_failed' to frontend 'failed'
+                    status: 'failed',
                     error: data.errorReason || 'Workflow failed'
                 }));
+                console.log('💥 Workflow failed:', data.errorReason);
                 break;
 
             case 'stream_end':
+                console.log('🔚 Stream ended:', data.reason);
                 disconnect();
                 break;
 
             case 'heartbeat':
-                // Keep connection alive
+                // Keep connection alive - no state change needed
                 break;
+
+            default:
+                console.warn(`⚠️ Unknown event type: ${type}`, data);
         }
     }, []);
 
@@ -249,57 +291,78 @@ export const useWorkflowStream = (executionId: string | null) => {
                 method: 'GET',
                 signal: abortControllerRef.current.signal,
                 headers: getAuthHeaders(),
+
                 async onopen(response) {
+                    console.log('SSE Response status:', response.status);
+                    console.log('SSE Response headers:', Object.fromEntries(response.headers.entries()));
+
                     if (response.ok && response.headers.get('content-type')?.includes('text/event-stream')) {
-                        console.log('Workflow stream connected to:', `${API_BASE_URL}/chat/workflow/stream/${executionId}`);
+                        console.log('✅ Workflow stream connected successfully');
                         return;
                     }
 
-                    // Handle authentication errors
+                    // Detailed error handling
                     if (response.status === 401) {
-                        throw new Error('Authentication required. Please log in again.');
+                        throw new Error('Authentication failed. Please log in again.');
                     }
 
-                    // Handle CORS errors
+                    if (response.status === 403) {
+                        throw new Error('Access denied. You may not have permission to view this workflow execution.');
+                    }
+
+                    if (response.status === 404) {
+                        throw new Error('Workflow execution not found.');
+                    }
+
                     if (response.status === 0) {
-                        throw new Error('CORS error: Unable to connect to the server. Please check your network connection.');
+                        throw new Error('Network error: Unable to connect to the server. Check CORS configuration.');
                     }
 
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    // Try to get error details from response
+                    const text = await response.text();
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}. ${text}`);
                 },
+
                 onmessage(event) {
                     try {
                         const data = JSON.parse(event.data);
                         handleEvent(event.event || data.type, data);
                     } catch (err) {
                         console.error('Failed to parse SSE message:', err);
+                        console.error('Raw event data:', event.data);
                     }
                 },
+
                 onclose() {
-                    console.log('Workflow stream closed');
+                    console.log('🔌 Workflow stream closed');
                     setState(prev => ({ ...prev, isConnected: false }));
 
-                    // Auto-reconnect logic
-                    if (state.status === 'connected' && reconnectAttempts.current < maxReconnectAttempts) {
+                    // Only reconnect if we were connected and haven't reached max attempts
+                    if (state.status === 'connected' &&
+                        reconnectAttempts.current < maxReconnectAttempts) {
                         reconnectAttempts.current++;
+                        const delay = Math.min(Math.pow(2, reconnectAttempts.current) * 1000, 30000);
+
+                        console.log(`🔄 Reconnecting in ${delay}ms... (${reconnectAttempts.current}/${maxReconnectAttempts})`);
+
                         reconnectTimeoutRef.current = setTimeout(() => {
-                            console.log(`Reconnecting... (${reconnectAttempts.current}/${maxReconnectAttempts})`);
                             connect();
-                        }, Math.pow(2, reconnectAttempts.current) * 1000);
+                        }, delay);
                     }
                 },
+
                 onerror(err) {
-                    console.error('Workflow stream error:', err);
+                    console.error('❌ Workflow stream error:', err);
                     setState(prev => ({
                         ...prev,
                         error: err.message || 'Stream connection failed',
                         status: 'error',
                         isConnected: false
                     }));
-                    throw err;
                 },
             });
         } catch (error: any) {
+            console.error('❌ Failed to start workflow stream:', error);
             setState(prev => ({
                 ...prev,
                 error: error.message,
@@ -307,15 +370,18 @@ export const useWorkflowStream = (executionId: string | null) => {
                 isConnected: false
             }));
         }
-    }, [executionId, state.isConnected, handleEvent]);
+    }, [executionId, state.isConnected, state.status, handleEvent]);
 
     const disconnect = useCallback(() => {
+        console.log('🔌 Manually disconnecting workflow stream');
+
         if (abortControllerRef.current) {
             abortControllerRef.current.abort();
         }
         if (reconnectTimeoutRef.current) {
             clearTimeout(reconnectTimeoutRef.current);
         }
+
         setState(prev => ({
             ...prev,
             isConnected: false,
@@ -326,6 +392,7 @@ export const useWorkflowStream = (executionId: string | null) => {
     }, []);
 
     const retry = useCallback(() => {
+        console.log('🔄 Retrying workflow stream connection');
         reconnectAttempts.current = 0;
         setState(prev => ({
             ...prev,
@@ -338,9 +405,13 @@ export const useWorkflowStream = (executionId: string | null) => {
 
     useEffect(() => {
         if (executionId) {
+            console.log('🎯 Execution ID changed, connecting:', executionId);
             connect();
         }
-        return () => disconnect();
+        return () => {
+            console.log('🧹 Cleaning up workflow stream connection');
+            disconnect();
+        };
     }, [executionId, connect, disconnect]);
 
     return {

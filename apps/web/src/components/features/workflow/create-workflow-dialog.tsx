@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useForm } from "@tanstack/react-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +23,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { packageQueries, knowledgeQueries } from "@/lib/queries";
 import { useCreateTemplateWorkflowMutation } from "@/lib/mutations";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { WorkflowTriggers } from "./workflow-triggers";
+import { type WorkflowData } from "@/lib/store";
 
 interface CreateTemplateWorkflowDialogProps {
     children?: React.ReactNode;
@@ -273,8 +275,17 @@ function StepSelector({ stepIndex, packageIds, knowledgeBaseIds, onPackageIdsCha
 
 export function CreateTemplateWorkflowDialog({ children }: CreateTemplateWorkflowDialogProps) {
     const [open, setOpen] = useState(false);
+    const [timeBasedTrigger, setTimeBasedTrigger] = useState<WorkflowData['timeBasedTrigger']>(null);
 
     const createTemplateWorkflowMutation = useCreateTemplateWorkflowMutation();
+
+    const handleTriggerUpdate = useCallback((newTrigger: WorkflowData['timeBasedTrigger']) => {
+        if (JSON.stringify(newTrigger) === JSON.stringify(timeBasedTrigger)) return;
+        setTimeBasedTrigger(newTrigger);
+        form.setFieldValue("timeBasedTrigger", newTrigger);
+    }, [timeBasedTrigger]);
+
+    const workflowDataMemo = useMemo(() => ({ timeBasedTrigger }), [timeBasedTrigger]);
 
     const form = useForm({
         defaultValues: {
@@ -283,6 +294,7 @@ export function CreateTemplateWorkflowDialog({ children }: CreateTemplateWorkflo
             imageUrl: "",
             coverImageUrl: "",
             isPublic: false,
+            timeBasedTrigger: null as WorkflowData['timeBasedTrigger'],
             workflow: [
                 {
                     name: "",
@@ -300,6 +312,7 @@ export function CreateTemplateWorkflowDialog({ children }: CreateTemplateWorkflo
                     imageUrl: value.imageUrl?.trim() || "",
                     coverImageUrl: value.coverImageUrl?.trim() || "",
                     isPublic: value.isPublic,
+                    timeBasedTrigger: value.timeBasedTrigger,
                     workflow: value.workflow.map(step => ({
                         name: step.name,
                         packageIds: step.packageIds,
@@ -312,6 +325,7 @@ export function CreateTemplateWorkflowDialog({ children }: CreateTemplateWorkflo
 
                 setOpen(false);
                 form.reset();
+                setTimeBasedTrigger(null);
             } catch (error) {
                 console.error("Failed to create template workflow:", error);
             }
@@ -449,6 +463,14 @@ export function CreateTemplateWorkflowDialog({ children }: CreateTemplateWorkflo
                                 )}
                             </form.Field>
                             <Label htmlFor="isPublic">Make this template public</Label>
+                        </div>
+
+                        <div className="space-y-4">
+                            <h3 className="text-sm font-medium text-gray-900">Triggers</h3>
+                            <WorkflowTriggers
+                                workflowData={workflowDataMemo as any}
+                                onUpdate={handleTriggerUpdate}
+                            />
                         </div>
 
                         <div className="space-y-4">

@@ -37,6 +37,8 @@ export function WorkflowTriggers({ workflowData, onUpdate }: WorkflowTriggersPro
     const [count, setCount] = useState<number | undefined>(undefined);
     const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
 
+    const isValidTime = (t: string) => /^\d{2}:\d{2}$/.test(t);
+
     useEffect(() => {
         if (workflowData?.timeBasedTrigger) {
             setTriggerType("time");
@@ -58,7 +60,7 @@ export function WorkflowTriggers({ workflowData, onUpdate }: WorkflowTriggersPro
     }, [workflowData]);
 
     const generateRRule = () => {
-        if (!date) return "";
+        if (!date || !isValidTime(time)) return "";
 
         const [hours, minutes] = time.split(':');
         const startDateTime = new Date(date);
@@ -79,7 +81,7 @@ export function WorkflowTriggers({ workflowData, onUpdate }: WorkflowTriggersPro
     };
 
     useEffect(() => {
-        if (triggerType === "time" && hasTimeSet && date) {
+        if (triggerType === "time" && hasTimeSet && date && isValidTime(time)) {
             const newRrule = generateRRule();
             setRruleString(newRrule);
 
@@ -93,8 +95,12 @@ export function WorkflowTriggers({ workflowData, onUpdate }: WorkflowTriggersPro
                     startTime: startDateTime.toISOString(),
                 });
             }
-        } else if (triggerType === "manual" && onUpdate) {
-            onUpdate(null);
+        } else if (triggerType === "manual") {
+            if (onUpdate) onUpdate(null);
+            setRruleString("");
+        } else if (!isValidTime(time)) {
+            setRruleString("");
+            if (onUpdate) onUpdate(null);
         }
     }, [triggerType, hasTimeSet, date, time, frequency, interval, count]);
 
@@ -174,6 +180,8 @@ export function WorkflowTriggers({ workflowData, onUpdate }: WorkflowTriggersPro
                                             setDate(selectedDate);
                                             setIsDatePickerOpen(false);
                                         }}
+                                        disabled={{ before: new Date() }}
+                                        fromDate={new Date()}
                                         captionLayout="dropdown"
                                     />
                                 </PopoverContent>
