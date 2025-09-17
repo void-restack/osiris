@@ -32,7 +32,7 @@ import { useDeployPackageMutation, useCreateServiceConnectionMutation, useAuthor
 import { AuthMethodDialog } from "@/components/features/authhub/auth-method-dialog";
 import { useAuth } from "@/hooks/use-auth";
 import { getInitials } from "@/lib/utils";
-import { getReadableScopes, transformScopeDefinitions } from "@/lib/scope-utils";
+
 import { getScopeDisplayName } from "@/lib/scope-definitions";
 import type { PackageWithUserStatus } from "@/types";
 import PolicyBuilder from "@/components/policy-builder";
@@ -81,15 +81,12 @@ function ServiceSection({
   );
 
   const permissions = useMemo(() => {
-    if (!serviceClient.scopeDefinitions) return [];
-
-    const transformedScopeDefinitions = transformScopeDefinitions(serviceClient.name, serviceClient.scopeDefinitions);
-
-    return Object.entries(transformedScopeDefinitions).map(([scope, label]) => ({
+    const req = Array.isArray(requiredScopes) ? requiredScopes : [];
+    return req.map((scope) => ({
       id: scope,
-      label: getScopeDisplayName(scope) || String(label)
+      label: getScopeDisplayName(scope) || scope
     }));
-  }, [serviceClient.name, serviceClient.scopeDefinitions]);
+  }, [requiredScopes]);
 
   const handleServicePermissionSelect = useCallback(
     (perms: Permission[]) => onPermissionSelect(serviceName, perms),
@@ -243,13 +240,13 @@ function ServiceSection({
                           })()}
                         </p>
 
-                        <div className="flex flex-wrap gap-1">
+                        {/* <div className="flex flex-wrap gap-1">
                           {connection.user_service_connections.scopes?.map((scope: string) => (
                             <Badge key={scope} className="rounded-[6px] bg-primary-100 px-2 py-0.5 text-xs text-primary-800">
                               {getScopeDisplayName(scope)}
                             </Badge>
                           ))}
-                        </div>
+                        </div> */}
                       </label>
                     </div>
                   );
