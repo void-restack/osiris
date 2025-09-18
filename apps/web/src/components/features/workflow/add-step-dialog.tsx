@@ -190,7 +190,7 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
     })
 
     const { data: popularKnowledgeBases } = useQuery({
-        ...knowledgeQueries.basesOptions({ isPublic: true, limit: 10 }),
+        ...knowledgeQueries.popularOptions({ isPublic: true, limit: 10 }),
         select: (data) => data?.data || []
     })
 
@@ -754,7 +754,7 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
                                         Select MCP providers...
                                     </Button>
                                 </PopoverTrigger>
-                                <PopoverContent className="w-full p-0">
+                                <PopoverContent className="w-(--radix-popover-trigger-width) p-0">
                                     <Command>
                                         <CommandInput
                                             placeholder="Search MCP providers..."
@@ -771,7 +771,13 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
                                                             onSelect={() => addMcpProvider(provider)}
                                                             className="cursor-pointer"
                                                         >
-                                                            {provider.name}
+                                                            <Avatar className="size-4">
+                                                                <AvatarImage src={provider.iconUrl} alt={provider.name} />
+                                                                <AvatarFallback>{provider.name.charAt(0).toUpperCase()}</AvatarFallback>
+                                                            </Avatar>
+                                                            <span>
+                                                                {provider.name}
+                                                            </span>
                                                         </CommandItem>
                                                     ))}
                                                 </CommandGroup>
@@ -814,7 +820,7 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
                                         Select knowledge bases...
                                     </Button>
                                 </PopoverTrigger>
-                                <PopoverContent className="w-full p-0">
+                                <PopoverContent className="w-(--radix-popover-trigger-width) p-0">
                                     <Command>
                                         <CommandInput
                                             placeholder="Search knowledge bases..."
@@ -835,7 +841,13 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
                                                                 onSelect={() => addKnowledgeBase(kb)}
                                                                 className="cursor-pointer"
                                                             >
-                                                                {kbName}
+                                                                <Avatar className="size-4">
+                                                                    <AvatarImage src={kb.iconUrl} alt={kbName} />
+                                                                    <AvatarFallback>{kbName.charAt(0).toUpperCase()}</AvatarFallback>
+                                                                </Avatar>
+                                                                <span>
+                                                                    {kbName}
+                                                                </span>
                                                             </CommandItem>
                                                         )
                                                     })}

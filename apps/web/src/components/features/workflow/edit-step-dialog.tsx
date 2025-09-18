@@ -199,11 +199,20 @@ export function EditStepDialog({ open, onOpenChange, onEditStep, step, workflowD
 
     const { data: searchedMcps } = useQuery(packageQueries.listOptions({ name: mcpSearchQuery, isLive: true }))
 
-    const { data: knowledgeBasesData } = useQuery(knowledgeQueries.basesOptions(kbSearchQuery.length >= 2 ? { name: kbSearchQuery } : { name: "" }))
+    const { data: popularKnowledgeBases } = useQuery({
+        ...knowledgeQueries.popularOptions({ isPublic: true, limit: 10 }),
+        select: (data) => data?.data || []
+    })
 
-    const mcpOptions = mcpSearchQuery.length >= 2 ? searchedMcps?.data : popularMcps?.data
-
-    const kbOptions = kbSearchQuery.length >= 2 ? knowledgeBasesData?.data : []
+    const { data: searchedKnowledgeBases } = useQuery({
+        ...knowledgeQueries.searchOptions({
+            name: kbSearchQuery,
+            isPublic: true,
+            page: 1,
+            limit: 12
+        }),
+        enabled: kbSearchQuery.length >= 2,
+    })
 
     const { data: authScopes } = useQuery({
         ...packageQueries.authScopesOptions(selectedMcpForConfig?.packageId || selectedMcpForConfig?.id || ''),
@@ -757,7 +766,7 @@ export function EditStepDialog({ open, onOpenChange, onEditStep, step, workflowD
                                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                         </Button>
                                     </PopoverTrigger>
-                                    <PopoverContent className="w-full p-0">
+                                    <PopoverContent className="w-(--radix-popover-trigger-width) p-0">
                                         <Command>
                                             <CommandInput
                                                 placeholder="Search MCP providers..."
@@ -767,12 +776,22 @@ export function EditStepDialog({ open, onOpenChange, onEditStep, step, workflowD
                                             <CommandList>
                                                 <CommandEmpty>No MCP provider found.</CommandEmpty>
                                                 <CommandGroup>
-                                                    {mcpOptions?.map((mcp: any) => (
+                                                    {(mcpSearchQuery.length >= 2 ? searchedMcps?.data : popularMcps?.data)?.map((mcp: any) => (
                                                         <CommandItem
                                                             key={mcp.id || mcp.packageId}
                                                             value={mcp.name}
+                                                            className="flex items-center gap-2 justify-between"
                                                             onSelect={() => handleMcpSelect(mcp)}
                                                         >
+                                                            <div className="flex items-center gap-2">
+                                                                <Avatar className="size-4">
+                                                                    <AvatarImage src={mcp.iconUrl} alt={mcp.name} />
+                                                                    <AvatarFallback>{mcp.name.charAt(0).toUpperCase()}</AvatarFallback>
+                                                                </Avatar>
+                                                                <span>
+                                                                    {mcp.name}
+                                                                </span>
+                                                            </div>
                                                             <Check
                                                                 className={cn(
                                                                     "mr-2 h-4 w-4",
@@ -781,7 +800,6 @@ export function EditStepDialog({ open, onOpenChange, onEditStep, step, workflowD
                                                                         : "opacity-0"
                                                                 )}
                                                             />
-                                                            {mcp.name}
                                                         </CommandItem>
                                                     ))}
                                                 </CommandGroup>
@@ -832,7 +850,7 @@ export function EditStepDialog({ open, onOpenChange, onEditStep, step, workflowD
                                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                         </Button>
                                     </PopoverTrigger>
-                                    <PopoverContent className="w-full p-0">
+                                    <PopoverContent className="w-(--radix-popover-trigger-width) p-0">
                                         <Command>
                                             <CommandInput
                                                 placeholder="Search knowledge bases..."
@@ -842,7 +860,7 @@ export function EditStepDialog({ open, onOpenChange, onEditStep, step, workflowD
                                             <CommandList>
                                                 <CommandEmpty>No knowledge base found.</CommandEmpty>
                                                 <CommandGroup>
-                                                    {kbOptions?.map((kb: any) => {
+                                                    {(kbSearchQuery.length >= 2 ? searchedKnowledgeBases?.data : popularKnowledgeBases)?.map((kb: any) => {
                                                         const kbData = kb.knowledge_bases || kb
                                                         const kbId = kbData.knowledgeBaseId
                                                         const kbName = kbData.name
@@ -852,6 +870,15 @@ export function EditStepDialog({ open, onOpenChange, onEditStep, step, workflowD
                                                                 value={kbName}
                                                                 onSelect={() => handleKbSelect(kb)}
                                                             >
+                                                                <div className="flex items-center gap-2">
+                                                                    <Avatar className="size-4">
+                                                                        <AvatarImage src={kb.iconUrl} alt={kbName} />
+                                                                        <AvatarFallback>{kbName.charAt(0).toUpperCase()}</AvatarFallback>
+                                                                    </Avatar>
+                                                                    <span>
+                                                                        {kbName}
+                                                                    </span>
+                                                                </div>
                                                                 <Check
                                                                     className={cn(
                                                                         "mr-2 h-4 w-4",
@@ -860,7 +887,6 @@ export function EditStepDialog({ open, onOpenChange, onEditStep, step, workflowD
                                                                             : "opacity-0"
                                                                     )}
                                                                 />
-                                                                {kbName}
                                                             </CommandItem>
                                                         )
                                                     })}

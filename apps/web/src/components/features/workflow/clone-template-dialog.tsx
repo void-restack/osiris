@@ -11,7 +11,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { PermissionSelector, type Permission } from "@/components/ui/permission-selector"
 import { Loader2 } from "lucide-react"
-import { useQuery } from "@tanstack/react-query"
+import { useQueries, useQuery } from "@tanstack/react-query"
 import { packageQueries, knowledgeQueries, hubQueries } from "@/lib/queries"
 import { useCreateWorkflowFromTemplateMutation, useCreateServiceConnectionMutation, useDeployPackageMutation, useAuthorizeFrontendMutation } from "@/lib/mutations"
 import { toast } from "sonner"
@@ -149,13 +149,19 @@ export function CloneTemplateDialog({ open, onOpenChange, template }: CloneTempl
         return Array.from(kbIds)
     }, [template.workflow])
 
-    const packageQueries_data = allPackageIds.map(packageId =>
-        useQuery(packageQueries.detailOptions(packageId))
-    )
+    // Use useQueries for multiple package queries
+    const packageQueries_data = useQueries({
+        queries: allPackageIds.map(packageId =>
+            packageQueries.detailOptions(packageId)
+        )
+    })
 
-    const knowledgeBaseQueries_data = allKnowledgeBaseIds.map(kbId =>
-        useQuery(knowledgeQueries.baseOptions(kbId))
-    )
+    // Use useQueries for multiple knowledge base queries
+    const knowledgeBaseQueries_data = useQueries({
+        queries: allKnowledgeBaseIds.map(kbId =>
+            knowledgeQueries.baseOptions(kbId)
+        )
+    })
 
     const packages = packageQueries_data.map(query => query.data).filter(Boolean)
     const knowledgeBases = knowledgeBaseQueries_data.map(query => query.data).filter(Boolean)

@@ -12,6 +12,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { DataTableToolbar } from "@/components/data-table/data-table-toolbar";
 import { ICONS } from "@/components/icons";
 import { cn } from "@/lib/utils";
+import { CreateTemplateWorkflowDialog } from "./create-workflow-dialog";
 
 export default function WorkflowGrid() {
     const [activeTab, setActiveTab] = useState<string>("templates");
@@ -57,6 +58,7 @@ export default function WorkflowGrid() {
                                 </TabsList>
 
                                 <div className="flex items-center gap-4">
+                                    <CreateTemplateWorkflowDialog />
                                     {activeTab === "templates" && (
                                         <TemplatesFilters
                                             viewMode={templatesViewMode}

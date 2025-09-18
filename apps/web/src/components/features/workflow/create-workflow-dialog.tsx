@@ -24,7 +24,7 @@ import { packageQueries, knowledgeQueries } from "@/lib/queries";
 import { useCreateTemplateWorkflowMutation } from "@/lib/mutations";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
-import { useKnowledgeBaseUpload } from "@/hooks/use-knowledge-base-upload";
+import { useTemplateUpload } from "@/hooks/use-template-upload";
 import { useFileUpload } from "@/hooks/use-file-upload";
 
 interface CreateTemplateWorkflowDialogProps {
@@ -68,7 +68,7 @@ function StepSelector({ stepIndex, packageIds, knowledgeBaseIds, onPackageIdsCha
     });
 
     const { data: popularKnowledgeBases } = useQuery({
-        ...knowledgeQueries.basesOptions({ isPublic: true, limit: 10 }),
+        ...knowledgeQueries.popularOptions({ isPublic: true, limit: 10 }),
         select: (data) => data?.data || []
     });
 
@@ -96,6 +96,11 @@ function StepSelector({ stepIndex, packageIds, knowledgeBaseIds, onPackageIdsCha
         setMcpSearchQuery("");
     };
 
+    const handleMcpButtonClick = () => {
+        console.log("MCP button clicked, current state:", mcpCommandOpen);
+        setMcpCommandOpen(!mcpCommandOpen);
+    };
+
     const removePackage = (providerId: string) => {
         onPackageIdsChange(packageIds.filter(id => id !== providerId));
     };
@@ -109,6 +114,11 @@ function StepSelector({ stepIndex, packageIds, knowledgeBaseIds, onPackageIdsCha
         setKbSearchQuery("");
     };
 
+    const handleKbButtonClick = () => {
+        console.log("KB button clicked, current state:", kbCommandOpen);
+        setKbCommandOpen(!kbCommandOpen);
+    };
+
     const removeKnowledgeBase = (kbId: string) => {
         onKnowledgeBaseIdsChange(knowledgeBaseIds.filter(id => id !== kbId));
     };
@@ -120,15 +130,17 @@ function StepSelector({ stepIndex, packageIds, knowledgeBaseIds, onPackageIdsCha
                 <Popover open={mcpCommandOpen} onOpenChange={setMcpCommandOpen}>
                     <PopoverTrigger asChild>
                         <Button
+                            type="button"
                             variant="secondary"
                             role="combobox"
                             aria-expanded={mcpCommandOpen}
                             className="justify-between w-full"
+                            onClick={handleMcpButtonClick}
                         >
                             Select packages...
                         </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-full p-0">
+                    <PopoverContent className="w-(--radix-popover-trigger-width) p-0 z-[100001]">
                         <Command>
                             <CommandInput
                                 placeholder="Search packages..."
@@ -192,15 +204,17 @@ function StepSelector({ stepIndex, packageIds, knowledgeBaseIds, onPackageIdsCha
                 <Popover open={kbCommandOpen} onOpenChange={setKbCommandOpen}>
                     <PopoverTrigger asChild>
                         <Button
+                            type="button"
                             variant="secondary"
                             role="combobox"
                             aria-expanded={kbCommandOpen}
                             className="justify-between w-full"
+                            onClick={handleKbButtonClick}
                         >
                             Select knowledge bases...
                         </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-full p-0">
+                    <PopoverContent className="w-(--radix-popover-trigger-width) p-0 z-[100001]">
                         <Command>
                             <CommandInput
                                 placeholder="Search knowledge bases..."
@@ -276,11 +290,10 @@ function StepSelector({ stepIndex, packageIds, knowledgeBaseIds, onPackageIdsCha
 
 export function CreateTemplateWorkflowDialog({ children }: CreateTemplateWorkflowDialogProps) {
     const [open, setOpen] = useState(false);
-    const uploadHook = useKnowledgeBaseUpload();
+    const [isCreating, setIsCreating] = useState(false);
+    const uploadHook = useTemplateUpload();
 
     const createTemplateWorkflowMutation = useCreateTemplateWorkflowMutation();
-
-
 
     const form = useForm({
         defaultValues: {
@@ -299,6 +312,7 @@ export function CreateTemplateWorkflowDialog({ children }: CreateTemplateWorkflo
             ],
         },
         onSubmit: async ({ value }) => {
+            setIsCreating(true);
             try {
                 const { logoUrl, coverImageUrl } = await uploadHook.uploadFiles();
                 const templateData: any = {
@@ -322,6 +336,8 @@ export function CreateTemplateWorkflowDialog({ children }: CreateTemplateWorkflo
                 uploadHook.reset();
             } catch (error) {
                 console.error("Failed to create template workflow:", error);
+            } finally {
+                setIsCreating(false);
             }
         },
     });
@@ -347,6 +363,13 @@ export function CreateTemplateWorkflowDialog({ children }: CreateTemplateWorkflo
             );
         }
     };
+
+    // Reset loading state when dialog closes
+    useEffect(() => {
+        if (!open) {
+            setIsCreating(false);
+        }
+    }, [open]);
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
@@ -540,17 +563,17 @@ export function CreateTemplateWorkflowDialog({ children }: CreateTemplateWorkflo
                         type="submit"
                         className="inset-shadow-search-btn"
                         onClick={() => form.handleSubmit()}
-                        disabled={createTemplateWorkflowMutation.isPending || uploadHook.isUploading}
+                        disabled={isCreating || uploadHook.state.isUploading}
                     >
-                        {createTemplateWorkflowMutation.isPending && (
+                        {isCreating && (
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         )}
-                        Create Template
+                        {isCreating ? "Creating..." : "Create Template"}
                     </Button>
                 </DialogFooter>
-                {(createTemplateWorkflowMutation.isError || uploadHook.state.error) && (
+                {(createTemplateWorkflowMutation.isError || uploadHook.state.error) && !isCreating && (
                     <div className="text-red-500 text-sm mt-2">
-                        {uploadHook.state.error || (createTemplateWorkflowMutation.error as Error)?.message}
+                        Error
                     </div>
                 )}
             </DialogContent>
@@ -589,6 +612,7 @@ function AvatarUploader({
         },
     ] = useFileUpload({
         accept: "image/*",
+        maxFiles: 1
     });
 
     const previewUrl = files[0]?.preview || null;
@@ -611,7 +635,7 @@ function AvatarUploader({
             aria-label={previewUrl ? "Change image" : "Upload image"}
         >
             <div className="relative inline-flex">
-                <button className="relative flex size-[60px] items-center justify-center overflow-hidden rounded-[8px] border border-primary-100 border-dashed outline-none transition-colors hover:bg-accent/50 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 has-disabled:pointer-events-none has-[img]:border-none has-disabled:opacity-50 data-[dragging=true]:bg-accent/50">
+                <button type="button" className="relative flex size-[60px] items-center justify-center overflow-hidden rounded-[8px] border border-primary-100 border-dashed outline-none transition-colors hover:bg-accent/50 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 has-disabled:pointer-events-none has-[img]:border-none has-disabled:opacity-50 data-[dragging=true]:bg-accent/50">
                     {previewUrl ? (
                         <img
                             className="size-full object-cover"
@@ -632,6 +656,7 @@ function AvatarUploader({
                 </button>
                 {previewUrl && (
                     <Button
+                        type="button"
                         onClick={() => removeFile(files[0]?.id)}
                         size="icon"
                         className="-top-1 -right-1 absolute size-6 rounded-full border-2 border-background shadow-none focus-visible:border-background"

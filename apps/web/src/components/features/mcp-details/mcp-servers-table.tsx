@@ -25,8 +25,6 @@ import { Badge } from "@/components/ui/badge";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
 import { useAppStore, type McpServerData } from "@/lib/store";
 
-type ServerStatus = "active" | "inactive" | "pending";
-
 export const columns: ColumnDef<McpServerData>[] = [
     {
         accessorKey: "deploymentId",

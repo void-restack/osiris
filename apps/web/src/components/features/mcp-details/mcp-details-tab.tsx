@@ -10,9 +10,10 @@ import { useSuspenseQuery, useQuery } from "@tanstack/react-query";
 import { packageQueries } from "@/lib/queries";
 import { useAuth } from "@/hooks/use-auth";
 import { ToolCaseIcon } from "lucide-react";
-import { MarkdownRenderer } from "@/components/ui/markdown-renderer";
+import { StreamdownMarkdown } from "@/components/ui/streamdown-markdown";
 import { useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { MarkdownRenderer } from "@/components/ui/markdown-renderer";
 
 export function McpTabs() {
 	const { mcpId } = useParams({ from: "/_hub/mcp/$mcpId" });
@@ -89,6 +90,8 @@ export function McpTabs() {
 			return null;
 		}
 
+		console.log(deployment);
+
 		const deploymentUrl = deployment.url ?
 			`${deployment.url}?deploymentId=${deployment.deploymentId}` :
 			'No URL';
@@ -127,11 +130,14 @@ export function McpTabs() {
 			</TabsList>
 			<TabsContent value="readme">
 				<TabLayout>
-					<div className="w-full max-w-none">
+					<div className="w-full ">
 						{packageData?.description ? (
 							<ScrollArea className="h-[calc(100vh-200px)] hidebar">
-								<div className="rounded-lg max-h-[calc(100vh-480px)] hidebar overflow-y-auto">
-									<MarkdownRenderer
+								<div className="rounded-lg max-h-[calc(100vh-480px)] hidebar overflow-y-auto whitespace-normal">
+									{/* <MarkdownRenderer
+										content={packageData.description}
+									/> */}
+									<StreamdownMarkdown
 										content={packageData.description}
 									/>
 								</div>
