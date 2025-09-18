@@ -103,6 +103,11 @@ export function PermissionSelector({
     onSelectionChange?.(allPermissions);
   }, [filteredPermissions, onSelectionChange]);
 
+  const handleDeselectAll = useCallback(() => {
+    setSelectedPermissions([]);
+    onSelectionChange?.([]);
+  }, [onSelectionChange]);
+
   const areAllSelected = useMemo(() => {
     if (filteredPermissions.length === 0) return false;
     return filteredPermissions.every(permission => isPermissionSelected(permission.id));
@@ -152,17 +157,16 @@ export function PermissionSelector({
         />
       </div>
 
-      {/* Select All Button */}
+      {/* Select/Deselect All Button */}
       {filteredPermissions.length > 0 && (
         <div className="flex justify-end">
           <Button
             variant="ghost"
             size="sm"
-            onClick={handleSelectAll}
-            disabled={areAllSelected}
+            onClick={areAllSelected ? handleDeselectAll : handleSelectAll}
             className="text-xs h-7 px-2"
           >
-            {areAllSelected ? 'All Selected' : 'Select All'}
+            {areAllSelected ? 'Deselect All' : 'Select All'}
           </Button>
         </div>
       )}

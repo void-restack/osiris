@@ -44,7 +44,9 @@ function HomeComponent() {
 
             <div className="flex flex-row items-center gap-4 mt-6 md:mt-20">
               <Button icon={ArrowRight} iconPlacement="right" size="sm" onClick={startTour}>Take a tour</Button>
-              <Button icon={FileText} iconPlacement="left" variant="outline" size="sm">Read docs</Button>
+              <Link to="https://docs.osirislabs.xyz" target="_blank">
+                <Button icon={FileText} iconPlacement="left" variant="outline" size="sm">Read docs</Button>
+              </Link>
             </div>
 
             <img src="/homepage.svg" className="hidden md:block absolute bottom-0 -right-2 max-w-[360px]" />

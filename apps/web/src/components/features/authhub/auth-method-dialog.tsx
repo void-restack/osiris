@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Link2, Loader2, Loader, Plus, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -313,20 +313,35 @@ export function AuthMethodDialog({
 
   const renderOAuthForm = () => (
     <>
-      {Object.keys(method.scopeDefinitions).length > 0 ? (
-        <PermissionSelector
-          context="auth-method-dialog"
-          key={`auth-method-dialog-${method.clientId}`}
-          permissions={Object.entries(transformScopeDefinitions(method.name, method.scopeDefinitions)).map(([scope, label]) => ({
-            id: scope,
-            label: getScopeDisplayName(scope) || (label as string) || scope
-          }))}
-          placeholder="Search permissions..."
-          onSelectionChange={setSelectedScopes}
-        />
-      ) : (
-        null
-      )}
+      {Object.keys(method.scopeDefinitions).length > 0 ? (() => {
+        const allPerms = Object.entries(transformScopeDefinitions(method.name, method.scopeDefinitions)).map(([scope, label]) => ({
+          id: scope,
+          label: getScopeDisplayName(scope) || (label as string) || scope
+        }));
+        const allSelected = allPerms.length > 0 && selectedScopes.length === allPerms.length;
+        return (
+          <div className="space-y-2">
+            <div className="flex justify-end px-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs h-7 px-2"
+                onClick={() => setSelectedScopes(allSelected ? [] : allPerms)}
+              >
+                {allSelected ? 'Deselect All' : 'Select All'}
+              </Button>
+            </div>
+            <PermissionSelector
+              context="auth-method-dialog"
+              key={`auth-method-dialog-${method.clientId}`}
+              permissions={allPerms}
+              placeholder="Search permissions..."
+              initialSelected={selectedScopes}
+              onSelectionChange={setSelectedScopes}
+            />
+          </div>
+        );
+      })() : null}
     </>
   );
 

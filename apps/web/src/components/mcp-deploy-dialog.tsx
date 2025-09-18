@@ -425,7 +425,8 @@ export function McpDeployDialog({
       setSelectedConnections({});
       setPolicyJson('{\n  "allow": [{}],\n  "deny": []\n}');
       deployMutation.reset();
-    }, 300);
+      authorizeMutation.reset();
+    }, 100);
   };
 
   const handlePermissionSelect = useCallback((serviceName: string, permissions: Permission[]) => {
@@ -450,9 +451,9 @@ export function McpDeployDialog({
     setConnectingService(serviceName);
   }, [authMethods]);
 
-  const isPending = deployMutation.isPending && authorizeMutation.isPending;
+  const isPending = deployMutation.isPending || authorizeMutation.isPending;
   const isSuccess = deployMutation.isSuccess && authorizeMutation.isSuccess;
-  const isError = deployMutation.isError && authorizeMutation.isError;
+  const isError = deployMutation.isError || authorizeMutation.isError;
 
   const renderDeployForm = () => (
     <div className="flex flex-col px-4">
@@ -882,19 +883,19 @@ console.log(\`Available tools: \${tools.map(t => t.name).join(", ")}\`)`, 'TypeS
 
         <AlertDialogFooter className="flex w-full items-center justify-between rounded-b-[12px] border-t border-t-primary-100 bg-primary-25 px-4 py-2 sm:justify-end">
           {isSuccess ? (
-            <Button onClick={handleClose} className="gap-2">
+            <AlertDialogCancel onClick={handleClose} className="gap-2">
               <X className="size-4" />
               Close
-            </Button>
+            </AlertDialogCancel>
           ) : isError ? (
             <AlertDialogFooter className="flex w-full items-center rounded-b-[12px] bg-primary-25 px-4 py-1 sm:justify-end">
-              <Button onClick={handleClose}>
+              <AlertDialogCancel onClick={handleClose}>
                 Close
-              </Button>
+              </AlertDialogCancel>
             </AlertDialogFooter>
           ) : !isPending ? (
             <div className="w-full flex items-center justify-between">
-              <AlertDialogCancel className="bg-primary-50">
+              <AlertDialogCancel className="bg-primary-50" onClick={handleClose}>
                 Cancel
               </AlertDialogCancel>
               <AlertDialogAction
