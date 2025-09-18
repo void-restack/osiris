@@ -358,7 +358,7 @@ export function CreateTemplateWorkflowDialog({ children }: CreateTemplateWorkflo
                     </Button>
                 )}
             </DialogTrigger>
-            <DialogContent className="max-h-[80vh] hidebar">
+            <DialogContent className="max-h-[80vh] hidebar z-[100000]">
                 <DialogHeader>
                     <DialogTitle>Create New Template</DialogTitle>
                     <DialogDescription>

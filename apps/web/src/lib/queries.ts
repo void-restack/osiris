@@ -1583,11 +1583,22 @@ export const chatQueries = {
 
   myWorkflows: () => [...chatQueries.all(), "my-workflows"] as const,
 
-  myWorkflowsOptions: (enabled: boolean = true) =>
+  myWorkflowsOptions: (filters?: {
+    name?: string;
+    page?: number;
+    limit?: number;
+    isPublic?: boolean;
+  }) =>
     queryOptions({
-      queryKey: chatQueries.myWorkflows(),
+      queryKey: [...chatQueries.myWorkflows(), filters],
       queryFn: async () => {
-        const response = await api("/chat/workflows/my", {
+        const searchParams = new URLSearchParams();
+        if (filters?.name) searchParams.set("name", filters.name);
+        if (filters?.page) searchParams.set("page", String(filters.page));
+        if (filters?.limit) searchParams.set("limit", String(filters.limit));
+        if (filters?.isPublic !== undefined) searchParams.set("isPublic", String(filters.isPublic));
+
+        const response = await api(`/chat/workflows/my?${searchParams}`, {
           schema: responseSchema(
             z.object({
               data: z.array(
@@ -1626,7 +1637,6 @@ export const chatQueries = {
         }
         return response;
       },
-      enabled: enabled,
     }),
 
   // Template Workflow Queries
@@ -1974,6 +1984,7 @@ export const chatQueries = {
     name?: string;
     page?: number;
     limit?: number;
+    isPublic?: boolean;
   }) =>
     queryOptions({
       queryKey: [...chatQueries.templateWorkflows(), filters],
@@ -1982,6 +1993,7 @@ export const chatQueries = {
         if (filters?.name) searchParams.set("name", filters.name);
         if (filters?.page) searchParams.set("page", String(filters.page));
         if (filters?.limit) searchParams.set("limit", String(filters.limit));
+        if (filters?.isPublic !== undefined) searchParams.set("isPublic", String(filters.isPublic));
 
         const response = await api(`/chat/template-workflows?${searchParams}`, {
           schema: responseSchema(

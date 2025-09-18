@@ -4,6 +4,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { SidebarInset, SidebarProvider, useSidebar } from "@/components/ui/sidebar";
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useRouteChangeListener } from "@/hooks/use-route-change-listener";
 import { useAppStore } from "@/lib/store";
 import { EditConnectionSidebar } from "../edit-sidebar";
 import { McpServerEditSidebar } from "../mcp-server-edit-sidebar";
@@ -28,6 +29,8 @@ function HubLayoutInner({ children }: { children: React.ReactNode }) {
   } = useAppStore();
   const { setOpen } = useSidebar();
   const isMobile = useIsMobile();
+
+  useRouteChangeListener();
 
   useEffect(() => {
     setSidebarOpenCallback(setOpen);

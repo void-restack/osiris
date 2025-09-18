@@ -632,7 +632,7 @@ function RouteComponent() {
                       {user.name.charAt(0).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="flex flex-col">
+                  <div className="flex flex-col overflow-hidden">
                     <h3 className="text-sm truncate">{user.name}</h3>
                     <p className="text-[13px] truncate text-primary-300">{user.email}</p>
                   </div>

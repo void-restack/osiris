@@ -3,12 +3,11 @@ import { useQuery } from "@tanstack/react-query";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Command, CommandGroup, CommandItem, CommandList, CommandLoading, CommandEmpty } from "@/components/ui/command";
-import { chatQueries, packageQueries, knowledgeQueries } from "@/lib/queries";
+import { packageQueries, knowledgeQueries } from "@/lib/queries";
 import { useCreateAITemplateWorkflowMutation } from "@/lib/mutations";
 import { cn } from "@/lib/utils";
 import { Search, Loader2 } from "lucide-react";
 
-// Utility functions for caret positioning
 const properties = [
     "direction", "boxSizing", "width", "height", "overflowX", "overflowY",
     "borderTopWidth", "borderRightWidth", "borderBottomWidth", "borderLeftWidth", "borderStyle",
@@ -38,7 +37,6 @@ function getCaretCoordinates(element: HTMLElement, position: number) {
 
     style.overflow = "hidden";
 
-    // Get text content up to position
     const textContent = element.textContent || "";
     div.textContent = textContent.substring(0, position);
 
@@ -56,7 +54,6 @@ function getCaretCoordinates(element: HTMLElement, position: number) {
     return coordinates;
 }
 
-// Mention data interface
 interface MentionData {
     id: string;
     name: string;
@@ -82,13 +79,11 @@ export function WorkflowCreator({ className, onWorkflowCreated }: WorkflowCreato
 
     const createAITemplateWorkflowMutation = useCreateAITemplateWorkflowMutation();
 
-    // Get popular packages for @ trigger
     const popularPackagesQuery = useQuery({
         ...packageQueries.popularOptions(),
         enabled: triggerType === '@' && triggerQuery.length === 0,
     });
 
-    // Search for packages when @ is triggered with search query
     const packagesQuery = useQuery({
         ...packageQueries.listOptions({
             search: triggerQuery,
@@ -98,7 +93,6 @@ export function WorkflowCreator({ className, onWorkflowCreated }: WorkflowCreato
         enabled: triggerType === '@' && triggerQuery.length >= 1,
     });
 
-    // Get popular knowledge bases for # trigger
     const popularKnowledgeBasesQuery = useQuery({
         ...knowledgeQueries.popularOptions({
             isPublic: true,
@@ -107,7 +101,6 @@ export function WorkflowCreator({ className, onWorkflowCreated }: WorkflowCreato
         enabled: triggerType === '#' && triggerQuery.length === 0,
     });
 
-    // Search for knowledge bases when # is triggered with search query
     const knowledgeBasesQuery = useQuery({
         ...knowledgeQueries.searchOptions({
             query: triggerQuery,
@@ -159,7 +152,6 @@ export function WorkflowCreator({ className, onWorkflowCreated }: WorkflowCreato
 
     const isLoading = packagesQuery.isLoading || knowledgeBasesQuery.isLoading || popularPackagesQuery.isLoading || popularKnowledgeBasesQuery.isLoading;
 
-    // Get current word at cursor
     const getCurrentWordAtCursor = useCallback(() => {
         const selection = window.getSelection();
         if (!selection || !selection.rangeCount) return { word: '', range: null };
@@ -172,7 +164,6 @@ export function WorkflowCreator({ className, onWorkflowCreated }: WorkflowCreato
         const text = textNode.textContent || '';
         const caretPos = range.startOffset;
 
-        // Find word boundaries
         let start = caretPos;
         while (start > 0 && /\S/.test(text[start - 1])) {
             start--;
@@ -193,7 +184,6 @@ export function WorkflowCreator({ className, onWorkflowCreated }: WorkflowCreato
         return { word, range: wordRange };
     }, []);
 
-    // Handle input changes in contentEditable
     const handleInput = useCallback(() => {
         const editor = editorRef.current;
         const dropdown = dropdownRef.current;
@@ -224,7 +214,6 @@ export function WorkflowCreator({ className, onWorkflowCreated }: WorkflowCreato
         }
     }, [getCurrentWordAtCursor]);
 
-    // Handle suggestion selection
     const handleSuggestionSelect = useCallback((suggestion: any) => {
         const editor = editorRef.current;
         if (!editor) return;
@@ -232,7 +221,6 @@ export function WorkflowCreator({ className, onWorkflowCreated }: WorkflowCreato
         const { word, range } = getCurrentWordAtCursor();
 
         if (range && triggerType) {
-            // Create mention span
             const mentionSpan = document.createElement('span');
             mentionSpan.className = cn(
                 'inline-flex items-center px-1 rounded-sm font-medium',
@@ -246,7 +234,6 @@ export function WorkflowCreator({ className, onWorkflowCreated }: WorkflowCreato
             mentionSpan.setAttribute('data-mention-name', suggestion.name);
             mentionSpan.textContent = suggestion.displayValue;
 
-            // Store mention data
             const mentionData: MentionData = {
                 id: suggestion.id,
                 name: suggestion.name,
@@ -257,11 +244,9 @@ export function WorkflowCreator({ className, onWorkflowCreated }: WorkflowCreato
 
             setMentions(prev => new Map(prev).set(suggestion.id, mentionData));
 
-            // Replace the trigger text with mention span
             range.deleteContents();
             range.insertNode(mentionSpan);
 
-            // Move cursor after the mention
             const newRange = document.createRange();
             newRange.setStartAfter(mentionSpan);
             newRange.setEndAfter(mentionSpan);
@@ -272,7 +257,6 @@ export function WorkflowCreator({ className, onWorkflowCreated }: WorkflowCreato
                 selection.addRange(newRange);
             }
 
-            // Add a space after mention
             const spaceNode = document.createTextNode(' ');
             newRange.insertNode(spaceNode);
             newRange.setStartAfter(spaceNode);
@@ -347,7 +331,6 @@ export function WorkflowCreator({ className, onWorkflowCreated }: WorkflowCreato
             // Reset editor
             editor.innerHTML = '';
             setMentions(new Map());
-            onWorkflowCreated?.();
         } catch (error) {
             console.error('Failed to create workflow:', error);
         }
@@ -392,7 +375,7 @@ export function WorkflowCreator({ className, onWorkflowCreated }: WorkflowCreato
                 </span>
             </div>
 
-            <div className="mx-auto flex max-w-md sm:max-w-full lg:max-w-[712px] flex-col gap-3 rounded-[18px] bg-primary-25 p-3 sm:p-4 shadow-[inset_0_1px_2px_0_rgba(0,0,0,0.05)] drop-shadow-[0_1px_1px_rgba(0,0,0,0.08)] relative z-[100000]">
+            <div className="mx-auto flex max-w-md sm:max-w-full lg:max-w-[712px] flex-col gap-3 rounded-[18px] bg-primary-25 p-3 sm:p-4 shadow-[inset_0_1px_2px_0_rgba(0,0,0,0.05)] drop-shadow-[0_1px_1px_rgba(0,0,0,0.08)] relative z-20">
                 {/* Rich Text Editor */}
                 <div className="relative">
                     <div className="relative h-[120px] overflow-visible">
