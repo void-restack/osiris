@@ -1,3 +1,4 @@
+import React from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import HubLayout from "@/components/layouts/hub-layout";
@@ -10,6 +11,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { knowledgeQueries, packageQueries } from "@/lib/queries";
 import { useAppTour } from "@/hooks/use-tour";
+import { useAppStore } from "@/lib/store";
 
 export const Route = createFileRoute("/")({
   component: HomeComponent,

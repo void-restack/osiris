@@ -11,7 +11,9 @@ import { McpServerEditSidebar } from "../mcp-server-edit-sidebar";
 import { OAuthClientEditSidebar } from "../oauth-client-edit-sidebar";
 import { WorkflowEditSidebar } from "../workflow-edit-sidebar";
 import { WorkflowExecutionSidebar } from "../workflow-execution-sidebar";
-
+import { MainChatSidebar } from "../main-chat-sidebar";
+import { FloatingChatButton } from "../floating-chat-button";
+import { useLocation } from "@tanstack/react-router";
 
 function HubLayoutInner({ children }: { children: React.ReactNode }) {
   const {
@@ -25,10 +27,15 @@ function HubLayoutInner({ children }: { children: React.ReactNode }) {
     closeWorkflowEditSidebar,
     isWorkflowExecutionSidebarOpen,
     closeWorkflowExecutionSidebar,
+    isMainChatSidebarOpen,
     setSidebarOpenCallback
   } = useAppStore();
   const { setOpen } = useSidebar();
   const isMobile = useIsMobile();
+  const location = useLocation();
+
+  // Check if we're on the index page
+  const isIndexPage = location.pathname === "/";
 
   useRouteChangeListener();
 
@@ -36,10 +43,21 @@ function HubLayoutInner({ children }: { children: React.ReactNode }) {
     setSidebarOpenCallback(setOpen);
   }, [setOpen, setSidebarOpenCallback]);
 
+  // Auto-open sidebar on index page, auto-close on other pages
+  useEffect(() => {
+    if (isIndexPage) {
+      const { openMainChatSidebar } = useAppStore.getState();
+      openMainChatSidebar();
+    } else {
+      const { closeMainChatSidebar } = useAppStore.getState();
+      closeMainChatSidebar();
+    }
+  }, [isIndexPage]);
+
   return (
     <>
       <AppSidebar />
-      <SidebarInset className={(isEditSidebarOpen || isWorkflowEditSidebarOpen || isWorkflowExecutionSidebarOpen) && !isMobile ? "flex-1" : ""}>
+      <SidebarInset className={(isEditSidebarOpen || isWorkflowEditSidebarOpen || isWorkflowExecutionSidebarOpen || (isMainChatSidebarOpen && isIndexPage)) && !isMobile ? "flex-1" : ""}>
         {children}
       </SidebarInset>
       {isEditSidebarOpen && !isMobile && (
@@ -65,6 +83,11 @@ function HubLayoutInner({ children }: { children: React.ReactNode }) {
       {isWorkflowExecutionSidebarOpen && !isMobile && (
         <SidebarInset className="w-full max-w-[448px] border-primary-100 border-l bg-white md:w-[448px]">
           <WorkflowExecutionSidebar />
+        </SidebarInset>
+      )}
+      {isMainChatSidebarOpen && !isMobile && (
+        <SidebarInset className="w-full max-w-[448px] border-primary-100 border-l bg-white md:w-[448px]">
+          <MainChatSidebar />
         </SidebarInset>
       )}
       {isMobile && (
@@ -96,6 +119,9 @@ function HubLayoutInner({ children }: { children: React.ReactNode }) {
           </Drawer>
         </>
       )}
+
+      {/* Floating chat button for non-index pages */}
+      {!isIndexPage && <FloatingChatButton />}
     </>
   );
 }

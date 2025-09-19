@@ -42,7 +42,6 @@ export const useWorkflowStream = (executionId: string | null) => {
             'Authorization': `Bearer ${token}`,
             'Accept': 'text/event-stream',
             'Cache-Control': 'no-cache',
-            'Content-Type': 'application/json',
         };
     };
 
