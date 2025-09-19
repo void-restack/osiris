@@ -220,6 +220,23 @@ export function ChatPromptInput({ onSubmit, isLoading, placeholder = "Type your 
                     bubbles: true
                 } as any));
             }
+        } else if (e.key === "Enter") {
+            // Don't submit if IME composition is in progress
+            if (e.nativeEvent.isComposing) {
+                return;
+            }
+
+            if (e.shiftKey) {
+                // Allow newline
+                return;
+            }
+
+            // Submit on Enter (without Shift)
+            e.preventDefault();
+            const form = (e.currentTarget as HTMLTextAreaElement).form;
+            if (form) {
+                form.requestSubmit();
+            }
         }
     }, [isDropdownVisible, triggerType]);
 
