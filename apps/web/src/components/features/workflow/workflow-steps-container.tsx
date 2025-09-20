@@ -289,7 +289,7 @@ export default function WorkflowStepsContainer({ workflowData, isTemplate = fals
                                         index={index}
                                         onEdit={isOwner ? handleEditStep : undefined}
                                         onDelete={isOwner ? handleDeleteStep : undefined}
-                                        className={cn(index === 0 ? "rounded-lg" : "", index === steps.length - 1 ? "rounded-lg" : "")}
+                                        className={cn(!isOwner ? "border-y border-y-primary-100" : "")}
                                     />
                                 </div>
                                 {isOwner && (
