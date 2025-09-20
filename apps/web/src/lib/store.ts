@@ -147,6 +147,8 @@ interface AppState {
   selectedWorkflowExecution: WorkflowExecutionData | null;
   isWorkflowExecutionSidebarOpen: boolean;
 
+  isMainChatSidebarOpen: boolean;
+
 
   openEditSidebar: (
     connection: UserServiceConnection,
@@ -172,6 +174,9 @@ interface AppState {
   openWorkflowExecutionSidebar: (execution: WorkflowExecutionData) => void;
   closeWorkflowExecutionSidebar: () => void;
   updateSelectedWorkflowExecution: (execution: WorkflowExecutionData) => void;
+
+  openMainChatSidebar: () => void;
+  closeMainChatSidebar: () => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -197,6 +202,8 @@ export const useAppStore = create<AppState>()(
 
       selectedWorkflowExecution: null,
       isWorkflowExecutionSidebarOpen: false,
+
+      isMainChatSidebarOpen: false,
 
 
       openEditSidebar: (connection, serviceClient) => {
@@ -352,6 +359,12 @@ export const useAppStore = create<AppState>()(
 
       updateSelectedWorkflowExecution: (execution) =>
         set({ selectedWorkflowExecution: execution }),
+
+      openMainChatSidebar: () =>
+        set({ isMainChatSidebarOpen: true }),
+
+      closeMainChatSidebar: () =>
+        set({ isMainChatSidebarOpen: false }),
 
     }),
     {

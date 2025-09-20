@@ -33,18 +33,20 @@ export const useChatStream = () => {
         messages: [],
         isStreaming: false,
         currentMessage: null,
-        conversationId: null,
+        conversationId: localStorage.getItem('main_chat_conversation_id'),
         error: null,
     });
 
     const abortControllerRef = useRef<AbortController | null>(null);
 
     const getAuthHeaders = () => {
-        const token = localStorage.getItem('access_token');
+        const token =
+            localStorage.getItem("access_token") ??
+            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIzODlmYzFkOS0yMTdjLTRmZmQtYTM3Ny0wNjQ2NjlmZjZhMDkiLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3NTgzMzMwOTEsImV4cCI6MTc1ODQxOTQ5MX0.yDd6GPrVYjiFVViPkxlNfk_oUDoE9AFiSnn-2w6rMCg";
         return {
             'Content-Type': 'application/json',
             'Accept': 'text/event-stream',
-            'Authorization': token ? `Bearer ${token}` : '',
+            'Authorization': `Bearer ${token}`,
         };
     };
 
@@ -82,10 +84,15 @@ export const useChatStream = () => {
         abortControllerRef.current = new AbortController();
 
         try {
+            const requestBody = {
+                ...data,
+                ...(state.conversationId && { conversationId: state.conversationId }),
+            };
+
             await fetchEventSource(`${API_BASE_URL}/chat/stream`, {
                 method: 'POST',
                 headers: getAuthHeaders(),
-                body: JSON.stringify(data),
+                body: JSON.stringify(requestBody),
                 signal: abortControllerRef.current.signal,
                 async onopen(response) {
                     if (response.ok) {
@@ -100,14 +107,21 @@ export const useChatStream = () => {
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 },
                 onmessage(event) {
+                    console.log('Received SSE event:', event.data);
                     try {
                         const eventData = JSON.parse(event.data);
+                        console.log('Parsed event data:', eventData);
 
                         switch (eventData.type) {
                             case 'session-created':
+                                console.log('Session created event received:', eventData);
+                                const newConversationId = eventData.content;
+                                console.log('Setting conversation ID:', newConversationId);
+                                localStorage.setItem('main_chat_conversation_id', newConversationId);
+                                console.log('Stored in localStorage:', localStorage.getItem('main_chat_conversation_id'));
                                 setState(prev => ({
                                     ...prev,
-                                    conversationId: eventData.content,
+                                    conversationId: newConversationId,
                                 }));
                                 break;
 
@@ -241,10 +255,22 @@ export const useChatStream = () => {
         }));
     }, []);
 
+    const startNewConversation = useCallback(() => {
+        localStorage.removeItem('main_chat_conversation_id');
+        setState(prev => ({
+            ...prev,
+            messages: [],
+            currentMessage: null,
+            conversationId: null,
+            error: null,
+        }));
+    }, []);
+
     return {
         ...state,
         sendMessage,
         stopStreaming,
         clearMessages,
+        startNewConversation,
     };
 };

@@ -356,11 +356,6 @@ export function EditConnectionSidebar() {
             {saveButtonText}
           </Button>
         </div>
-        {hasChanges && (
-          <p className="text-xs text-primary-500 text-center">
-            You have unsaved changes
-          </p>
-        )}
       </div>
     </div>
   );
@@ -467,7 +462,6 @@ const DatabaseFields = ({
         </div>
         {hasLocalChanges && (
           <div className="flex items-center justify-between">
-            <p className="text-xs text-amber-600">You have unsaved changes</p>
             <Button
               variant="outline"
               size="sm"
