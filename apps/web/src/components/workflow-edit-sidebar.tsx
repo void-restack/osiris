@@ -6,7 +6,6 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useAppStore, type WorkflowData } from "@/lib/store";
-import { Separator } from "./ui/separator";
 import { useUpdateWorkflowMutation } from "@/lib/mutations";
 import { WorkflowTriggers } from "./features/workflow/workflow-triggers";
 
@@ -102,10 +101,10 @@ export function WorkflowEditSidebar() {
     }
 
     return (
-        <div>
-            <div className="flex items-center justify-between p-6 border-b border-gray-200 relative group">
+        <div className="flex flex-col h-full">
+            <div className="flex items-center justify-between p-6 border-b border-primary-100 relative group">
                 <div className="flex flex-col flex-1 mr-4">
-                    <h2 className="text-lg font-medium text-gray-900">Workflow</h2>
+                    <h2 className="text-lg font-semibold text-primary-800">Workflow</h2>
                     {isEditingTitle ? (
                         <div className="flex items-center gap-2 mt-1">
                             <Input
@@ -142,7 +141,7 @@ export function WorkflowEditSidebar() {
                         </div>
                     ) : (
                         <div className="flex items-center gap-2 mt-1">
-                            <p className="text-sm text-gray-500">{selectedWorkflow.title}</p>
+                            <p className="text-sm text-primary-400">{selectedWorkflow.title}</p>
                             <Button
                                 variant="ghost"
                                 size="sm"
@@ -164,45 +163,55 @@ export function WorkflowEditSidebar() {
                 </Button>
             </div>
 
-            <div className="p-6 space-y-6 max-h-[calc(100vh-80px)] overflow-y-auto">
-                {/* Privacy settings */}
-                <div className="space-y-4">
-                    <h3 className="text-sm font-medium text-gray-900">Privacy settings</h3>
-                    <RadioGroup
-                        value={isPublic ? "public" : "private"}
-                        onValueChange={(value) => setIsPublic(value === "public")}
+            <div className="flex-1 overflow-y-auto p-6">
+                <div className="space-y-6">
+                    {/* Privacy settings */}
+                    <div className="space-y-[6px]">
+                        <Label className="text-[13px] text-primary-400">Privacy Settings</Label>
+                        <RadioGroup
+                            value={isPublic ? "public" : "private"}
+                            onValueChange={(value) => setIsPublic(value === "public")}
+                        >
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="public" id="public" />
+                                <Label htmlFor="public" className="cursor-pointer text-sm text-primary-600">
+                                    Public
+                                </Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="private" id="private" />
+                                <Label htmlFor="private" className="cursor-pointer text-sm text-primary-600">
+                                    Private
+                                </Label>
+                            </div>
+                        </RadioGroup>
+                        <p className="text-xs text-primary-400">
+                            {isPublic ? "Others can discover and use this workflow." : "Only you can access this workflow."}
+                        </p>
+                    </div>
+
+                    <div className="border-t border-t-primary-100 border-dashed" />
+
+                    {/* Triggers */}
+                    <div className="space-y-[6px]">
+                        <Label className="text-[13px] text-primary-400">Triggers</Label>
+                        <WorkflowTriggers
+                            workflowData={selectedWorkflow}
+                            onUpdate={handleTriggerUpdate}
+                        />
+                    </div>
+                </div>
+            </div>
+
+            <div className="p-6 border-t border-primary-100 space-y-3">
+                <div className="flex gap-3">
+                    <Button
+                        variant="outline"
+                        onClick={closeWorkflowEditSidebar}
+                        className="flex-1"
                     >
-                        <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="public" id="public" />
-                            <Label htmlFor="public" className="cursor-pointer">
-                                Public
-                            </Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="private" id="private" />
-                            <Label htmlFor="private" className="cursor-pointer">
-                                Private
-                            </Label>
-                        </div>
-                    </RadioGroup>
-                    <p className="text-xs text-gray-500">
-                        {isPublic ? "Others can discover and use this workflow." : "Only you can access this workflow."}
-                    </p>
-                </div>
-
-                <Separator />
-
-                {/* Triggers */}
-                <div className="space-y-4">
-                    <h3 className="text-sm font-medium text-gray-900">Triggers</h3>
-                    <WorkflowTriggers
-                        workflowData={selectedWorkflow}
-                        onUpdate={handleTriggerUpdate}
-                    />
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex gap-3 pt-4 absolute bottom-0 left-0 right-0 mx-6">
+                        Cancel
+                    </Button>
                     <Button
                         onClick={handleSave}
                         disabled={!hasChanges || isLoading}
@@ -216,13 +225,6 @@ export function WorkflowEditSidebar() {
                         ) : (
                             "Save Changes"
                         )}
-                    </Button>
-                    <Button
-                        variant="outline"
-                        onClick={closeWorkflowEditSidebar}
-                        className="flex-1"
-                    >
-                        Close
                     </Button>
                 </div>
             </div>

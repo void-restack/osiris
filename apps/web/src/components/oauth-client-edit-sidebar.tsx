@@ -6,8 +6,6 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useAppStore } from "@/lib/store";
-import { Badge } from "./ui/badge";
-import { Separator } from "./ui/separator";
 import { useUpdateOAuthClientMutation, useRegenerateOAuthSecretMutation } from "@/lib/mutations";
 import { useQuery } from "@tanstack/react-query";
 import { hubQueries } from "@/lib/queries";
@@ -146,9 +144,11 @@ export function OAuthClientEditSidebar() {
     }
 
     return (
-        <div >
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-                <h2 className="text-lg font-medium text-gray-900">Edit OAuth Client</h2>
+        <div className="flex flex-col h-full">
+            <div className="flex items-center justify-between p-6 border-b border-primary-100">
+                <div className="flex flex-col">
+                    <h2 className="text-lg font-semibold text-primary-800">Edit OAuth Client</h2>
+                </div>
                 <Button
                     variant="ghost"
                     size="sm"
@@ -159,113 +159,110 @@ export function OAuthClientEditSidebar() {
                 </Button>
             </div>
 
-            <div className="p-6 space-y-6">
+            <div className="flex-1 overflow-y-auto p-6">
                 {isClientDataLoading ? (
                     <div className="flex items-center justify-center py-8">
-                        <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+                        <Loader2 className="h-6 w-6 animate-spin text-primary-400" />
                     </div>
                 ) : (
-                    <>
+                    <div className="space-y-6">
                         {/* Client Info */}
-                        <div className="space-y-4">
-                            <div>
-                                <Label className="text-sm font-medium text-gray-700">Client ID</Label>
-                                <div className="flex items-center gap-2 mt-1">
-                                    <Input
-                                        value={selectedOAuthClient.clientId}
-                                        readOnly
-                                        className="font-mono text-xs bg-gray-50"
-                                    />
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={handleCopyClientId}
-                                    >
-                                        <Copy className="h-3 w-3" />
-                                    </Button>
+                        <div className="space-y-[6px]">
+                            <Label className="text-[13px] text-primary-400">Client ID</Label>
+                            <div className="flex items-center gap-2">
+                                <div className="rounded-md bg-primary-50 px-3 py-2 font-mono text-primary-400 text-sm truncate flex-1" title={selectedOAuthClient.clientId}>
+                                    {selectedOAuthClient.clientId}
                                 </div>
-                            </div>
-
-                            <div>
-                                <Label className="text-sm font-medium text-gray-700">Created</Label>
-                                <p className="text-sm text-gray-500 mt-1">
-                                    {formatRelativeTime(selectedOAuthClient.createdAt)}
-                                </p>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={handleCopyClientId}
+                                    className="h-8 w-8 p-0"
+                                >
+                                    <Copy className="h-4 w-4" />
+                                </Button>
                             </div>
                         </div>
 
-                        <Separator />
+                        <div className="space-y-[6px]">
+                            <Label className="text-[13px] text-primary-400">Created</Label>
+                            <div className="rounded-md bg-primary-50 px-3 py-2 text-sm text-primary-400">
+                                {formatRelativeTime(selectedOAuthClient.createdAt)}
+                            </div>
+                        </div>
+
+                        <div className="border-t border-t-primary-100 border-dashed" />
 
                         {/* Editable Fields */}
-                        <div className="space-y-4">
-                            <div>
-                                <Label htmlFor="client-name" className="text-sm font-medium text-gray-700">
-                                    Client Name *
-                                </Label>
-                                <Input
-                                    id="client-name"
-                                    value={name}
-                                    onChange={(e) => setName(e.target.value)}
-                                    placeholder="My Application"
-                                    className="mt-1"
-                                />
-                            </div>
+                        <div className="space-y-[6px]">
+                            <Label htmlFor="client-name" className="text-[13px] text-primary-400">
+                                Client Name
+                            </Label>
+                            <Input
+                                id="client-name"
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                placeholder="My Application"
+                                className="w-full"
+                            />
+                        </div>
 
-                            <div>
-                                <Label htmlFor="client-description" className="text-sm font-medium text-gray-700">
-                                    Description
-                                </Label>
-                                <Textarea
-                                    id="client-description"
-                                    value={description}
-                                    onChange={(e) => setDescription(e.target.value)}
-                                    placeholder="A brief description of your application"
-                                    rows={3}
-                                    className="mt-1"
-                                />
-                            </div>
+                        <div className="space-y-[6px]">
+                            <Label htmlFor="client-description" className="text-[13px] text-primary-400">
+                                Description
+                            </Label>
+                            <Textarea
+                                id="client-description"
+                                value={description}
+                                onChange={(e) => setDescription(e.target.value)}
+                                placeholder="A brief description of your application"
+                                rows={3}
+                                className="w-full"
+                            />
+                        </div>
 
-                            <div>
-                                <Label className="text-sm font-medium text-gray-700">
-                                    Redirect URIs *
-                                </Label>
-                                <div className="space-y-2 mt-1">
-                                    {redirectUris.map((uri, index) => (
-                                        <div key={index} className="flex items-center gap-2">
-                                            <Input
-                                                value={uri}
-                                                onChange={(e) => handleUpdateRedirectUri(index, e.target.value)}
-                                                placeholder="http://localhost:3000/callback"
-                                            />
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => handleRemoveRedirectUri(index)}
-                                                disabled={redirectUris.length === 1}
-                                            >
-                                                <Trash2 className="h-3 w-3" />
-                                            </Button>
-                                        </div>
-                                    ))}
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={handleAddRedirectUri}
-                                        className="w-full"
-                                    >
-                                        <Plus className="h-3 w-3 mr-2" />
-                                        Add Redirect URI
-                                    </Button>
-                                </div>
+                        <div className="space-y-[6px]">
+                            <Label className="text-[13px] text-primary-400">
+                                Redirect URIs
+                            </Label>
+                            <div className="space-y-2">
+                                {redirectUris.map((uri, index) => (
+                                    <div key={index} className="flex items-center gap-2">
+                                        <Input
+                                            value={uri}
+                                            onChange={(e) => handleUpdateRedirectUri(index, e.target.value)}
+                                            placeholder="http://localhost:3000/callback"
+                                            className="flex-1"
+                                        />
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => handleRemoveRedirectUri(index)}
+                                            disabled={redirectUris.length === 1}
+                                            className="h-8 w-8 p-0"
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                ))}
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handleAddRedirectUri}
+                                    className="w-full"
+                                >
+                                    <Plus className="h-4 w-4 mr-2" />
+                                    Add Redirect URI
+                                </Button>
                             </div>
                         </div>
 
-                        <Separator />
+                        <div className="border-t border-t-primary-100 border-dashed" />
 
                         {/* Client Secret Section */}
-                        <div className="space-y-4">
+                        <div className="space-y-[6px]">
                             <div className="flex items-center justify-between">
-                                <Label className="text-sm font-medium text-gray-700">Client Secret</Label>
+                                <Label className="text-[13px] text-primary-400">Client Secret</Label>
                                 <Button
                                     variant="outline"
                                     size="sm"
@@ -285,66 +282,58 @@ export function OAuthClientEditSidebar() {
                                         <Input
                                             value={clientSecret}
                                             readOnly
-                                            className="font-mono text-xs"
+                                            className="font-mono text-xs flex-1"
                                             type="password"
                                         />
                                         <Button
-                                            variant="outline"
+                                            variant="ghost"
                                             size="sm"
                                             onClick={handleCopyClientSecret}
+                                            className="h-8 w-8 p-0"
                                         >
-                                            <Copy className="h-3 w-3" />
+                                            <Copy className="h-4 w-4" />
                                         </Button>
                                     </div>
-                                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                                        <p className="text-xs text-yellow-800">
+                                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                                        <p className="text-xs text-amber-800">
                                             <strong>Important:</strong> Store this secret securely. You won't be able to see it again after closing this panel.
                                         </p>
                                     </div>
                                 </div>
                             ) : (
-                                <p className="text-xs text-gray-500">
+                                <p className="text-xs text-primary-400">
                                     The client secret is hidden for security. Use "Regenerate Secret" to create a new one.
                                 </p>
                             )}
                         </div>
-
-                        <Separator />
-
-                        {/* Action Buttons */}
-                        <div className="flex gap-3">
-                            <Button
-                                onClick={handleSave}
-                                disabled={!hasChanges || isLoading}
-                                className="flex-1"
-                            >
-                                {isLoading ? (
-                                    <>
-                                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                                        Saving...
-                                    </>
-                                ) : (
-                                    "Save Changes"
-                                )}
-                            </Button>
-                            <Button
-                                variant="outline"
-                                onClick={closeOAuthClientEditSidebar}
-                                className="flex-1"
-                            >
-                                Close
-                            </Button>
-                        </div>
-
-                        {hasChanges && (
-                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                                <p className="text-xs text-blue-800">
-                                    You have unsaved changes. Click "Save Changes" to apply them.
-                                </p>
-                            </div>
-                        )}
-                    </>
+                    </div>
                 )}
+            </div>
+
+            <div className="p-6 border-t border-primary-100 space-y-3">
+                <div className="flex gap-3">
+                    <Button
+                        variant="outline"
+                        onClick={closeOAuthClientEditSidebar}
+                        className="flex-1"
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        onClick={handleSave}
+                        className="flex-1"
+                        disabled={!hasChanges || isLoading}
+                    >
+                        {isLoading ? (
+                            <>
+                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                Saving...
+                            </>
+                        ) : (
+                            "Save Changes"
+                        )}
+                    </Button>
+                </div>
             </div>
         </div>
     );

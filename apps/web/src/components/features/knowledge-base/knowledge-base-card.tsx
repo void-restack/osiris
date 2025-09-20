@@ -14,13 +14,21 @@ export function KnowledgeBaseCard({
   knowledgeBaseId,
   publicMetadata,
 }: KnowledgeBase) {
+  console.log({
+    name,
+    description,
+    coverImageUrl,
+    iconUrl,
+    knowledgeBaseId,
+    publicMetadata,
+  })
   const [localRating, setLocalRating] = useState(publicMetadata.rating);
   return (
     <section className="flex flex-col gap-y-4 relative hover:shadow-sm">
       <div className="relative h-[120px]">
         <img
           className="h-[120px] w-full rounded-[8px] object-cover object-center"
-          src={coverImageUrl ?? ""}
+          src={coverImageUrl ? coverImageUrl : "/default_knowledge_base_img.png"}
           alt={name}
         />
         <div className="absolute top-0 right-0 bottom-0 left-0 rounded-[8px] bg-black/10">
