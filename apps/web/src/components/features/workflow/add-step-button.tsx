@@ -8,7 +8,7 @@ interface AddStepButtonProps {
 
 export function AddStepButton({ onAddStep, insertIndex }: AddStepButtonProps) {
     return (
-        <div className="flex justify-center">
+        <div className="flex justify-center w-full">
             <Button
                 variant="outline"
                 onClick={() => onAddStep(insertIndex)}

@@ -5,6 +5,7 @@ import { Input } from "./input";
 import { Button } from "./button";
 import { ScrollArea } from "./scroll-area";
 import { extractScopeUrl } from "@/lib/scope-utils";
+import { Separator } from "./separator";
 
 export type Permission = {
   id: string;
@@ -52,7 +53,6 @@ export function PermissionSelector({
       let newSelection: Permission[];
 
       if (checked) {
-        // Check if already exists (handle scope normalization)
         const alreadyExists = prev.some(p => {
           const normalizedSelected = extractScopeUrl(p.id);
           const normalizedNew = permission.id;
@@ -61,7 +61,6 @@ export function PermissionSelector({
 
         newSelection = alreadyExists ? prev : [...prev, { ...permission }];
       } else {
-        // Remove permission (handle scope normalization)
         newSelection = prev.filter(p => {
           const normalizedSelected = extractScopeUrl(p.id);
           const normalizedTarget = permission.id;
@@ -78,8 +77,6 @@ export function PermissionSelector({
     return selectedPermissions.some(permission => {
       const normalizedSelected = extractScopeUrl(permission.id);
       return normalizedSelected === permissionId || permission.id === permissionId;
-      // const normalizedPermission = extractScopeUrl(permissionId);
-      // return normalizedSelected === normalizedPermission || permission.id === permissionId;
     });
   }, [selectedPermissions]);
 
@@ -97,21 +94,6 @@ export function PermissionSelector({
     id.replace(/[^a-zA-Z0-9-_]/g, '-'), []
   );
 
-  const handleSelectAll = useCallback(() => {
-    const allPermissions = filteredPermissions.map(p => ({ ...p }));
-    setSelectedPermissions(allPermissions);
-    onSelectionChange?.(allPermissions);
-  }, [filteredPermissions, onSelectionChange]);
-
-  const handleDeselectAll = useCallback(() => {
-    setSelectedPermissions([]);
-    onSelectionChange?.([]);
-  }, [onSelectionChange]);
-
-  const areAllSelected = useMemo(() => {
-    if (filteredPermissions.length === 0) return false;
-    return filteredPermissions.every(permission => isPermissionSelected(permission.id));
-  }, [filteredPermissions, isPermissionSelected]);
 
   useEffect(() => {
     if (selectedsContainerRef.current) {
@@ -145,93 +127,77 @@ export function PermissionSelector({
   }
 
   return (
-    <div className="h-full max-w-lg space-y-4">
-      <div className="relative">
-        <Search className="-translate-y-1/2 absolute top-1/2 left-3 h-4 w-4 transform text-muted-foreground" />
+    <div className="h-full max-w-lg space-y-4 bg-primary-25  rounded-[6px]">
+      <div className="relative m-2 pt-2">
+        <Search className="-translate-y-1/5 absolute top-1/2 left-3 h-4 w-4 transform text-muted-foreground" />
         <Input
           type="text"
           placeholder={placeholder}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-9"
+          className="pl-9 border-none inset-shadow-search"
         />
       </div>
 
-      {/* Select/Deselect All Button */}
-      {filteredPermissions.length > 0 && (
-        <div className="flex justify-end">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={areAllSelected ? handleDeselectAll : handleSelectAll}
-            className="text-xs h-7 px-2"
-          >
-            {areAllSelected ? 'Deselect All' : 'Select All'}
-          </Button>
-        </div>
-      )}
+      <Separator className="h-0 border-t border-dashed bg-transparent" />
+
 
       {/* Selected Permissions */}
       {selectedPermissions.length > 0 && (
-        <div className="mb-4">
-          <h3 className="mb-2 text-[13px]">Selected Permissions ({selectedPermissions.length})</h3>
-          <ScrollArea className="max-h-20 overflow-y-scroll">
-            <div className="flex flex-wrap gap-2 pr-4" ref={selectedsContainerRef}>
-              {selectedPermissions.map((permission, index) => (
-                <div
-                  key={`selected-${permission.id}-${index}`}
-                  className="flex items-center gap-1.5 rounded-md bg-primary-50 px-2 py-0.5 text-[13px]"
+        <div className="mb-4 overflow-y-auto hidebar max-h-20 px-2">
+          <div className="flex flex-wrap gap-2 pr-4" ref={selectedsContainerRef}>
+            {selectedPermissions.map((permission, index) => (
+              <div
+                key={`selected-${permission.id}-${index}`}
+                className="flex items-center gap-1.5 rounded-md bg-primary-100/50 px-2 py-0.5 text-[13px]"
+              >
+                <span className="font-medium text-xs">{permission.label}</span>
+                <button
+                  type="button"
+                  onClick={() => removeSelectedPermission(permission.id)}
+                  className="rounded-full p-0.5 transition-colors hover:bg-muted"
                 >
-                  <span className="font-medium text-xs">{permission.label}</span>
-                  <button
-                    type="button"
-                    onClick={() => removeSelectedPermission(permission.id)}
-                    className="rounded-full p-0.5 transition-colors hover:bg-muted"
-                  >
-                    <X className="h-3 w-3 text-muted-foreground" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </ScrollArea>
+                  <X className="h-3 w-3 text-muted-foreground" />
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
       {/* Available Permissions */}
-      {/* <ScrollArea className="h-full max-h-72 overflow-y-scroll"> */}
-      <ScrollArea className="max-h-20 overflow-y-scroll">
-        <div className="space-y-4 px-3">
-          {filteredPermissions.length > 0 ? (
-            filteredPermissions.map((permission) => {
-              const checked = isPermissionSelected(permission.id);
-              const checkboxId = `checkbox-${context}-${sanitizeId(permission.id)}`;
+      <div className="space-y-4 overflow-y-auto hidebar max-h-[180px] px-2">
+        {filteredPermissions.length > 0 ? (
+          filteredPermissions.map((permission) => {
+            const checked = isPermissionSelected(permission.id);
+            const checkboxId = `checkbox-${context}-${sanitizeId(permission.id)}`;
 
-              return (
-                <div key={permission.id} className="flex items-center space-x-3">
-                  <Checkbox
-                    id={checkboxId}
-                    checked={checked}
-                    onCheckedChange={(checked) => togglePermission(permission, checked as boolean)}
-                  />
-                  <label
-                    htmlFor={checkboxId}
-                    className="flex-1 text-[13px] cursor-pointer leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                  >
-                    <span>{permission.label}</span>
-                  </label>
-                </div>
-              );
-            })
-          ) : (
-            <div className="py-8 text-center text-muted-foreground">
-              <Search className="mx-auto mb-2 h-8 w-8 opacity-50" />
-              <p className="text-sm">
-                No permissions found matching "{searchQuery}"
-              </p>
-            </div>
-          )}
-        </div>
-      </ScrollArea>
+            return (
+              <div key={permission.id} className="flex items-center space-x-3">
+                <Checkbox
+                  id={checkboxId}
+                  checked={checked}
+                  onCheckedChange={(checked) => togglePermission(permission, checked as boolean)}
+                />
+                <label
+                  htmlFor={checkboxId}
+                  className="flex-1 text-[13px] cursor-pointer leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
+                  <span>{permission.label}</span>
+                </label>
+              </div>
+            );
+          })
+        ) : (
+          <div className="py-8 text-center text-muted-foreground">
+            <Search className="mx-auto mb-2 h-8 w-8 opacity-50" />
+            <p className="text-sm">
+              No permissions found matching "{searchQuery}"
+            </p>
+          </div>
+        )}
+      </div>
+      {/* </ScrollArea> */}
       {/* </ScrollArea> */}
     </div>
   );

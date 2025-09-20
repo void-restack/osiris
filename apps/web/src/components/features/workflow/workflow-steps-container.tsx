@@ -23,6 +23,7 @@ import { type WorkflowData, type TemplateWorkflowData } from "@/lib/store"
 import { useUpdateWorkflowMutation, useUpdateTemplateWorkflowMutation } from "@/lib/mutations"
 import { toast } from "sonner"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { cn } from "@/lib/utils"
 
 const convertApiStepsToWorkflowSteps = (apiSteps: WorkflowData['workflow'] | TemplateWorkflowData['workflow'], isTemplate = false): WorkflowStep[] => {
     return apiSteps.map((step, index) => ({
@@ -35,7 +36,6 @@ const convertApiStepsToWorkflowSteps = (apiSteps: WorkflowData['workflow'] | Tem
             : ((step as WorkflowData['workflow'][0]).deploymentId?.length > 0 ? `Deployment ${(step as WorkflowData['workflow'][0]).deploymentId[0].slice(-8)}` : "Unknown MCP"),
         prompt: step.prompt,
         deploymentType: "automatic" as const,
-        // Preserve IDs from API - handle both template and regular workflow formats
         deploymentIds: isTemplate ? [] : ((step as WorkflowData['workflow'][0]).deploymentId || []),
         packageIds: isTemplate ? ((step as TemplateWorkflowData['workflow'][0]).packageIds || []) : [],
         knowledgeBaseIds: step.knowledgeBaseIds || [],
@@ -100,7 +100,6 @@ export default function WorkflowStepsContainer({ workflowData, isTemplate = fals
     const updateWorkflowMutation = useUpdateWorkflowMutation();
     const updateTemplateWorkflowMutation = useUpdateTemplateWorkflowMutation();
 
-
     const initialWorkflowSteps = workflowData
         ? convertApiStepsToWorkflowSteps(workflowData.workflow, isTemplate)
         : [];
@@ -123,7 +122,6 @@ export default function WorkflowStepsContainer({ workflowData, isTemplate = fals
 
         try {
             if (isTemplate) {
-                // For templates, use template update mutation
                 const updatedTemplate = {
                     templateId: workflowData.id,
                     title: workflowData.title,
@@ -136,7 +134,6 @@ export default function WorkflowStepsContainer({ workflowData, isTemplate = fals
 
                 await updateTemplateWorkflowMutation.mutateAsync(updatedTemplate);
             } else {
-                // For regular workflows, use workflow update mutation
                 const updatedWorkflow = {
                     workflowId: workflowData.id,
                     title: workflowData.title,
@@ -269,7 +266,7 @@ export default function WorkflowStepsContainer({ workflowData, isTemplate = fals
     }
 
     return (
-        <ScrollArea className="space-y-2 mt-6 h-[calc(100vh-480px)]">
+        <div className=" mt-2 h-fit max-h-[calc(100vh-420px)] overflow-y-auto hidebar border rounded-lg">
             <DndContext
                 sensors={sensors}
                 collisionDetection={closestCenter}
@@ -277,7 +274,6 @@ export default function WorkflowStepsContainer({ workflowData, isTemplate = fals
             >
                 <SortableContext items={steps} strategy={verticalListSortingStrategy}>
                     {steps.length === 0 ? (
-                        // Show add step button when no steps exist
                         isOwner && (
                             <AddStepButton
                                 onAddStep={handleAddStep}
@@ -287,25 +283,22 @@ export default function WorkflowStepsContainer({ workflowData, isTemplate = fals
                     ) : (
                         steps.map((step, index) => (
                             <div key={step.id}>
-                                {index === 0 && isOwner && (
-                                    <AddStepButton
-                                        onAddStep={handleAddStep}
-                                        insertIndex={0}
+                                <div>
+                                    <SortableStepItem
+                                        step={step}
+                                        index={index}
+                                        onEdit={isOwner ? handleEditStep : undefined}
+                                        onDelete={isOwner ? handleDeleteStep : undefined}
+                                        className={cn(index === 0 ? "rounded-lg" : "", index === steps.length - 1 ? "rounded-lg" : "")}
                                     />
-                                )}
-                                <div className="w-1 border-l-2 border-dashed border-l-primary-100 h-[40px] mx-auto" />
-                                <SortableStepItem
-                                    step={step}
-                                    index={index}
-                                    onEdit={isOwner ? handleEditStep : undefined}
-                                    onDelete={isOwner ? handleDeleteStep : undefined}
-                                />
-                                <div className="w-1 border-l-2 border-dashed border-l-primary-100 h-[40px] mx-auto" />
+                                </div>
                                 {isOwner && (
-                                    <AddStepButton
-                                        onAddStep={handleAddStep}
-                                        insertIndex={index + 1}
-                                    />
+                                    <div className={cn("border-y py-4", index === steps.length - 1 ? "border-b-0" : "")}>
+                                        <AddStepButton
+                                            onAddStep={handleAddStep}
+                                            insertIndex={index + 1}
+                                        />
+                                    </div>
                                 )}
                             </div>
                         ))
@@ -330,6 +323,6 @@ export default function WorkflowStepsContainer({ workflowData, isTemplate = fals
                 workflowData={workflowData}
                 isTemplate={isTemplate}
             />
-        </ScrollArea>
+        </div>
     )
 }

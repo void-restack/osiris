@@ -17,6 +17,7 @@ export const iconNames = [
   "doc",
   "code",
   "check",
+  "broken-clock",
   "authfile",
   "ai",
 ] as const

@@ -8,6 +8,9 @@ import { CheckCircle2, XCircle, Clock, Loader2, Play, MoreVertical } from "lucid
 import { useAppStore } from "@/lib/store";
 import type { WorkflowExecutionData } from "@/lib/store";
 import { Icon } from "./ui/icon";
+import { formatRelative } from "date-fns";
+import { cn } from "@/lib/utils";
+import { Separator } from "./ui/separator";
 
 interface WorkflowExecutionHistoryProps {
     workflowId: string;
@@ -55,12 +58,12 @@ const ExecutionCard = ({
     isCurrentExecution?: boolean;
     onViewExecution: (execution: any) => void;
 }) => {
-    // Handle both API response format and our internal format
     const startDateStr = execution.createdAt;
     const completedDateStr = execution.updatedAt;
     const executionId = execution.id;
 
-    // Safely parse dates
+    console.log("Execution", execution)
+
     const startedAt = startDateStr ? new Date(startDateStr) : null;
     const completedAt = completedDateStr ? new Date(completedDateStr) : null;
     const duration = (startedAt && completedAt) ? completedAt.getTime() - startedAt.getTime() : null;
@@ -73,26 +76,29 @@ const ExecutionCard = ({
     };
 
     return (
-        <div className="h-20 w-full rounded-lg">
-            <button type="button" onClick={() => onViewExecution(execution)} className="w-full cursor-pointer flex bg-primary-50 items-center justify-between gap-4 rounded-lg h-20 px-4">
-                <div className="flex w-full">
+        <div className="w-full border-b last:border-b-0">
+            <Button type="button" variant="ghost" onClick={() => onViewExecution(execution)} className="w-full rounded-none cursor-pointer flex items-center justify-between gap-4 h-16 px-4">
+                <div className="flex w-full items-center">
                     {(isCurrentExecution && execution.status === 'running') ? <Loader2 className="animate-spin" /> : execution.error ?
                         <div className="flex items-center gap-2">
                             <XCircle className="h-4 w-4 text-red-600" />
-                            <span>Error</span>
+                            <span className="underline underline-offset-2 font-medium">{executionId.slice(0, 8)}...{executionId.slice(-8)}</span>
                         </div>
                         :
                         <div className="flex items-center gap-2">
                             <Icon name="check" className="text-green-500" />
-                            <span>Completed</span>
+                            <span className="underline underline-offset-2 font-medium">{executionId.slice(0, 8)}...{executionId.slice(-8)}</span>
                         </div>
                     }
-                </div>
 
-                <div className="flex w-full place-content-end">
-                    {completedAt ? <span>{completedAt.toLocaleString()}</span> : null}
+                    <span className="mx-2 text-primary-300 text-xs">Executed in</span>
+
+                    <span className="text-primary-400 text-xs">{formatDuration(duration || 0)}</span>
                 </div>
-            </button>
+                <div className="flex w-full place-content-end text-sm font-normal text-primary-400">
+                    {completedAt ? <span>{formatRelative(completedAt, new Date())}</span> : null}
+                </div>
+            </Button>
         </div>
     );
 };
@@ -131,7 +137,6 @@ export function WorkflowExecutionHistory({
             return hasFailures ? 'failed' : 'success';
         }
 
-        // Backend uses 'pending' for running steps, not 'running'
         const hasPending = results.some((step: any) => step.status === 'pending');
         if (hasPending) return 'pending';
 
@@ -141,9 +146,6 @@ export function WorkflowExecutionHistory({
     if (isLoading) {
         return (
             <div className="space-y-4">
-                {/* <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-medium">Execution History</h3>
-                </div> */}
                 <div className="flex items-center justify-center h-64">
                     <Loader2 className="h-8 w-8 animate-spin text-primary-500" />
                     <span className="ml-2 text-primary-600">Loading execution history...</span>
@@ -155,9 +157,6 @@ export function WorkflowExecutionHistory({
     if (error) {
         return (
             <div className="space-y-4">
-                {/* <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-medium">Execution History</h3>
-                </div> */}
                 <div className="flex items-center justify-center h-64">
                     <p className="text-red-600">Failed to load execution history. Please try again.</p>
                 </div>
@@ -165,7 +164,6 @@ export function WorkflowExecutionHistory({
         );
     }
 
-    // Combine current execution with executions, avoiding duplicates
     const executionsList = executions || [];
     const allExecutions = currentExecution
         ? [currentExecution, ...executionsList.filter((exec: any) => exec.id !== currentExecution.id)]
@@ -179,12 +177,6 @@ export function WorkflowExecutionHistory({
 
     return (
         <div className="space-y-4 w-full">
-            {/* <div className="flex items-center justify-between">
-                <h3 className="text-lg font-medium">Execution History</h3>
-                <div className="text-sm text-gray-500">
-                    {sortedExecutions.length} execution{sortedExecutions.length !== 1 ? 's' : ''}
-                </div>
-            </div> */}
 
             {sortedExecutions.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-64 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
@@ -195,22 +187,29 @@ export function WorkflowExecutionHistory({
                     </p>
                 </div>
             ) : (
-                <ScrollArea className="h-[calc(100vh-480px)] w-full">
-                    <div className="space-y-4 w-full">
-                        {sortedExecutions.map((execution: any) => {
+                <div className="h-fit max-h-[calc(100vh-480px)] w-full overflow-y-auto hidebar border rounded-lg">
+                    <div className="w-full">
+                        {sortedExecutions.map((execution: any, index: number) => {
                             const executionId = execution.id;
                             const currentExecutionId = currentExecution?.id;
                             return (
-                                <ExecutionCard
-                                    key={executionId}
-                                    execution={execution}
-                                    isCurrentExecution={currentExecutionId === executionId}
-                                    onViewExecution={handleViewExecution}
-                                />
+                                <>
+                                    <ExecutionCard
+                                        key={executionId}
+                                        execution={execution}
+                                        isCurrentExecution={currentExecutionId === executionId}
+                                        onViewExecution={handleViewExecution}
+                                    />
+                                    <div className={cn("h-14 border-b px-3 relative", (index === sortedExecutions.length - 1) ? "hidden border-b-0" : "")}>
+                                        <div className="absolute inset-y-0 shrink-0 h-12 left-6 w-1 border-l border-dashed border-l-dashed border-l-primary-200" />
+                                        <div className="size-6 rounded-full border border-primary-100 -translate-y-1/2 bg-white" />
+                                        <div className="size-6 rounded-full border border-primary-100 translate-y-4/5 bg-white" />
+                                    </div>
+                                </>
                             );
                         })}
                     </div>
-                </ScrollArea>
+                </div>
             )}
         </div>
     );

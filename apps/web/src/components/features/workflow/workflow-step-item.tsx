@@ -3,6 +3,7 @@ import { CSS } from "@dnd-kit/utilities"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { GripVertical, MoreHorizontal, Edit } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 export interface WorkflowStep {
     id: string
@@ -28,9 +29,10 @@ interface SortableStepItemProps {
     index: number
     onEdit?: (step: WorkflowStep) => void
     onDelete?: (stepId: string) => void
+    className?: string
 }
 
-export function SortableStepItem({ step, index, onEdit, onDelete }: SortableStepItemProps) {
+export function SortableStepItem({ step, index, onEdit, onDelete, className }: SortableStepItemProps) {
     const {
         attributes,
         listeners,
@@ -49,10 +51,7 @@ export function SortableStepItem({ step, index, onEdit, onDelete }: SortableStep
         <div
             ref={setNodeRef}
             style={style}
-            className={`
-        flex items-center gap-4 p-4 bg-white border-2 border-dashed border-primary-100 rounded-lg
-        ${isDragging ? 'opacity-50' : ''}
-      `}
+            className={cn('flex items-center gap-4 p-4 bg-white', isDragging ? 'opacity-50' : '', className)}
         >
             {/* Drag Handle */}
             {(onEdit || onDelete) && (
@@ -68,16 +67,16 @@ export function SortableStepItem({ step, index, onEdit, onDelete }: SortableStep
             {/* Step Number and Content */}
             <div className="flex items-center gap-4 flex-1">
                 <div className="flex items-center gap-2 text-primary-600">
-                    <span className="text-sm font-medium">#{index + 1}</span>
+                    <span className="text-sm font-medium underline decoration-primary-400 underline-offset-2">Step {index + 1}</span>
                 </div>
 
                 <div className="flex-1">
                     <div className="flex items-center gap-2">
-                        <h3 className="font-medium text-primary-800 underline decoration-primary-400 underline-offset-2">
+                        <h3 className="font-medium text-primary-800 decoration-primary-400 underline-offset-2 truncate">
                             {step.name}
                         </h3>
-                        <span className="text-primary-400">-</span>
-                        <span className="text-primary-600">{step.description}</span>
+                        {/* <span className="text-primary-400">-</span> */}
+                        {/* <span className="text-primary-600 truncate max-w-md">{step.description}</span> */}
                     </div>
                 </div>
             </div>

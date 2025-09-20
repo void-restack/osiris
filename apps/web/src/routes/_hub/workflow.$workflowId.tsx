@@ -1,7 +1,7 @@
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { createFileRoute } from '@tanstack/react-router'
 import { Button } from '@/components/ui/button'
-import { Play, Edit, Loader2 } from 'lucide-react'
+import { Edit, Loader2, GitMerge, ClockFading } from 'lucide-react'
 import { useAppStore, type WorkflowExecutionData } from '@/lib/store'
 import { useQuery } from '@tanstack/react-query'
 import { chatQueries } from '@/lib/queries'
@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { WorkflowExecutionHistory } from '@/components/workflow-execution-history'
 import { useState, useEffect } from 'react'
 import WorkflowStepsContainer from '@/components/features/workflow/workflow-steps-container'
+import { formatDate } from 'date-fns'
 
 export const Route = createFileRoute('/_hub/workflow/$workflowId')({
     component: RouteComponent,
@@ -86,7 +87,7 @@ function RouteComponent() {
     return (
         <div className='px-8 pt-8 w-full flex flex-col'>
             <div className='relative'>
-                <ScrollArea className='w-full h-20 rounded-lg bg-primary-50 hidebar text-pretty p-2 mb-14'>
+                <ScrollArea className='w-full h-20 text-primary-400 rounded-md bg-primary-25 hidebar text-pretty p-2 mb-14'>
                     {workflow.description}
                 </ScrollArea>
                 <Button
@@ -101,7 +102,10 @@ function RouteComponent() {
 
             <div className='flex w-full flex-col'>
                 <div className='flex w-full items-center justify-between gap-2 mb-8'>
-                    <h2 className='text-primary-800 text-xl'>{workflow.title}</h2>
+                    <div className='flex flex-col items-start gap-2'>
+                        <h2 className='text-primary-800 text-xl'>{workflow.title}</h2>
+                        <p className='text-primary-300 text-sm'>{workflow.nextExecution ? formatDate(new Date(workflow.nextExecution), 'MMM d, yyyy hh:mm a') : 'No next execution'}</p>
+                    </div>
 
                     <Button
                         onClick={handleExecuteWorkflow}
@@ -124,31 +128,18 @@ function RouteComponent() {
                 <div className='flex w-full h-full'>
                     <Tabs value={activeTab} className='w-full' onValueChange={setActiveTab}>
                         <TabsList className='z-20'>
-                            <TabsTrigger value='flow'>Flow</TabsTrigger>
-                            <TabsTrigger value='history'>History</TabsTrigger>
+                            <TabsTrigger value='flow'>
+                                <GitMerge className='size-5' />
+                                <span>Flow</span>
+                            </TabsTrigger>
+                            <TabsTrigger value='history'>
+                                <ClockFading className='size-5' />
+                                <span>History</span>
+                            </TabsTrigger>
                         </TabsList>
                         <div className='bg-primary-100 w-full h-[1px] -translate-y-[3px]' />
                         <TabsContent value='flow' className='w-full h-full'>
                             <WorkflowStepsContainer workflowData={workflow} />
-                            {/* <div className='pt-4 w-full'>
-                                <Button
-                                    onClick={handleExecuteWorkflow}
-                                    disabled={executeWorkflowMutation.isPending}
-                                    className='w-full bg-primary-800 hover:bg-primary-900 text-white'
-                                >
-                                    {executeWorkflowMutation.isPending ? (
-                                        <>
-                                            <Loader2 size={16} className='mr-2 animate-spin' />
-                                            Starting...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Play size={16} className='mr-2' />
-                                            Start now
-                                        </>
-                                    )}
-                                </Button>
-                            </div> */}
                         </TabsContent>
                         <TabsContent value='history' className='w-full'>
                             <WorkflowExecutionHistory

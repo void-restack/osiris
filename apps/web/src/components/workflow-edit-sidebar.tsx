@@ -8,6 +8,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useAppStore, type WorkflowData } from "@/lib/store";
 import { useUpdateWorkflowMutation } from "@/lib/mutations";
 import { WorkflowTriggers } from "./features/workflow/workflow-triggers";
+import { Separator } from "./ui/separator";
 
 export function WorkflowEditSidebar() {
     const {
@@ -105,7 +106,7 @@ export function WorkflowEditSidebar() {
             <div className="flex items-center justify-between p-6 border-b border-primary-100 relative group">
                 <div className="flex flex-col flex-1 mr-4">
                     <h2 className="text-lg font-semibold text-primary-800">Workflow</h2>
-                    {isEditingTitle ? (
+                    {/* {isEditingTitle ? (
                         <div className="flex items-center gap-2 mt-1">
                             <Input
                                 value={editedTitle}
@@ -151,7 +152,7 @@ export function WorkflowEditSidebar() {
                                 <Edit2 className="h-3 w-3" />
                             </Button>
                         </div>
-                    )}
+                    )} */}
                 </div>
                 <Button
                     variant="ghost"
@@ -163,11 +164,10 @@ export function WorkflowEditSidebar() {
                 </Button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6">
+            <div className="flex-1 overflow-y-auto">
                 <div className="space-y-6">
                     {/* Privacy settings */}
-                    <div className="space-y-[6px]">
-                        <Label className="text-[13px] text-primary-400">Privacy Settings</Label>
+                    <div className="space-y-[6px] m-4 p-2 bg-primary-25 rounded-md">
                         <RadioGroup
                             value={isPublic ? "public" : "private"}
                             onValueChange={(value) => setIsPublic(value === "public")}
@@ -185,15 +185,12 @@ export function WorkflowEditSidebar() {
                                 </Label>
                             </div>
                         </RadioGroup>
-                        <p className="text-xs text-primary-400">
-                            {isPublic ? "Others can discover and use this workflow." : "Only you can access this workflow."}
-                        </p>
                     </div>
 
-                    <div className="border-t border-t-primary-100 border-dashed" />
+                    <Separator className="h-0 border-t border-dashed bg-transparent" />
 
                     {/* Triggers */}
-                    <div className="space-y-[6px]">
+                    <div className="space-y-[6px] m-4">
                         <Label className="text-[13px] text-primary-400">Triggers</Label>
                         <WorkflowTriggers
                             workflowData={selectedWorkflow}
@@ -203,7 +200,7 @@ export function WorkflowEditSidebar() {
                 </div>
             </div>
 
-            <div className="p-6 border-t border-primary-100 space-y-3">
+            <div className="p-6 border-t border-primary-100 bg-primary-25 space-y-3">
                 <div className="flex gap-3">
                     <Button
                         variant="outline"
