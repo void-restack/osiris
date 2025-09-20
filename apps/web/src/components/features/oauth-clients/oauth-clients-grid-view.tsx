@@ -79,7 +79,7 @@ export function OAuthClientsGridView({ rows }: OAuthClientsGridViewProps) {
                 return (
                     <div
                         key={row.id}
-                        className="min-h-[200px] group hover:shadow-md transition-shadow duration-200 inset-shadow-card rounded-[12px] bg-primary-00 opacity-100 min-w-[348px] overflow-hidden cursor-pointer relative"
+                        className="min-h-[200px] group hover:shadow-md transition-shadow duration-200 inset-shadow-card rounded-[12px] bg-primary-00 opacity-100 overflow-hidden cursor-pointer relative"
                         onClick={() => handleEdit(client)}
                     >
                         <div className="p-3">
@@ -200,6 +200,6 @@ export function OAuthClientsGridView({ rows }: OAuthClientsGridViewProps) {
                     </div>
                 );
             })}
-        </div>
+        </div >
     );
 }

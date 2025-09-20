@@ -321,7 +321,8 @@ export function AuthMethodDialog({
         const allSelected = allPerms.length > 0 && selectedScopes.length === allPerms.length;
         return (
           <div className="space-y-2">
-            <div className="flex justify-end px-1">
+            <div className="flex w-full items-center justify-between px-1">
+              <h3 className="text-sm font-medium text-primary-400">Select Permissions</h3>
               <Button
                 variant="ghost"
                 size="sm"

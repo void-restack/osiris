@@ -389,7 +389,7 @@ export function CreateTemplateWorkflowDialog({ children }: CreateTemplateWorkflo
                     </DialogDescription>
                 </DialogHeader>
 
-                <ScrollArea className="max-h-[60vh] overflow-auto p-0 hidebar">
+                <div className="max-h-[60vh] overflow-auto p-0 hidebar">
                     <form
                         onSubmit={(e) => {
                             e.preventDefault();
@@ -549,7 +549,7 @@ export function CreateTemplateWorkflowDialog({ children }: CreateTemplateWorkflo
                             </form.Field>
                         </div>
                     </form>
-                </ScrollArea>
+                </div>
 
                 <DialogFooter className="flex items-center justify-between w-full border-t border-primary-100 pt-4">
                     <Button
