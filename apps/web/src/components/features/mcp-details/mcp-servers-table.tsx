@@ -10,7 +10,7 @@ import {
     useReactTable,
     type VisibilityState,
 } from "@tanstack/react-table";
-import { MoveUpRight, Eye, Edit, ChevronLeft, ChevronRight } from "lucide-react";
+import { Edit, ChevronLeft, ChevronRight } from "lucide-react";
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,19 +23,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
-import { useAppStore } from "@/lib/store";
-
-type ServerStatus = "active" | "inactive" | "pending";
-
-type McpServerData = {
-    deploymentId: string;
-    userMcpId: string;
-    url: string;
-    scopes: string[];
-    status: ServerStatus;
-    createdAt: string;
-    updatedAt: string;
-};
+import { useAppStore, type McpServerData } from "@/lib/store";
 
 export const columns: ColumnDef<McpServerData>[] = [
     {
@@ -64,7 +52,7 @@ export const columns: ColumnDef<McpServerData>[] = [
         accessorKey: "url",
         header: "URL",
         cell: ({ row }) => (
-            <div className="text-[#171717] text-sm">
+            <div className="text-[#171717] text-sm max-w-xs truncate">
                 {row.getValue("url")}
             </div>
         ),
@@ -162,6 +150,7 @@ export function McpServersTable({ data, pagination, onPageChange }: McpServersTa
             rowSelection,
         },
     });
+
 
     return (
         <div className="rounded-md border border-[#F5F5F5]">

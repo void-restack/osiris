@@ -9,7 +9,6 @@ export const userSchema = z.object({
   updatedAt: z.string().datetime().nullable(),
 });
 
-// Main packages list schema (from GET /packages)
 export const packageListSchema = z.object({
   packageId: z.string().uuid(),
   name: z.string(),
@@ -19,15 +18,25 @@ export const packageListSchema = z.object({
   shortDescription: z.string().nullable(),
   latestVersion: z.string(),
   publisherId: z.string().uuid(),
+  clientId: z.string().uuid().optional(),
   iconUrl: z.string().nullable(),
   coverImageUrl: z.string().nullable(),
   tags: z.array(z.string()).default([]),
+  metadata: z.record(z.any()).optional(),
+  isLive: z.boolean().optional(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
   paymentConfig: z.any().nullable(),
+  publisher: z.object({
+    id: z.string().uuid(),
+    name: z.string(),
+    email: z.string(),
+    imageUrl: z.string().nullable(),
+    createdAt: z.string().datetime(),
+    updatedAt: z.string().datetime(),
+  }).optional(),
 });
 
-// Nested package schema (from user installations/deployments)
 export const packageSchema = z.object({
   packageId: z.string().uuid(),
   name: z.string(),
@@ -39,18 +48,31 @@ export const packageSchema = z.object({
   updatedAt: z.string().datetime(),
 });
 
-// Popular packages schema (different structure)
 export const popularPackageSchema = z.object({
-  packageId: z.string().uuid(),
-  packageName: z.string(),
-  packageUrl: z.string(),
-  packageType: z.string(),
-  packageIconUrl: z.string().nullable(),
-  packageCoverImageUrl: z.string().nullable(),
-  packageDescription: z.string(),
-  packageLatestVersion: z.string(),
+  id: z.string().uuid(),
+  name: z.string(),
+  url: z.string(),
+  type: z.string(),
+  iconUrl: z.string().nullable(),
+  coverImageUrl: z.string().nullable(),
+  description: z.string(),
+  shortDescription: z.string().nullable(),
+  latestVersion: z.string(),
+  metadata: z.record(z.any()).optional(),
+  tags: z.array(z.string()).default([]),
+  isLive: z.boolean().optional(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
   deploymentCount: z.number(),
   paymentConfig: z.any().nullable(),
+  publisher: z.object({
+    id: z.string().uuid(),
+    name: z.string(),
+    email: z.string(),
+    imageUrl: z.string().nullable(),
+    createdAt: z.string().datetime(),
+    updatedAt: z.string().datetime(),
+  }).optional(),
 });
 
 export const creditAccountSchema = z.object({
@@ -151,19 +173,36 @@ export interface Package {
 }
 
 export interface PopularPackage {
-  packageId: string;
-  packageName: string;
-  packageDescription: string;
-  packageLatestVersion: string;
-  packageIconUrl: string | null;
-  packageCoverImageUrl: string | null;
+  id: string;
+  name: string;
+  url: string;
+  type: string;
+  iconUrl: string | null;
+  coverImageUrl: string | null;
+  description: string;
+  shortDescription: string | null;
+  latestVersion: string;
+  metadata?: Record<string, any>;
+  tags: string[];
+  isLive?: boolean;
+  createdAt: string;
+  updatedAt: string;
   deploymentCount: number;
   paymentConfig: any | null;
+  publisher?: {
+    id: string;
+    name: string;
+    email: string;
+    imageUrl: string | null;
+    createdAt: string;
+    updatedAt: string;
+  };
 }
 
 export interface PackageWithUserStatus extends Package {
   isInstalled: boolean;
   isDeployed: boolean;
+  clientId?: string;
   userInstallation?: {
     userMcpId: string;
     userId: string;
@@ -206,6 +245,17 @@ export const responseSchema = <T extends z.ZodType>(dataSchema: T) =>
     errorResponseSchema,
   ]);
 
+export const oauthClientSchema = z.object({
+  clientId: z.string().uuid(),
+  developerId: z.string().uuid(),
+  name: z.string(),
+  iconUrl: z.string().nullable(),
+  redirectUris: z.array(z.string()),
+  metadata: z.record(z.any()),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+
 export type User = z.infer<typeof userSchema>;
 export type PackageList = z.infer<typeof packageListSchema>;
 export type CreditAccount = z.infer<typeof creditAccountSchema>;
@@ -213,6 +263,7 @@ export type KnowledgeBase = z.infer<typeof knowledgeBaseSchema>;
 export type InstalledKnowledgeBase = z.infer<typeof installedKnowledgeBaseSchema>;
 export type KnowledgeBaseRating = z.infer<typeof knowledgeBaseRatingSchema>;
 export type KnowledgeBaseJoined = z.infer<typeof knowledgeBaseJoinedSchema>;
+export type OAuthClient = z.infer<typeof oauthClientSchema>;
 
 export type ViewMode = "grid" | "table";
 export type SortOption =

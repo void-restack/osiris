@@ -123,7 +123,7 @@ export const SCOPE_DEFINITIONS: ScopeDefinitions = {
   },
 
   notion: {
-    "all": "All"
+    "notion:all": "All"
   }
 };
 

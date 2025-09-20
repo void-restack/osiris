@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Link2, Loader2, Loader, Plus, X } from "lucide-react";
-import { useSuspenseQuery, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -46,6 +46,7 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select"
+import { transformScopeDefinitions } from "@/lib/scope-utils";
 
 const BLOCKCHAIN_OPTIONS = {
   EVM: {
@@ -76,6 +77,7 @@ interface AuthMethodDialogProps {
     connectionId?: string;
   };
   trigger?: React.ReactNode;
+  onSuccess?: (connectionId: string, serviceName: string) => void;
 }
 
 export function AuthMethodDialog({
@@ -84,8 +86,14 @@ export function AuthMethodDialog({
   onOpenChange,
   mode = 'connect',
   callbackData,
-  trigger
+  trigger,
+  onSuccess
 }: AuthMethodDialogProps) {
+  if (!method) {
+    return null;
+  }
+
+
   const [selectedScopes, setSelectedScopes] = useState<Permission[]>([]);
   const [authHubName, setAuthHubName] = useState(
     method.type === 'embedded_wallet' ? `${method.name} wallet` : `${method.name} connection`
@@ -130,6 +138,16 @@ export function AuthMethodDialog({
 
   const navigate = useNavigate();
 
+  useEffect(() => {
+    if (mode === 'callback' && callbackData?.success && connectionData && onSuccess) {
+      const connId = callbackData.connectionId || 'connected';
+      onSuccess(connId, method.name);
+      setTimeout(() => {
+        onOpenChange?.(false);
+      }, 1500);
+    }
+  }, [mode, callbackData?.success, connectionData, onSuccess, method.name, onOpenChange, callbackData?.connectionId]);
+
   const getDefaultValuesForChain = (chainValue: string) => {
     if (chainValue.startsWith('evm:')) {
       return {
@@ -154,7 +172,6 @@ export function AuthMethodDialog({
     };
   };
 
-  // Function to validate chain selection (prevent mixing EVM and SVM)
   const validateChainSelection = (newChain: string, existingChains: string[]) => {
     const isEVM = newChain.startsWith('evm:');
     const isSVM = newChain.startsWith('solana:');
@@ -164,7 +181,7 @@ export function AuthMethodDialog({
       const existingIsSVM = existingChain.startsWith('solana:');
 
       if ((isEVM && existingIsSVM) || (isSVM && existingIsEVM)) {
-        return false; // Cannot mix EVM and SVM chains
+        return false;
       }
     }
     return true;
@@ -177,9 +194,9 @@ export function AuthMethodDialog({
       setConnectionState({ status: 'idle' });
 
       const currentUrl = new URL(window.location.href);
-      const pathname = currentUrl.pathname;
-
-      navigate({ to: pathname, replace: true });
+      currentUrl.searchParams.delete('success');
+      currentUrl.searchParams.delete('state');
+      navigate({ to: currentUrl.pathname + currentUrl.search, replace: true });
     }
   };
 
@@ -218,16 +235,24 @@ export function AuthMethodDialog({
             name: authHubName,
             secret: secretData
           });
+          const secretConnectionId = secretResult?.[0]?.id || 'created';
           setConnectionState({
             status: 'success',
-            connectionId: secretResult?.[0]?.id || 'created'
+            connectionId: secretConnectionId
           });
           toast.success("Database connection created successfully!");
+
+          if (onSuccess) {
+            onSuccess(secretConnectionId, method.name);
+            setTimeout(() => {
+              onOpenChange?.(false);
+            }, 1500);
+          }
           break;
 
         case 'embedded_wallet':
           if (!authHubName.trim()) {
-            toast.error("Auth Hub Name is required");
+            toast.error("Authentication Hub Name is required");
             setConnectionState({ status: 'idle' });
             return;
           }
@@ -237,11 +262,9 @@ export function AuthMethodDialog({
             return;
           }
 
-          // Process accounts with default values based on chain types
           const processedAccounts = walletData.accounts
             .filter(account => account.chains.some(chain => chain.trim() !== ''))
             .map(account => {
-              // Get the first chain to determine defaults
               const firstChain = account.chains.find(chain => chain.trim() !== '');
               const defaults = getDefaultValuesForChain(firstChain || '');
 
@@ -258,11 +281,19 @@ export function AuthMethodDialog({
             name: authHubName,
             accounts: processedAccounts
           });
+          const walletConnectionId = walletResult?.[0]?.id || 'created';
           setConnectionState({
             status: 'success',
-            connectionId: walletResult?.[0]?.id || 'created'
+            connectionId: walletConnectionId
           });
           toast.success("Wallet created successfully!");
+
+          if (onSuccess) {
+            onSuccess(secretConnectionId, method.name);
+            setTimeout(() => {
+              onOpenChange?.(false);
+            }, 1500);
+          }
           break;
 
         default:
@@ -282,18 +313,35 @@ export function AuthMethodDialog({
 
   const renderOAuthForm = () => (
     <>
-      {Object.keys(method.scopeDefinitions).length > 0 ? (
-        <PermissionSelector
-          permissions={Object.entries(method.scopeDefinitions).map(([scope, label]) => ({
-            id: scope,
-            label: getScopeDisplayName(scope) || (label as string) || scope
-          }))}
-          placeholder="Search permissions..."
-          onSelectionChange={setSelectedScopes}
-        />
-      ) : (
-        null
-      )}
+      {Object.keys(method.scopeDefinitions).length > 0 ? (() => {
+        const allPerms = Object.entries(transformScopeDefinitions(method.name, method.scopeDefinitions)).map(([scope, label]) => ({
+          id: scope,
+          label: getScopeDisplayName(scope) || (label as string) || scope
+        }));
+        const allSelected = allPerms.length > 0 && selectedScopes.length === allPerms.length;
+        return (
+          <div className="space-y-2">
+            <div className="flex justify-end px-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs h-7 px-2"
+                onClick={() => setSelectedScopes(allSelected ? [] : allPerms)}
+              >
+                {allSelected ? 'Deselect All' : 'Select All'}
+              </Button>
+            </div>
+            <PermissionSelector
+              context="auth-method-dialog"
+              key={`auth-method-dialog-${method.clientId}`}
+              permissions={allPerms}
+              placeholder="Search permissions..."
+              initialSelected={selectedScopes}
+              onSelectionChange={setSelectedScopes}
+            />
+          </div>
+        );
+      })() : null}
     </>
   );
 
@@ -375,7 +423,6 @@ export function AuthMethodDialog({
                   {account.chains.length > 0 && account.chains[0] !== '' && (
                     <div className="flex flex-wrap gap-2 mb-2">
                       {account.chains.map((chainValue, chainIndex) => {
-                        // Find the display name for this chain value
                         const displayName = Object.entries(BLOCKCHAIN_OPTIONS).reduce((found, [groupKey, group]) => {
                           if (found) return found;
                           const chainName = Object.entries(group.chains).find(([name, value]) => value === chainValue)?.[0];
@@ -411,14 +458,12 @@ export function AuthMethodDialog({
                   <Select
                     onValueChange={(value) => {
                       if (value && !account.chains.includes(value)) {
-                        // Validate chain selection
                         const currentChains = account.chains.filter(chain => chain.trim() !== '');
                         if (!validateChainSelection(value, currentChains)) {
                           toast.error("Cannot mix EVM and SVM chains in the same account");
                           return;
                         }
 
-                        // Get default values for the new chain
                         const defaults = getDefaultValuesForChain(value);
 
                         setWalletData(prev => ({
@@ -428,7 +473,6 @@ export function AuthMethodDialog({
                               ? {
                                 ...acc,
                                 chains: acc.chains[0] === '' ? [value] : [...acc.chains, value],
-                                // Set default values if they're empty
                                 pathFormat: acc.pathFormat || defaults.pathFormat,
                                 path: acc.path || defaults.path,
                                 curve: acc.curve || defaults.curve,
@@ -472,24 +516,6 @@ export function AuthMethodDialog({
                   <p className="text-xs text-primary-400">
                     Select one or more blockchain networks for this account. You cannot mix EVM and SVM chains.
                   </p>
-                  {/* {account.chains.some(chain => chain.trim() !== '') && (
-                    <div className="text-xs text-primary-300">
-                      {(() => {
-                        const chains = account.chains.filter(chain => chain.trim() !== '');
-                        const hasEVM = chains.some(chain => chain.startsWith('evm:'));
-                        const hasSVM = chains.some(chain => chain.startsWith('solana:'));
-
-                        if (hasEVM && hasSVM) {
-                          return <span className="text-red-500">⚠️ Cannot mix EVM and SVM chains</span>;
-                        } else if (hasEVM) {
-                          return <span className="text-green-500">✓ EVM chains selected</span>;
-                        } else if (hasSVM) {
-                          return <span className="text-green-500">✓ SVM chains selected</span>;
-                        }
-                        return null;
-                      })()}
-                    </div>
-                  )} */}
                 </div>
 
                 <Accordion type="single" collapsible>
@@ -656,13 +682,10 @@ export function AuthMethodDialog({
                 </span>
               </div>
             </div>
-            {/* <div className="rounded-md border border-primary-300 p-1">
-              <RefreshCcw className="size-4 text-primary-300" />
-            </div> */}
           </div>
 
           <div className="flex flex-col space-y-1.5 px-4 text-[13px] text-primary-400">
-            <label htmlFor="auth_hub_name">Auth Hub Name</label>
+            <label htmlFor="auth_hub_name">Authentication Hub Name</label>
             <Input
               type="text"
               value={authHubName}
@@ -827,13 +850,10 @@ export function AuthMethodDialog({
                 </span>
               </div>
             </div>
-            {/* <div className="rounded-md border border-primary-300 p-1">
-              <RefreshCcw className="size-4 text-primary-300" />
-            </div> */}
           </div>
 
           <div className="flex flex-col space-y-1.5 mt-6 px-4 text-[13px] text-primary-400">
-            <label htmlFor="auth_hub_name">Auth Hub Name</label>
+            <label htmlFor="auth_hub_name">Authentication Hub Name</label>
             <Input
               type="text"
               disabled

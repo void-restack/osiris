@@ -1,5 +1,3 @@
-"use client";
-
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { useDataTable } from "@/hooks/use-data-table";
 import { packageQueries } from "@/lib/queries";
@@ -16,13 +14,14 @@ import { useMemo } from "react";
 interface UsePackagesTableProps {
     columns: ColumnDef<PackageList>[];
     initialPageSize?: number;
+    customFilters?: Record<string, any>;
 }
 
 export function usePackagesTable({
     columns,
     initialPageSize = 20,
+    customFilters = {},
 }: UsePackagesTableProps) {
-    // URL state management for server-side filtering
     const [search] = useQueryState("search", parseAsString.withDefault(""));
     const [page] = useQueryState("page", parseAsInteger.withDefault(1));
     const [limit] = useQueryState("limit", parseAsInteger.withDefault(initialPageSize));
@@ -39,9 +38,6 @@ export function usePackagesTable({
         parseAsArrayOf(parseAsString).withDefault([])
     );
 
-
-
-    // Build API filters from URL state
     const apiFilters = useMemo(() => {
         const filters: {
             search?: string;
@@ -56,6 +52,7 @@ export function usePackagesTable({
             sortOrder?: string;
             page: number;
             limit: number;
+            isLive?: boolean;
         } = {
             page,
             limit,
@@ -81,22 +78,20 @@ export function usePackagesTable({
             }
         }
 
-        return filters;
-    }, [search, nameFilter, typeFilter, pricingFilter, page, limit]);
+        filters.isLive = true;
 
-    // Fetch packages with server-side filtering
+        // Merge custom filters
+        return { ...filters, ...customFilters };
+    }, [search, nameFilter, typeFilter, pricingFilter, page, limit, customFilters]);
+
     const { data: packagesResponse, isLoading, error, isFetching } = useQuery({
         ...packageQueries.listOptions(apiFilters),
-        placeholderData: keepPreviousData, // Keep previous data while loading new data
+        placeholderData: keepPreviousData,
     });
 
-
-
-    // Handle response structure - the API returns { status: "SUCCESS", data: [...], pagination: {...} }
     const packages = packagesResponse?.data || [];
     const pagination = (packagesResponse as any)?.pagination || { totalPages: 0, total: 0, page: 1, limit: 10 };
 
-    // Initialize table with server data
     const { table, ...rest } = useDataTable({
         data: packages,
         columns,
@@ -107,8 +102,6 @@ export function usePackagesTable({
         enableAdvancedFilter: false,
     });
 
-
-
     return {
         table,
         data: {
@@ -116,7 +109,7 @@ export function usePackagesTable({
             pagination: pagination,
         },
         isLoading,
-        isFetching, // Indicates background refetching while showing previous data
+        isFetching,
         error,
         filters: {
             search,

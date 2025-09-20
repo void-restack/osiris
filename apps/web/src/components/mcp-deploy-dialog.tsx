@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from "react";
-import { Loader2, Rocket, CheckCircle, AlertCircle, X } from "lucide-react";
+import { Loader2, CheckCircle, AlertCircle, X, Copy, ExternalLink } from "lucide-react";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -25,15 +25,17 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/original-tabs";
 import { PermissionSelector, type Permission } from "@/components/ui/permission-selector";
 import { userQueries, hubQueries, packageQueries } from "@/lib/queries";
-import { useDeployPackageMutation, useCreateServiceConnectionMutation, useCreateSecretSharingMutation, useCreateWalletMutation } from "@/lib/mutations";
+import { useDeployPackageMutation, useCreateServiceConnectionMutation, useAuthorizeFrontendMutation, useCreateSecretSharingMutation, useCreateWalletMutation } from "@/lib/mutations";
 import { AuthMethodDialog } from "@/components/features/authhub/auth-method-dialog";
 import { useAuth } from "@/hooks/use-auth";
 import { getInitials } from "@/lib/utils";
-import { getReadableScopes } from "@/lib/scope-utils";
+
 import { getScopeDisplayName } from "@/lib/scope-definitions";
 import type { PackageWithUserStatus } from "@/types";
+import PolicyBuilder from "@/components/policy-builder";
 
 interface McpDeployDialogProps {
   package: PackageWithUserStatus;
@@ -44,6 +46,7 @@ interface McpDeployDialogProps {
 
 function ServiceSection({
   serviceName,
+  serviceClient,
   requiredScopes,
   userAuth,
   authScopes,
@@ -58,6 +61,7 @@ function ServiceSection({
   onConnectNewAccount,
 }: {
   serviceName: string;
+  serviceClient: any;
   requiredScopes: string[];
   userAuth: any[];
   authScopes: any;
@@ -76,10 +80,13 @@ function ServiceSection({
     [userAuth, serviceName]
   );
 
-  const permissions = useMemo(
-    () => getReadableScopes(serviceName, authScopes),
-    [serviceName, authScopes]
-  );
+  const permissions = useMemo(() => {
+    const req = Array.isArray(requiredScopes) ? requiredScopes : [];
+    return req.map((scope) => ({
+      id: scope,
+      label: getScopeDisplayName(scope) || scope
+    }));
+  }, [requiredScopes]);
 
   const handleServicePermissionSelect = useCallback(
     (perms: Permission[]) => onPermissionSelect(serviceName, perms),
@@ -101,9 +108,16 @@ function ServiceSection({
       <AccordionItem value={serviceName} className="border-none">
         <AccordionTrigger className="px-4 py-3 hover:no-underline">
           <div className="flex items-center gap-3 w-full">
-            <div className="size-10 rounded-[6px] bg-purple-300 flex items-center justify-center text-white font-bold text-lg capitalize shadow-xl">
-              {serviceName.charAt(0)}
-            </div>
+            <Avatar className="size-10 rounded-[6px] shadow-xl">
+              <AvatarImage
+                src={serviceClient.iconUrl}
+                alt={serviceName}
+                className="rounded-[6px]"
+              />
+              <AvatarFallback className="bg-purple-300 text-white font-bold text-lg capitalize rounded-[6px]">
+                {serviceName.charAt(0)}
+              </AvatarFallback>
+            </Avatar>
             <div className="flex flex-col items-start flex-1">
               <h3 className="text-primary-800 capitalize font-medium">{serviceName} Account</h3>
               <p className="text-[13px] text-primary-300">Select an existing {serviceName} account or connect a new one</p>
@@ -115,6 +129,8 @@ function ServiceSection({
             <div className="mb-6">
               <p className="text-sm font-medium text-primary-800 mb-3">Select permissions to grant:</p>
               <PermissionSelector
+                context="deploy-dialog"
+                key={`deploy-${serviceName}`}
                 permissions={permissions}
                 placeholder={`Search ${serviceName} permissions...`}
                 onSelectionChange={handleServicePermissionSelect}
@@ -131,69 +147,110 @@ function ServiceSection({
                 onValueChange={(value) => onConnectionSelect(serviceName, value)}
                 className="space-y-3"
               >
-                {serviceConnections.map((connection: any) => (
-                  <div key={connection.user_service_connections.id} className="flex items-start space-x-3 cursor-pointer group">
-                    <RadioGroupItem value={connection.user_service_connections.id} className="mt-1" />
-                    <div className="flex-1 p-3 border border-primary-100 rounded-[6px] group-hover:border-primary-200 transition-colors">
-                      <div className="flex items-center space-x-2 mb-2">
-                        <Avatar className="h-6 w-6">
-                          <AvatarFallback className="text-xs bg-purple-300 text-white">
-                            {serviceName.charAt(0).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                        <p className="text-sm font-medium text-primary-800">
+                {serviceConnections.map((connection: any) => {
+                  const radioId = `radio-${connection.user_service_connections.id}`;
+                  return (
+                    <div key={connection.user_service_connections.id} className="flex items-start space-x-3">
+                      <RadioGroupItem
+                        id={radioId}
+                        value={connection.user_service_connections.id}
+                        className="mt-1"
+                      />
+                      <label
+                        htmlFor={radioId}
+                        className="flex-1 p-3 border border-primary-100 rounded-[6px] hover:border-primary-200 transition-colors cursor-pointer"
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center space-x-2">
+                            <p className="text-sm font-medium text-primary-800">
+                              {(() => {
+                                const md = connection.user_service_connections.metadata;
+                                const t = connection.service_clients?.type;
+                                // const shortId = connection.user_service_connections.id.slice(0, 8);
+                                if (!t) return `${connection.user_service_connections.name || 'Unknown Connection'}`;
+
+                                switch (t) {
+                                  case 'oauth':
+                                    return `${md?.user?.name || md?.user?.email || 'Unknown User'}`;
+                                  case 'secret_sharing':
+                                    return `${connection.user_service_connections.name || 'Database Connection'}`;
+                                  case 'embedded_wallet': {
+                                    const walletName = md?.name || connection.user_service_connections.name || 'Wallet Connection';
+                                    return `${walletName}`;
+                                  }
+                                  default:
+                                    return `${connection.user_service_connections.name || 'Unknown Connection'}`;
+                                }
+                              })()}
+                            </p>
+                          </div>
+
+                          {/* Ready Indicator */}
+                          {(() => {
+                            // console.log("connection scopes", connection.user_service_connections.scopes);
+                            // console.log("required scopes", requiredScopes);
+                            const connectionScopes = connection.user_service_connections.scopes || [];
+                            const requiredScopesArray = Array.isArray(requiredScopes) ? requiredScopes : [];
+
+                            const hasAllRequiredScopes = requiredScopesArray.every((requiredScope) => {
+                              const scopeWithoutPrefix = requiredScope.startsWith(`${serviceName}:`)
+                                ? requiredScope.replace(`${serviceName}:`, '')
+                                : requiredScope;
+                              const scopeWithPrefix = `${serviceName}:${requiredScope}`;
+
+                              return (
+                                connectionScopes.includes(requiredScope) ||
+                                connectionScopes.includes(scopeWithoutPrefix) ||
+                                connectionScopes.includes(scopeWithPrefix)
+                              );
+                            });
+
+                            if (hasAllRequiredScopes) {
+                              return (
+                                <Badge className="bg-green-100 text-green-800 px-2 py-1 text-xs font-medium">
+                                  Ready
+                                </Badge>
+                              );
+                            }
+                            return null;
+                          })()}
+                        </div>
+
+                        <p className="text-[13px] text-primary-400 mb-2">
                           {(() => {
                             const md = connection.user_service_connections.metadata;
                             const t = connection.service_clients?.type;
-                            const shortId = connection.user_service_connections.id.slice(0, 8);
+                            if (!t) return 'Unknown connection type';
+
                             switch (t) {
                               case 'oauth':
-                                return `${md?.user?.name || md?.user?.email || 'Unknown User'} (${shortId})`;
+                                return md?.user?.email || md?.user?.name || 'No email available';
                               case 'secret_sharing':
-                                return `${connection.user_service_connections.name || 'Database Connection'} (${shortId})`;
+                                return 'Database connection';
                               case 'embedded_wallet': {
-                                const walletName = md?.name || connection.user_service_connections.name || 'Wallet Connection';
-                                return `${walletName} (${shortId})`;
+                                const addr = md?.accounts?.addresses?.[0]?.address;
+                                if (addr) return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+                                const chains = md?.accounts?.chains;
+                                if (chains?.length) return `${chains.length} chain${chains.length > 1 ? 's' : ''}`;
+                                return 'Blockchain wallet';
                               }
                               default:
-                                return `${connection.user_service_connections.name || 'Unknown Connection'} (${shortId})`;
+                                return 'Unknown type';
                             }
                           })()}
                         </p>
-                      </div>
 
-                      <p className="text-[13px] text-primary-400 mb-2">
-                        {(() => {
-                          const md = connection.user_service_connections.metadata;
-                          const t = connection.service_clients?.type;
-                          switch (t) {
-                            case 'oauth':
-                              return md?.user?.email || md?.user?.name || 'No email available';
-                            case 'secret_sharing':
-                              return 'Database connection';
-                            case 'embedded_wallet': {
-                              const addr = md?.accounts?.addresses?.[0]?.address;
-                              if (addr) return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
-                              const chains = md?.accounts?.chains;
-                              if (chains?.length) return `${chains.length} chain${chains.length > 1 ? 's' : ''}`;
-                              return 'Blockchain wallet';
-                            }
-                            default:
-                              return 'Unknown type';
-                          }
-                        })()}
-                      </p>
-
-                      <div className="flex flex-wrap gap-1">
-                        {connection.user_service_connections.scopes?.map((scope: string) => (
-                          <Badge key={scope} className="rounded-[6px] bg-primary-100 px-2 py-0.5 text-xs text-primary-800">
-                            {getScopeDisplayName(scope)}
-                          </Badge>
-                        ))}
-                      </div>
+                        {/* <div className="flex flex-wrap gap-1">
+                          {connection.user_service_connections.scopes?.map((scope: string) => (
+                            <Badge key={scope} className="rounded-[6px] bg-primary-100 px-2 py-0.5 text-xs text-primary-800">
+                              {getScopeDisplayName(scope)}
+                            </Badge>
+                          ))}
+                        </div> */}
+                      </label>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </RadioGroup>
             </div>
           )}
@@ -218,7 +275,6 @@ function ServiceSection({
   );
 }
 
-
 export function McpDeployDialog({
   package: pkg,
   trigger,
@@ -229,7 +285,10 @@ export function McpDeployDialog({
   const [selectedConnections, setSelectedConnections] = useState<Record<string, string>>({});
   const [deploymentName, setDeploymentName] = useState(`${pkg.name} deployment`);
   const [connectingService, setConnectingService] = useState<string | null>(null);
+  const [copiedText, setCopiedText] = useState<string | null>(null);
+  const [policyJson, setPolicyJson] = useState<string>('{\n  "allow": [{}],\n  "deny": []\n}');
 
+  const authorizeMutation = useAuthorizeFrontendMutation()
   const deployMutation = useDeployPackageMutation();
   const createServiceConnection = useCreateServiceConnectionMutation();
   const createSecretSharing = useCreateSecretSharingMutation();
@@ -246,6 +305,21 @@ export function McpDeployDialog({
     return allowedServices.includes(connection.service_clients.name);
   }) || [];
 
+  const copyToClipboard = async (text: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedText(label);
+      setTimeout(() => setCopiedText(null), 2000);
+      toast.success(`${label} copied to clipboard`);
+    } catch (err) {
+      toast.error('Failed to copy to clipboard');
+    }
+  };
+
+  const mcpDeploymentUrl = deployMutation.data?.deployment ?
+    `${deployMutation.data?.deployment.url}?deploymentId=${deployMutation.data.deployment.deploymentId}` :
+    deployMutation.data?.deployment.url;
+
   const handleDeploy = async () => {
     const requiredServices = Object.keys(authScopes?.serviceClientMap || {});
     const missingServices = requiredServices.filter(service => !selectedConnections[service]);
@@ -257,10 +331,11 @@ export function McpDeployDialog({
 
     const servicesWithScopes = requiredServices.filter(service => {
       const mcpRequiredScopes = authScopes?.serviceClientMap?.[service] || [];
+      const authMethod = authMethods?.find((method: any) => method.name === service);
+      // Skip scope validation for embedded wallet services
+      if (authMethod?.type === 'embedded_wallet') return false;
       return mcpRequiredScopes.length > 0;
     });
-
-    console.log("authScopes", authScopes);
 
     const servicesWithoutPermissions = servicesWithScopes.filter(
       service => !selectedPermissions[service] || selectedPermissions[service].length === 0
@@ -271,19 +346,67 @@ export function McpDeployDialog({
       return;
     }
 
-    try {
-      const allScopes = Object.values(selectedPermissions).flatMap(permissions =>
-        permissions.map(permission => permission.id)
-      );
+    // Validate policy JSON if there are embedded wallet services
+    const hasEmbeddedWalletServices = requiredServices.some(service => {
+      const authMethod = authMethods?.find((method: any) => method.name === service);
+      return authMethod?.type === 'embedded_wallet';
+    });
 
-      await deployMutation.mutateAsync({
+    if (hasEmbeddedWalletServices) {
+      try {
+        JSON.parse(policyJson);
+      } catch {
+        toast.error('Invalid policy JSON format');
+        return;
+      }
+    }
+
+    try {
+      const serviceConnections = requiredServices
+        .filter(service => selectedConnections[service])
+        .map(service => {
+          const authMethod = authMethods?.find((method: any) => method.name === service);
+          const isEmbeddedWallet = authMethod?.type === 'embedded_wallet';
+
+          return {
+            connectionId: selectedConnections[service],
+            ...(isEmbeddedWallet
+              ? { policy: JSON.parse(policyJson) }
+              : { scopes: selectedPermissions[service]?.map(permission => permission.id) || [] }
+            )
+          };
+        });
+
+      const deploymentData = await deployMutation.mutateAsync({
         packageId: pkg.packageId,
         version: pkg.latestVersion,
         url: `${pkg?.url?.replace(/\/$/, '')}/mcp`,
-        scopes: allScopes,
         authData: {},
-        connectionIds: Object.values(selectedConnections),
+        serviceConnections: serviceConnections,
       });
+
+      const deploymentId = deploymentData.deployment.deploymentId
+
+      const mcpRedirectUri = new URL(pkg?.url as string)
+      mcpRedirectUri.pathname = mcpRedirectUri.pathname.replace(/\/$/, '') + '/osiris/callback'
+
+      // Flatten scopes for authorization
+      const allScopes = serviceConnections.flatMap(sc => 'scopes' in sc ? sc.scopes : []);
+
+      const data = await authorizeMutation.mutateAsync({
+        clientId: pkg?.clientId ?? "",
+        redirectUri: mcpRedirectUri.toString(),
+        responseType: 'code',
+        scopes: [...allScopes, "osiris:auth:read", "osiris:auth:action"],
+        state: deploymentId || '',
+        deploymentId: deploymentId,
+      })
+
+      const url = new URL(data.url)
+      const res = await fetch(url.toString())
+      if (res.status !== 200) {
+        throw new Error('Failed to authorize')
+      }
 
       // Show success message
       toast.success('Package deployed successfully!');
@@ -300,8 +423,10 @@ export function McpDeployDialog({
     setTimeout(() => {
       setSelectedPermissions({});
       setSelectedConnections({});
+      setPolicyJson('{\n  "allow": [{}],\n  "deny": []\n}');
       deployMutation.reset();
-    }, 300);
+      authorizeMutation.reset();
+    }, 100);
   };
 
   const handlePermissionSelect = useCallback((serviceName: string, permissions: Permission[]) => {
@@ -316,7 +441,6 @@ export function McpDeployDialog({
   };
 
   const handleConnectNewAccount = useCallback((serviceName: string, requiredScopes: string[]) => {
-    // Find the auth method for this service
     const serviceAuthMethod = authMethods?.find((method: any) => method.name === serviceName);
 
     if (!serviceAuthMethod) {
@@ -324,24 +448,24 @@ export function McpDeployDialog({
       return;
     }
 
-    // Set the connecting service to show the appropriate dialog
     setConnectingService(serviceName);
   }, [authMethods]);
 
-  const isPending = deployMutation.isPending;
-  const isSuccess = deployMutation.isSuccess;
-  const isError = deployMutation.isError;
+  const isPending = deployMutation.isPending || authorizeMutation.isPending;
+  const isSuccess = deployMutation.isSuccess && authorizeMutation.isSuccess;
+  const isError = deployMutation.isError || authorizeMutation.isError;
 
   const renderDeployForm = () => (
     <div className="flex flex-col px-4">
       {/* Services and Permissions */}
       <div className="space-y-3 overflow-y-scroll">
         <ScrollArea className="max-h-64">
-          {Object.entries(authScopes?.serviceClientMap || {}).map(([serviceName, requiredScopes]) => (
-            <div key={serviceName}>
+          {authScopes?.serviceClients?.map((serviceClient: any) => (
+            <div key={serviceClient.name}>
               <ServiceSection
-                serviceName={serviceName}
-                requiredScopes={requiredScopes as string[]}
+                serviceName={serviceClient.name}
+                serviceClient={serviceClient}
+                requiredScopes={authScopes?.serviceClientMap?.[serviceClient.name] || []}
                 userAuth={userAuth}
                 authScopes={authScopes}
                 selectedPermissions={selectedPermissions}
@@ -358,6 +482,43 @@ export function McpDeployDialog({
           ))}
         </ScrollArea>
       </div>
+
+      {/* Policy Builder for Embedded Wallet Services */}
+      {authScopes?.serviceClients?.some((serviceClient: any) => {
+        const method = authMethods?.find((m: any) => m.name === serviceClient.name);
+        return method?.type === 'embedded_wallet';
+      }) && (
+          <div className="pt-4 border-t border-primary-100">
+            <div className="space-y-3">
+              <div>
+                <h4 className="text-sm font-medium text-primary-800">Access Policies</h4>
+                <p className="text-xs text-primary-400">Define access rules and constraints for wallet operations</p>
+              </div>
+
+              {/* Policy Status Message */}
+              {(() => {
+                try {
+                  const policy = JSON.parse(policyJson);
+                  const isAllowAll = policy.allow?.some((rule: any) => Object.keys(rule).length === 0);
+                  return isAllowAll ? (
+                    <div className="p-3 bg-blue-25 border border-blue-200 rounded-lg">
+                      <p className="text-sm text-blue-700">
+                        <span className="font-medium">Current Policy:</span> Allows all wallet operations
+                      </p>
+                      <p className="text-xs text-blue-600 mt-1">
+                        The policy currently grants unrestricted access. Modify below to add restrictions.
+                      </p>
+                    </div>
+                  ) : null;
+                } catch {
+                  return null;
+                }
+              })()}
+
+              <PolicyBuilder value={policyJson} onChange={setPolicyJson} />
+            </div>
+          </div>
+        )}
     </div>
   );
 
@@ -378,38 +539,256 @@ export function McpDeployDialog({
       statusText = "Failed";
     }
 
+    if (isSuccess) {
+      return (
+        <div className="w-full px-4">
+          <div className="flex flex-col text-center mb-6">
+            <h3 className="flex items-center justify-center gap-2 text-lg font-medium">
+              <CheckCircle className="size-5 text-green-600" />
+              {pkg.name} Deployed Successfully!
+            </h3>
+            <span className="text-sm text-primary-400">
+              Your MCP package is now live and ready to connect
+            </span>
+          </div>
+
+          <Tabs defaultValue="cursor" className="w-full">
+            <TabsList className="grid w-full grid-cols-5">
+              <TabsTrigger value="cursor">Cursor</TabsTrigger>
+              <TabsTrigger value="claude">Claude</TabsTrigger>
+              <TabsTrigger value="vscode">VS Code</TabsTrigger>
+              <TabsTrigger value="json">JSON</TabsTrigger>
+              <TabsTrigger value="code">Code</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="cursor" className="space-y-4">
+              <div className="text-sm">
+                <h4 className="font-medium mb-2">One-click install in Cursor</h4>
+                <Button
+                  onClick={() => {
+                    const configObj = {
+                      type: "http",
+                      url: mcpDeploymentUrl
+                    };
+                    const cursorUrl = `cursor://anysphere.cursor-deeplink/mcp/install?name=${encodeURIComponent(pkg.name)}&config=${encodeURIComponent(btoa(JSON.stringify(configObj)))}`;
+                    window.open(cursorUrl, '_blank');
+                  }}
+                  className="w-full mb-2"
+                >
+                  <ExternalLink className="size-4 mr-2" />
+                  Install in Cursor
+                </Button>
+                <p className="text-xs text-primary-400">
+                  This will open Cursor and automatically add the MCP server to your configuration.
+                </p>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="claude" className="space-y-4">
+              <div className="text-sm space-y-3">
+                <div>
+                  <h4 className="font-medium mb-2">Claude Desktop</h4>
+                  <ol className="list-decimal list-inside space-y-1 text-xs">
+                    <li>Find "Add Connector" in the chat bar</li>
+                    <li>Click on "Add Custom Connector" in the "Manage connector" page</li>
+                    <li>Enter the MCP URL and name:</li>
+                  </ol>
+                  <div className="mt-2 p-2 bg-gray-100 rounded-[6px] relative">
+                    <code className="text-xs">{mcpDeploymentUrl}</code>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="absolute top-1 right-1 h-6 w-6 p-0"
+                      onClick={() => copyToClipboard(mcpDeploymentUrl, 'MCP URL')}
+                    >
+                      <Copy className="size-3" />
+                    </Button>
+                  </div>
+                </div>
+                <div>
+                  <h4 className="font-medium mb-2">Claude Code</h4>
+                  <div className="p-2 bg-gray-100 rounded-[6px] relative">
+                    <code className="text-xs">claude mcp add --transport http {pkg.name} -s user "{mcpDeploymentUrl}"</code>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="absolute top-1 right-1 h-6 w-6 p-0"
+                      onClick={() => copyToClipboard(`claude mcp add --transport http ${pkg.name} -s user "${mcpDeploymentUrl}"`, 'Claude Code command')}
+                    >
+                      <Copy className="size-3" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="vscode" className="space-y-4">
+              <div className="text-sm">
+                <h4 className="font-medium mb-2">One-click install in VS Code</h4>
+                <Button
+                  onClick={() => {
+                    const configObj = {
+                      name: pkg.name,
+                      type: "http",
+                      url: mcpDeploymentUrl
+                    };
+                    const vscodeUrl = `vscode:mcp/install?${encodeURIComponent(JSON.stringify(configObj))}`;
+                    window.open(vscodeUrl, '_blank');
+                  }}
+                  className="w-full mb-2"
+                >
+                  <ExternalLink className="size-4 mr-2" />
+                  Install in VS Code
+                </Button>
+                <p className="text-xs text-primary-400">
+                  This will open VS Code and automatically add the MCP server to your configuration.
+                </p>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="json" className="space-y-4 overflow-hidden">
+              <div className="text-sm">
+                <h4 className="font-medium mb-2">MCP Configuration</h4>
+                <p className="text-xs text-primary-400 mb-2">Add this to your MCP configuration file:</p>
+                <div className="p-3 bg-gray-100 rounded-[6px] relative">
+                  <pre className="text-xs text-wrap">
+                    {`{
+  "mcpServers": {
+    "${pkg.name}": {
+      "type": "streamable-http",
+      "url": "${mcpDeploymentUrl}"
+    }
+  }
+}`}
+                  </pre>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="absolute top-2 right-2 h-6 w-6 p-0"
+                    onClick={() => copyToClipboard(`{
+  "mcpServers": {
+    "${pkg.name}": {
+      "type": "streamable-http",
+      "url": "${mcpDeploymentUrl}"
+    }
+  }
+}`, 'JSON configuration')}
+                  >
+                    <Copy className="size-3" />
+                  </Button>
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="code" className="space-y-4 overflow-hidden">
+              <div className="text-sm">
+                <h4 className="font-medium mb-2">TypeScript Integration</h4>
+                <p className="text-xs text-primary-400 mb-2">Use this code to connect programmatically:</p>
+                <div className="p-3 bg-gray-100 rounded-[6px] relative max-h-64 overflow-y-auto">
+                  <pre className="text-xs text-wrap">
+                    {`import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js"
+
+// Construct server URL with authentication
+const url = new URL("${mcpDeploymentUrl}")
+url.searchParams.set("deploymentId", "${deployMutation.data?.deployment?.deploymentId || ''}")
+const serverUrl = url.toString()
+
+const transport = new StreamableHTTPClientTransport(serverUrl)
+
+// Create MCP client
+import { Client } from "@modelcontextprotocol/sdk/client/index.js"
+
+const client = new Client({
+  name: "My Osiris Client",
+  version: "1.0.0"
+})
+await client.connect(transport)
+
+// List available tools
+const tools = await client.listTools()
+console.log(\`Available tools: \${tools.map(t => t.name).join(", ")}\`)`}
+                  </pre>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="absolute top-2 right-2 h-6 w-6 p-0"
+                    onClick={() => copyToClipboard(`import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js"
+
+// Construct server URL with authentication
+const url = new URL("${mcpDeploymentUrl}")
+url.searchParams.set("deploymentId", "${deployMutation.data?.deployment?.deploymentId || ''}")
+const serverUrl = url.toString()
+
+const transport = new StreamableHTTPClientTransport(serverUrl)
+
+// Create MCP client
+import { Client } from "@modelcontextprotocol/sdk/client/index.js"
+
+const client = new Client({
+  name: "My Osiris Client",
+  version: "1.0.0"
+})
+await client.connect(transport)
+
+// List available tools
+const tools = await client.listTools()
+console.log(\`Available tools: \${tools.map(t => t.name).join(", ")}\`)`, 'TypeScript code')}
+                  >
+                    <Copy className="size-3" />
+                  </Button>
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </div>
+      );
+    }
+
     return (
-      <div className="w-full max-w-md flex flex-col items-center mt-8 mb-12 text-[18px]">
+      <div className="w-full flex flex-col justify-center items-center mt-8 mb-12 text-[18px]">
         <div className="flex flex-col text-center mb-8">
           <h3 className="flex items-center justify-center gap-2">
-            {isPending ? 'Deploying' : isSuccess ? 'Deployed' : 'Deploy Failed'}
-            <div className="size-[18px] bg-blue-400 rounded flex items-center justify-center text-white text-xs font-bold">
+            {isPending ? 'Deploying' : isError ? 'Deploy Failed' : ''}
+            <div className="size-[18px] rounded flex items-center justify-center text-white text-xs font-bold">
               {pkg.name.charAt(0).toUpperCase()}
             </div>
             {pkg.name}
           </h3>
           <span className="text-sm text-primary-400">
             {isPending ? 'Setting up your MCP deployment...' :
-              isSuccess ? 'Your MCP package is now live!' :
-                'Deployment encountered an error'}
+              isError ? 'Deployment encountered an error' : ''}
           </span>
         </div>
 
-        <div className="flex items-center w-full relative max-w-[294px]">
+        <div className="flex items-center justify-center w-full relative max-w-[294px]">
           <div className="flex z-20 w-full items-center justify-between">
-            <div className="bg-purple-400 rounded-[6px] size-14"></div>
+            {/* User Avatar */}
+            <Avatar className="size-14 rounded-[6px]">
+              <AvatarImage src={user?.profileImageUrl} alt={user?.name || 'User'} />
+              <AvatarFallback className="text-lg font-bold">
+                {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
+              </AvatarFallback>
+            </Avatar>
+
             <div className={`bg-${statusColor} w-full h-0.5`} />
+
+            {/* Status Indicator */}
             <div className={`h-fit text-xs border flex items-center gap-1 rounded-[6px] p-1 ${isPending ? 'border-primary-600/15 text-primary-400 bg-primary-50' :
-              isSuccess ? 'border-success-600/15 text-success-600 bg-success-50' :
-                'border-warning-600/15 text-warning-600 bg-warning-50'
+              isError ? 'border-warning-600/15 text-warning-600 bg-warning-50' : ''
               }`}>
               {statusIcon}
               {statusText}
             </div>
+
             <div className={`bg-${statusColor} w-full h-0.5`} />
-            <div className="bg-blue-400 rounded-[6px] size-14 flex items-center justify-center text-white text-lg font-bold">
-              {pkg.name.charAt(0).toUpperCase()}
-            </div>
+
+            {/* Package Avatar */}
+            <Avatar className="size-14 rounded-[6px]">
+              <AvatarImage src={pkg.iconUrl || undefined} alt={pkg.name} />
+              <AvatarFallback className="text-lg font-bold">
+                {pkg.name.charAt(0).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
           </div>
         </div>
       </div>
@@ -418,7 +797,6 @@ export function McpDeployDialog({
 
   const defaultTrigger = (
     <Button variant="ghost" size="sm" className="gap-2">
-      <Rocket className="size-4" />
       Deploy
     </Button>
   );
@@ -445,7 +823,7 @@ export function McpDeployDialog({
           </AlertDialogTitle>
         </AlertDialogHeader>
 
-        <div className="w-full">
+        <div className="w-full max-h-[calc(100vh-200px)] overflow-y-scroll">
           <div className="flex items-center justify-between px-4 pt-4">
             <div className="flex">
               <Avatar className="rounded-lg size-10">
@@ -454,7 +832,8 @@ export function McpDeployDialog({
                   {user ? getInitials(user.name) : 'U'}
                 </AvatarFallback>
               </Avatar>
-              <Avatar className="-ml-3 rounded-lg size-10 bg-blue-400">
+              <Avatar className="-ml-3 rounded-lg size-10">
+                <AvatarImage src={pkg.iconUrl ?? ""} alt={pkg.name} />
                 <AvatarFallback className="rounded-sm text-white font-bold">
                   {pkg.name.charAt(0).toUpperCase()}
                 </AvatarFallback>
@@ -502,24 +881,21 @@ export function McpDeployDialog({
           </div>
         </div>
 
-        <AlertDialogFooter className="flex w-full items-center rounded-b-[12px] border-t border-t-primary-100 bg-primary-25 px-4 py-3 sm:justify-end">
+        <AlertDialogFooter className="flex w-full items-center justify-between rounded-b-[12px] border-t border-t-primary-100 bg-primary-25 px-4 py-2 sm:justify-end">
           {isSuccess ? (
-            <Button onClick={handleClose} className="gap-2">
+            <AlertDialogCancel onClick={handleClose} className="gap-2">
               <X className="size-4" />
               Close
-            </Button>
+            </AlertDialogCancel>
           ) : isError ? (
-            <>
-              <Button variant="outline" onClick={() => deployMutation.reset()}>
-                Try Again
-              </Button>
-              <Button onClick={handleClose}>
+            <AlertDialogFooter className="flex w-full items-center rounded-b-[12px] bg-primary-25 px-4 py-1 sm:justify-end">
+              <AlertDialogCancel onClick={handleClose}>
                 Close
-              </Button>
-            </>
+              </AlertDialogCancel>
+            </AlertDialogFooter>
           ) : !isPending ? (
-            <>
-              <AlertDialogCancel className="bg-primary-50">
+            <div className="w-full flex items-center justify-between">
+              <AlertDialogCancel className="bg-primary-50" onClick={handleClose}>
                 Cancel
               </AlertDialogCancel>
               <AlertDialogAction
@@ -530,10 +906,9 @@ export function McpDeployDialog({
                 }}
                 disabled={!isFormValid}
               >
-                <Rocket className="size-4 mr-2" />
                 Deploy Package
               </AlertDialogAction>
-            </>
+            </div>
           ) : (
             <div className="flex items-center gap-2">
               <Loader2 className="size-4 animate-spin" />
@@ -544,15 +919,17 @@ export function McpDeployDialog({
       </AlertDialogContent>
 
       {/* Auth Method Dialog for connecting new accounts */}
-      <AuthMethodDialog
-        method={authMethods?.find((method: any) => method.name === connectingService)}
-        open={!!connectingService}
-        onOpenChange={(open) => {
-          if (!open) {
-            setConnectingService(null);
-          }
-        }}
-      />
+      {connectingService && authMethods && (
+        <AuthMethodDialog
+          method={authMethods.find((method: any) => method.name === connectingService)}
+          open={!!connectingService}
+          onOpenChange={(open) => {
+            if (!open) {
+              setConnectingService(null);
+            }
+          }}
+        />
+      )}
     </AlertDialog>
   );
 }

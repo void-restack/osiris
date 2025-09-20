@@ -23,7 +23,7 @@ interface UseKnowledgeBaseTableProps {
 
 export function useKnowledgeBaseTable({
     columns,
-    initialPageSize = 10,
+    initialPageSize = 9,
 }: UseKnowledgeBaseTableProps) {
     const [publicMetadata] = useQueryState("publicMetadata", parseAsString.withDefault(""));
     const [startPrice, endPrice] = publicMetadata?.split(",") || [0, 0];
@@ -47,6 +47,8 @@ export function useKnowledgeBaseTable({
             endPrice?: number;
             sortBy?: 'rating' | 'credits' | 'installs' | 'price' | 'recent';
             sortOrder?: 'asc' | 'desc';
+            page?: number;
+            limit?: number;
         } = {};
 
         if (search) {
@@ -60,7 +62,6 @@ export function useKnowledgeBaseTable({
         if (isPublic) {
             filters.isPublic = isPublic;
         }
-
 
         if (startPrice) {
             filters.startPrice = parseInt(startPrice);
@@ -78,37 +79,21 @@ export function useKnowledgeBaseTable({
             filters.sortOrder = sortOrder as 'asc' | 'desc';
         }
 
+        // Always include pagination parameters
+        filters.page = page;
+        filters.limit = limit;
+
         return filters;
-    }, [search, sortBy, sortOrder, startPrice, endPrice, tags, isPublic, topK]);
+    }, [search, sortBy, sortOrder, startPrice, endPrice, tags, isPublic, topK, page, limit]);
 
     const { data: knowledgeBaseData, isLoading, error, isFetching } = useQuery({
-        ...knowledgeQueries.searchOptions(apiFilters),
+        ...knowledgeQueries.basesOptions(apiFilters),
         placeholderData: keepPreviousData,
     });
 
-    const knowledgeBases: KnowledgeBase[] = knowledgeBaseData?.data?.map((kb: any) => {
-            return {
-                ...kb.knowledge_bases
-            }
-    }) || [];
+    const knowledgeBases: KnowledgeBase[] = knowledgeBaseData?.data || [];
 
-    // Debug logging to track data changes
-    React.useEffect(() => {
-        console.log('Knowledge base data updated:', {
-            sortBy,
-            sortOrder,
-            dataLength: knowledgeBases.length,
-            firstItem: knowledgeBases[0],
-            apiFilters
-        });
-    }, [knowledgeBases, sortBy, sortOrder, apiFilters]);
-
-    const pagination = knowledgeBaseData?.pagination || { totalPages: 1, total: 0, page: 1, limit: 10 };
-
-    // Create a unique key for the table to force re-render when sorting changes
-    const tableKey = React.useMemo(() => {
-        return `${sortBy || 'no-sort'}-${sortOrder || 'asc'}-${page}-${limit}`;
-    }, [sortBy, sortOrder, page, limit]);
+    const pagination = knowledgeBaseData?.pagination || { totalPages: 1, total: 0, page: 1, limit: limit };
 
     const { table, ...rest } = useDataTable({
         data: knowledgeBases,
@@ -118,8 +103,6 @@ export function useKnowledgeBaseTable({
             pagination: { pageIndex: page - 1, pageSize: limit },
         },
         enableAdvancedFilter: false,
-        // Force table recreation when key changes
-        key: tableKey,
     });
     return {
         data: knowledgeBases,

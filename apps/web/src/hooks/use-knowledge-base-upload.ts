@@ -105,7 +105,6 @@ export const useKnowledgeBaseUpload = () => {
       const uploadUrls = await uploadUrlMutation.mutateAsync(
         filesToUpload.map((f) => f.request)
       );
-      console.log("Received signed URLs:", uploadUrls);
 
       let logoUrl = state.logoUrl;
       let coverImageUrl = state.coverImageUrl;
@@ -123,17 +122,11 @@ export const useKnowledgeBaseUpload = () => {
           },
         }));
 
-        console.log(`Uploading ${type} to:`, uploadUrl.signedUrl);
-        console.log(`File type: ${file.type}, File size: ${file.size}`);
-        console.log(`Using backend unique filename: ${uploadUrl.uniqueFilename}`);
-
         // Create a new File object with the unique filename from backend
         const renamedFile = new File([file], uploadUrl.uniqueFilename, {
           type: file.type,
           lastModified: file.lastModified,
         });
-
-        console.log("Renamed file:", renamedFile, renamedFile.name);
 
         const uploadResponse = await fetch(uploadUrl.signedUrl, {
           method: "PUT",

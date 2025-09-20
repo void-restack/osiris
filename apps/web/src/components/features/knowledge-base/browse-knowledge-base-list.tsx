@@ -10,10 +10,13 @@ export function BrowseKnowledgeBaseList({
   rows,
 }: BrowseKnowledgeBaseListProps) {
   return (
-    <ScrollArea className="relative h-[calc(100vh-660px)] hidebar">
+    <ScrollArea className="relative h-[calc(100vh-560px)] hidebar overflow-y-auto hidebar px-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 p-2 pb-8 hidebar gap-4">
         {rows.map((row) => (
-          <KnowledgeBaseCard key={row.original.knowledgeBaseId} {...row.original} />
+          <KnowledgeBaseCard
+            key={row.original.knowledgeBaseId}
+            {...row.original}
+          />
         ))}
       </div>
     </ScrollArea>
@@ -27,7 +30,7 @@ export const KnowledgeBaseGridViewColumns: any[] = [
     enableColumnFilter: false,
     header: () => null,
     cell: () => null,
-    
+
     meta: {
       variant: "text",
       label: "Knowledge Base name",

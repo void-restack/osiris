@@ -8,7 +8,12 @@ import { useAppStore } from "@/lib/store";
 import { PermissionSelector, type Permission } from "./ui/permission-selector";
 import { Badge } from "./ui/badge";
 import { Separator } from "./ui/separator";
-import { useUpdateDeploymentPolicyMutation } from "@/lib/mutations";
+import {
+    useUpdateDeploymentPolicyMutation,
+    useUpdateDeploymentMutation,
+    useUpdateSecretSharingMutation,
+    useUpdateWalletMutation
+} from "@/lib/mutations";
 import { useQuery } from "@tanstack/react-query";
 import { packageQueries } from "@/lib/queries";
 import PolicyBuilder from "./policy-builder";
@@ -26,46 +31,51 @@ export function McpServerEditSidebar() {
     const [initialPolicyValue, setInitialPolicyValue] = useState<string>("");
 
     const updatePolicyMutation = useUpdateDeploymentPolicyMutation();
+    const updateDeploymentMutation = useUpdateDeploymentMutation();
+    const updateSecretSharingMutation = useUpdateSecretSharingMutation();
+    const updateWalletMutation = useUpdateWalletMutation();
 
-    const { data: deploymentData, isLoading: isDeploymentDataLoading } = useQuery({
-        ...packageQueries.userDeploymentsForPackageOptions(mcpId || "", { page: 1, limit: 10 }),
-        enabled: !!mcpId,
-    });
+    const currentDeployment = selectedMcpServer;
 
-    const currentDeployment = deploymentData?.data?.find(
-        (deployment: any) => deployment.deploymentId === selectedMcpServer?.deploymentId
-    );
+    const serviceClientInfo = currentDeployment?.userServiceConnectionMcpDeployments?.[0]?.serviceClient;
+    const serviceClientType = serviceClientInfo?.type; // 'oauth' | 'secret_sharing' | 'embedded_wallet'
+    const serviceClientName = serviceClientInfo?.name;
+    const connectionId = currentDeployment?.userServiceConnectionMcpDeployments?.[0]?.connectionId;
 
-    // Get service client type from the current deployment's connection data
-    const primaryServiceClientType = currentDeployment?.userServiceConnectionMcpDeployments?.[0]?.connectionId ? 'oauth' : 'embedded_wallet';
-
-    // Add query to fetch available scopes for the package
     const { data: availableScopes } = useQuery({
         ...packageQueries.authScopesOptions(mcpId || ""),
         enabled: !!mcpId,
     });
 
     const packageRequiredScopes = getPackageRequiredScopes(availableScopes);
-
     const currentScopesAsPermissions = currentDeployment ? getCurrentScopesAsPermissions(currentDeployment) : [];
-
     const availablePermissions = packageRequiredScopes;
 
     useEffect(() => {
         if (selectedMcpServer && currentDeployment) {
-            // Get currently selected scopes from the deployment
             const deploymentScopes = getCurrentScopesAsPermissions(currentDeployment);
-            setSelectedScopes(deploymentScopes);
-            setInitialScopes(deploymentScopes);
 
+            setSelectedScopes([...deploymentScopes]);
+            setInitialScopes([...deploymentScopes]);
+
+            // Get policy from the userServiceConnectionMcpDeployments array
             let policyToUse = { allow: [], deny: [] };
-            if (currentDeployment?.policy) {
-                policyToUse = currentDeployment.policy;
+            if (currentDeployment?.userServiceConnectionMcpDeployments?.[0]?.policy) {
+                // Use the policy exactly as it comes from the API
+                policyToUse = currentDeployment.userServiceConnectionMcpDeployments[0].policy;
             }
+
             const policyJson = JSON.stringify(policyToUse, null, 2);
             setPolicyValue(policyJson);
             setInitialPolicyValue(policyJson);
 
+            setHasChanges(false);
+        } else {
+            // Clear state when no server selected
+            setSelectedScopes([]);
+            setInitialScopes([]);
+            setPolicyValue("");
+            setInitialPolicyValue("");
             setHasChanges(false);
         }
     }, [selectedMcpServer, currentDeployment]);
@@ -73,12 +83,10 @@ export function McpServerEditSidebar() {
     const checkForChanges = () => {
         if (!selectedMcpServer) return false;
 
-        // Check if scopes have changed
         const currentScopeIds = selectedScopes.map(s => s.id).sort();
         const initialScopeIds = initialScopes.map(s => s.id).sort();
         const scopesChanged = JSON.stringify(currentScopeIds) !== JSON.stringify(initialScopeIds);
 
-        // Check if policy has changed
         const policyChanged = policyValue !== initialPolicyValue;
 
         return scopesChanged || policyChanged;
@@ -101,40 +109,83 @@ export function McpServerEditSidebar() {
 
         setIsLoading(true);
         try {
-            const completeSavePayload = {
-                deploymentId: selectedMcpServer.deploymentId,
-                serviceClientType: primaryServiceClientType,
-                changes: {
-                    scopes: selectedScopes.map(s => s.id).sort(),
-                    initialScopes: initialScopes.map(s => s.id).sort(),
-                    scopesChanged: JSON.stringify(selectedScopes.map(s => s.id).sort()) !== JSON.stringify(initialScopes.map(s => s.id).sort()),
-                    policyChanged: policyValue !== initialPolicyValue,
-                    policyValue: policyValue !== initialPolicyValue ? 'Modified' : 'Unchanged'
-                },
-                timestamp: new Date().toISOString()
-            };
+            const scopesChanged = JSON.stringify(selectedScopes.map(s => s.id).sort()) !== JSON.stringify(initialScopes.map(s => s.id).sort());
+            const policyChanged = policyValue !== initialPolicyValue;
 
-            if (primaryServiceClientType === 'embedded_wallet') {
-                await handleEmbeddedWalletUpdate();
-            } else if (primaryServiceClientType === 'oauth') {
-                await handleOAuthUpdate();
-            } else {
-                await handleOtherDeploymentTypes();
+            // Handle scopes update based on service client type
+            if (scopesChanged) {
+                await handleScopesUpdate();
+            }
+
+            // Handle policy update for embedded wallets
+            if (policyChanged && serviceClientType === 'embedded_wallet') {
+                await handlePolicyUpdate();
             }
 
             setHasChanges(false);
+            toast.success("MCP server updated successfully");
         } catch (error) {
+            console.error('Error updating MCP server:', error);
             toast.error("Failed to update MCP server");
-            console.error("Error updating MCP server:", error);
         } finally {
             setIsLoading(false);
         }
     };
 
-    const handleEmbeddedWalletUpdate = async () => {
-        if (!selectedMcpServer) return;
+    const handleScopesUpdate = async () => {
+        if (!selectedMcpServer || !connectionId) return;
 
-        console.log('=== Handling Embedded Wallet Update ===');
+        const newScopes = selectedScopes.map(s => s.id);
+
+        try {
+            switch (serviceClientType) {
+                case 'oauth':
+                    // For OAuth, update the deployment connection scopes
+                    await updateDeploymentMutation.mutateAsync({
+                        deploymentId: selectedMcpServer.deploymentId,
+                        connections: {
+                            [connectionId]: {
+                                scopes: newScopes
+                            }
+                        }
+                    });
+                    break;
+
+                case 'secret_sharing':
+                    // For secret sharing, update the connection scopes
+                    await updateSecretSharingMutation.mutateAsync({
+                        id: connectionId,
+                        secret: {
+                            // Keep existing secret data, just update scopes if needed
+                            scopes: newScopes
+                        }
+                    });
+                    break;
+
+                case 'embedded_wallet':
+                    // For embedded wallet, update the wallet policy/configuration
+                    await updateWalletMutation.mutateAsync({
+                        id: connectionId,
+                        policy: {
+                            scopes: newScopes,
+                            // Keep existing policy data
+                        }
+                    });
+                    break;
+
+                default:
+                    throw new Error(`Unsupported service client type: ${serviceClientType}`);
+            }
+
+            setInitialScopes(selectedScopes);
+        } catch (error) {
+            console.error('Failed to update scopes:', error);
+            throw error;
+        }
+    };
+
+    const handlePolicyUpdate = async () => {
+        if (!selectedMcpServer) return;
 
         let policy;
         try {
@@ -144,88 +195,12 @@ export function McpServerEditSidebar() {
             throw error;
         }
 
-        const policyUpdatePayload = {
+        await updatePolicyMutation.mutateAsync({
             deploymentId: selectedMcpServer.deploymentId,
             policy: policy
-        };
-        console.log('Policy Update Payload:', policyUpdatePayload);
-        console.log('API Endpoint that would be called: PATCH /packages/deployments/{deploymentId}/update-policy');
-        console.log('Request Body:', { policy: policy });
+        });
 
-        if (policyValue !== initialPolicyValue) {
-            console.log('Policy has changed, calling updateDeploymentPolicyMutation...');
-            await updatePolicyMutation.mutateAsync(policyUpdatePayload);
-            toast.success("Policy updated successfully");
-            setInitialPolicyValue(policyValue);
-            console.log('Policy update completed successfully');
-        } else {
-            console.log('Policy unchanged, skipping policy update');
-        }
-
-        // Log any other embedded wallet specific configurations
-        console.log('Embedded wallet configuration update completed');
-    };
-
-    const handleOAuthUpdate = async () => {
-        if (!selectedMcpServer) return;
-
-        console.log('=== Handling OAuth Update ===');
-
-        // Log the scopes update payload
-        const scopesUpdatePayload = {
-            deploymentId: selectedMcpServer.deploymentId,
-            scopes: selectedScopes.map(s => s.id)
-        };
-        console.log('Scopes Update Payload:', scopesUpdatePayload);
-        console.log('API Endpoint that would be called: PATCH /packages/deployments/{deploymentId}/update-scopes');
-        console.log('Request Body:', { scopes: selectedScopes.map(s => s.id) });
-
-        // Check if scopes have changed
-        if (JSON.stringify(selectedScopes.map(s => s.id).sort()) !== JSON.stringify(initialScopes.map(s => s.id).sort())) {
-            console.log('Scopes have changed, would call updateDeploymentScopes API...');
-
-            // TODO: Replace with actual API call when endpoint is available
-            // const response = await api(`/packages/deployments/${selectedMcpServer.deploymentId}/update-scopes`, {
-            //     method: "PATCH",
-            //     body: { scopes: selectedScopes.map(s => s.id) }
-            // });
-
-            // Simulate API call for now
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            toast.success("MCP server scopes updated successfully");
-            setInitialScopes(selectedScopes);
-            console.log('Scopes update completed successfully');
-        } else {
-            console.log('Scopes unchanged, skipping scopes update');
-        }
-
-        // Log any other OAuth specific configurations
-        console.log('OAuth configuration update completed');
-    };
-
-    const handleOtherDeploymentTypes = async () => {
-        if (!selectedMcpServer) return;
-
-        console.log('=== Handling Other Deployment Types ===');
-        console.log('Service Client Type:', primaryServiceClientType);
-        console.log('Deployment ID:', selectedMcpServer.deploymentId);
-
-        // Log the current deployment configuration
-        const deploymentConfigPayload = {
-            deploymentId: selectedMcpServer.deploymentId,
-            serviceClientType: primaryServiceClientType,
-            currentScopes: selectedScopes.map(s => s.id),
-            currentPolicy: policyValue !== initialPolicyValue ? 'Modified' : 'Unchanged'
-        };
-        console.log('Deployment Config Payload:', deploymentConfigPayload);
-
-        // Log that this deployment type is not yet fully supported
-        console.log(`Configuration for ${primaryServiceClientType} service clients is not yet fully implemented`);
-        toast.error(`Configuration for ${primaryServiceClientType} service clients is not yet supported`);
-
-        // Simulate processing time
-        await new Promise(resolve => setTimeout(resolve, 500));
-        console.log('Other deployment type handling completed');
+        setInitialPolicyValue(policyValue);
     };
 
     const handleCancel = () => {
@@ -233,6 +208,98 @@ export function McpServerEditSidebar() {
         setPolicyValue(initialPolicyValue);
         setHasChanges(false);
         closeMcpServerEditSidebar();
+    };
+
+    const renderConfigurationSection = () => {
+        if (!serviceClientType) {
+            return (
+                <div className="text-sm text-primary-500 bg-primary-50 p-3 rounded">
+                    Unable to determine service client type for this deployment.
+                </div>
+            );
+        }
+
+        switch (serviceClientType) {
+            case 'oauth':
+                return (
+                    <div className="space-y-4">
+                        <div className="space-y-3">
+                            <Label className="text-xs text-primary-500">OAuth Scopes & Permissions</Label>
+                            <div className="flex flex-wrap gap-2">
+                                {currentScopesAsPermissions.length > 0 ? (
+                                    currentScopesAsPermissions.map((scope: Permission) => (
+                                        <Badge key={scope.id} variant="secondary" className="text-xs">
+                                            {getScopeDisplayName(scope.id)}
+                                        </Badge>
+                                    ))
+                                ) : (
+                                    <span className="text-xs text-primary-400">No scopes selected</span>
+                                )}
+                            </div>
+                            {availablePermissions.length > 0 && selectedMcpServer && (
+                                <PermissionSelector
+                                    context="mcp-server-edit-sidebar"
+                                    key={`oauth-${selectedMcpServer.deploymentId}-${currentScopesAsPermissions.map(s => s.id).join(',')}`}
+                                    permissions={availablePermissions}
+                                    initialSelected={currentScopesAsPermissions}
+                                    onSelectionChange={handleScopeChange}
+                                    placeholder="Select OAuth scopes..."
+                                />
+                            )}
+                        </div>
+                    </div>
+                );
+
+            case 'embedded_wallet':
+                return (
+                    <div className="space-y-4">
+                        <div className="space-y-3">
+                            <Label className="text-xs text-primary-500">Wallet Policy Configuration</Label>
+                            <PolicyBuilder
+                                value={policyValue}
+                                onChange={handlePolicyChange}
+                            />
+                        </div>
+                    </div>
+                );
+
+            case 'secret_sharing':
+                return (
+                    <div className="space-y-4">
+                        <div className="space-y-3">
+                            <Label className="text-xs text-primary-500">Database Connection Scopes</Label>
+                            <div className="flex flex-wrap gap-2">
+                                {currentScopesAsPermissions.length > 0 ? (
+                                    currentScopesAsPermissions.map((scope: Permission) => (
+                                        <Badge key={scope.id} variant="secondary" className="text-xs">
+                                            {getScopeDisplayName(scope.id)}
+                                        </Badge>
+                                    ))
+                                ) : (
+                                    <span className="text-xs text-primary-400">No scopes configured</span>
+                                )}
+                            </div>
+                            {availablePermissions.length > 0 && selectedMcpServer && (
+                                <PermissionSelector
+                                    context="mcp-server-edit-sidebar"
+                                    key={`secret-${selectedMcpServer.deploymentId}-${currentScopesAsPermissions.map(s => s.id).join(',')}`}
+                                    permissions={availablePermissions}
+                                    initialSelected={currentScopesAsPermissions}
+                                    onSelectionChange={handleScopeChange}
+                                    placeholder="Select database scopes..."
+                                />
+                            )}
+                        </div>
+                    </div>
+                );
+
+            default:
+                return (
+                    <div className="text-sm text-primary-500 bg-primary-50 p-3 rounded">
+                        Configuration not available for service client type: {serviceClientType}
+                    </div>
+                );
+        }
     };
 
     if (!selectedMcpServer || !isMcpServerEditSidebarOpen) {
@@ -244,7 +311,19 @@ export function McpServerEditSidebar() {
             {/* Header */}
             <div className="flex items-center justify-between p-6 border-b border-primary-100">
                 <div className="flex flex-col">
-                    <h2 className="text-lg font-semibold text-primary-800">Deployment {selectedMcpServer.deploymentId.slice(0, 8)}...{selectedMcpServer.deploymentId.slice(-8)}</h2>
+                    <h2 className="text-lg font-semibold text-primary-800">
+                        Deployment {selectedMcpServer.deploymentId.slice(0, 8)}...{selectedMcpServer.deploymentId.slice(-8)}
+                    </h2>
+                    {serviceClientName && (
+                        <div className="flex items-center gap-2 mt-1">
+                            <Badge variant="outline" className="text-xs">
+                                {serviceClientName}
+                            </Badge>
+                            <Badge variant="secondary" className="text-xs">
+                                {serviceClientType}
+                            </Badge>
+                        </div>
+                    )}
                 </div>
                 <Button
                     variant="ghost"
@@ -263,23 +342,14 @@ export function McpServerEditSidebar() {
                     <div className="space-y-4">
                         <h3 className="font-medium text-primary-800">Server Information</h3>
                         <div className="space-y-3">
-                            <div>
-                                <Label className="text-xs text-primary-500">Status</Label>
-                                <div className="mt-1">
-                                    <Badge
-                                        variant={selectedMcpServer.status === 'active' ? 'default' : 'secondary'}
-                                        className="text-xs"
-                                    >
-                                        {selectedMcpServer.status}
-                                    </Badge>
+                            {selectedMcpServer.url && (
+                                <div>
+                                    <Label className="text-xs text-primary-500">URL</Label>
+                                    <div className="mt-1 text-sm text-primary-700 font-mono bg-primary-50 p-2 rounded">
+                                        {selectedMcpServer.url}
+                                    </div>
                                 </div>
-                            </div>
-                            {selectedMcpServer.url ? <div>
-                                <Label className="text-xs text-primary-500">URL</Label>
-                                <div className="mt-1 text-sm text-primary-700 font-mono bg-primary-50 p-2 rounded">
-                                    {selectedMcpServer.url}
-                                </div>
-                            </div> : null}
+                            )}
                             <div>
                                 <Label className="text-xs text-primary-500">Created</Label>
                                 <div className="mt-1 text-sm text-primary-700">
@@ -289,77 +359,13 @@ export function McpServerEditSidebar() {
                         </div>
                     </div>
 
-                    <div className="w-full border-t border-t-primary-100 border-dashed" />
+                    <Separator />
 
-                    {/* Scopes Management - Only show for OAuth service clients */}
-                    {primaryServiceClientType === 'oauth' && (
-                        <>
-                            <div className="space-y-4">
-                                <h3 className="font-medium text-primary-800">Scopes & Permissions</h3>
-                                <div className="space-y-3">
-                                    <Label className="text-xs text-primary-500">Current Scopes</Label>
-                                    <div className="flex flex-wrap gap-2">
-                                        {currentScopesAsPermissions.length > 0 ? (
-                                            currentScopesAsPermissions.map((scope: Permission) => (
-                                                <Badge key={scope.id} variant="secondary" className="text-xs">
-                                                    <pre>{getScopeDisplayName(scope.id)}</pre>
-                                                </Badge>
-                                            ))
-                                        ) : (
-                                            <span className="text-xs text-primary-400">No scopes selected</span>
-                                        )}
-                                    </div>
-                                    <PermissionSelector
-                                        permissions={availablePermissions}
-                                        initialSelected={currentScopesAsPermissions}
-                                        onSelectionChange={handleScopeChange}
-                                        placeholder="Select scopes..."
-                                    />
-                                </div>
-                            </div>
-                            <Separator />
-                        </>
-                    )}
-
-                    {/* Policy Management - Only show for embedded_wallet service clients */}
-                    {primaryServiceClientType === 'embedded_wallet' && (
-                        <div className="space-y-4">
-                            <div className="space-y-3">
-                                {isDeploymentDataLoading ? (
-                                    <div className="flex items-center gap-2 text-sm text-primary-600">
-                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                        Loading policy...
-                                    </div>
-                                ) : (
-                                    <PolicyBuilder
-                                        value={policyValue}
-                                        onChange={handlePolicyChange}
-                                    />
-                                )}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Show message if service client type is not supported */}
-                    {primaryServiceClientType && !['oauth', 'embedded_wallet'].includes(primaryServiceClientType) && (
-                        <div className="space-y-4">
-                            <h3 className="font-medium text-primary-800">Configuration</h3>
-                            <div className="text-sm text-primary-600">
-                                Configuration options for {primaryServiceClientType} service clients are not yet available.
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Show loading state while determining service client type */}
-                    {(!primaryServiceClientType || isDeploymentDataLoading) && (
-                        <div className="space-y-4">
-                            <h3 className="font-medium text-primary-800">Configuration</h3>
-                            <div className="flex items-center gap-2 text-sm text-primary-600">
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                                Loading configuration options...
-                            </div>
-                        </div>
-                    )}
+                    {/* Configuration Section */}
+                    <div className="space-y-4">
+                        <h3 className="font-medium text-primary-800">Configuration</h3>
+                        {renderConfigurationSection()}
+                    </div>
                 </div>
             </div>
 

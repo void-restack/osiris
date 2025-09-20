@@ -23,11 +23,12 @@ export const userQueries = {
         const response = await api("/users", {
           schema: responseSchema(userSchema),
         });
-        if (response.status === "FAILED") {
-          throw new Error(response.error);
-        }
+        // if (response.status === "FAILED") {
+        //   throw new Error(response.error);
+        // }
         return response.data;
       },
+      retry: false,
       staleTime: 5 * 60 * 1000,
       enabled: enabled,
     }),
@@ -103,6 +104,7 @@ export const packageQueries = {
     sortOrder?: string;
     page?: number;
     limit?: number;
+    isLive?: boolean;
   }) =>
     queryOptions({
       queryKey: packageQueries.list(filters),
@@ -121,6 +123,7 @@ export const packageQueries = {
         if (filters.sortOrder) params.set("sortOrder", filters.sortOrder);
         params.set("page", String(filters.page || 1));
         params.set("limit", String(filters.limit || 10));
+        if (filters.isLive) params.set("isLive", String(filters.isLive));
 
         const response = await api(`/packages?${params}`, {
           schema: z.object({
@@ -140,6 +143,7 @@ export const packageQueries = {
               search: z.string().optional(),
               name: z.string().optional(),
               publisherId: z.string().optional(),
+              isLive: z.boolean().optional(),
             }).optional(),
           }),
         });
@@ -826,21 +830,32 @@ export const creditQueries = {
 
 export const knowledgeQueries = {
   all: (filters?: { search?: string; page?: number; limit?: number }) => ["knowledge", ...(filters ? Object.entries(filters) : [])] as const,
-  bases: (filters?: { search?: string; page?: number; limit?: number }) => [...knowledgeQueries.all(), "bases", ...(filters ? Object.entries(filters) : [])] as const,
+  bases: (filters?: {
+    search?: string;
+    name?: string;
+    tags?: string;
+    sortBy?: 'name' | 'rating' | 'credits' | 'installs' | 'price' | 'recent';
+    sortOrder?: 'asc' | 'desc';
+    isPublic?: boolean;
+    startPrice?: number;
+    endPrice?: number;
+    page?: number;
+    limit?: number;
+  }) => [...knowledgeQueries.all(), "bases", ...(filters ? Object.entries(filters) : [])] as const,
   base: (id: string) => [...knowledgeQueries.bases(), id] as const,
   my: (filters?: { search?: string; page?: number; limit?: number }) => [...knowledgeQueries.all(), "my", ...(filters ? Object.entries(filters) : [])] as const,
-  search: (filters?: { 
-    query?: string; 
-    userId?: string; 
-    tags?: string; 
-    sortBy?: 'name' | 'rating' | 'credits' | 'installs' | 'price' | 'recent'; 
-    sortOrder?: 'asc' | 'desc'; 
-    isPublic?: boolean; 
-    startPrice?: number; 
-    endPrice?: number; 
-    page?: number; 
-    limit?: number; 
-    topK?: number; 
+  search: (filters?: {
+    query?: string;
+    userId?: string;
+    tags?: string;
+    sortBy?: 'name' | 'rating' | 'credits' | 'installs' | 'price' | 'recent';
+    sortOrder?: 'asc' | 'desc';
+    isPublic?: boolean;
+    startPrice?: number;
+    endPrice?: number;
+    page?: number;
+    limit?: number;
+    topK?: number;
   }) => [...knowledgeQueries.all(), "search", ...(filters ? Object.entries(filters) : [])] as const,
   sources: (baseId: string) =>
     [...knowledgeQueries.base(baseId), "sources"] as const,
@@ -849,18 +864,18 @@ export const knowledgeQueries = {
   installed: (knowledgeBaseId: string) => [...knowledgeQueries.all(), "installed", knowledgeBaseId] as const,
   allInstalled: () => [...knowledgeQueries.all(), "all-installed"] as const,
 
-  searchOptions: (filters?: { 
+  searchOptions: (filters?: {
     name?: string;
-    query?: string; 
-    userId?: string; 
-    tags?: string; 
-    sortBy?: 'name' | 'rating' | 'credits' | 'installs' | 'price' | 'recent'; 
-    sortOrder?: 'asc' | 'desc'; 
-    isPublic?: boolean; 
-    startPrice?: number; 
-    endPrice?: number; 
-    page?: number; 
-    limit?: number; 
+    query?: string;
+    userId?: string;
+    tags?: string;
+    sortBy?: 'name' | 'rating' | 'credits' | 'installs' | 'price' | 'recent';
+    sortOrder?: 'asc' | 'desc';
+    isPublic?: boolean;
+    startPrice?: number;
+    endPrice?: number;
+    page?: number;
+    limit?: number;
   }) =>
     queryOptions({
       queryKey: knowledgeQueries.search(filters),
@@ -879,8 +894,6 @@ export const knowledgeQueries = {
         if (filters?.name) searchParams.set("name", filters.name);
 
         const endpoint = `/knowledge-base/search?${searchParams}`;
-        console.log('Knowledge base search endpoint:', endpoint);
-        console.log('Search filters:', filters);
 
         const response = await api(endpoint, {
           schema: z.object({
@@ -894,9 +907,7 @@ export const knowledgeQueries = {
             }),
           }),
         });
-        
-        console.log('Knowledge base search response:', response);
-        
+
         if (response.status === "FAILED") {
           throw new Error(response.error);
         }
@@ -905,12 +916,30 @@ export const knowledgeQueries = {
       staleTime: 2 * 60 * 1000,
     }),
 
-  basesOptions: (filters?: { search?: string; page?: number; limit?: number }) =>
+  basesOptions: (filters?: {
+    search?: string;
+    name?: string;
+    tags?: string;
+    sortBy?: 'name' | 'rating' | 'credits' | 'installs' | 'price' | 'recent';
+    sortOrder?: 'asc' | 'desc';
+    isPublic?: boolean;
+    startPrice?: number;
+    endPrice?: number;
+    page?: number;
+    limit?: number;
+  }) =>
     queryOptions({
       queryKey: knowledgeQueries.bases(filters),
       queryFn: async () => {
         const searchParams = new URLSearchParams();
         if (filters?.search) searchParams.set("search", filters.search);
+        if (filters?.name) searchParams.set("name", filters.name);
+        if (filters?.tags) searchParams.set("tags", filters.tags);
+        if (filters?.sortBy) searchParams.set("sortBy", filters.sortBy);
+        if (filters?.sortOrder) searchParams.set("sortOrder", filters.sortOrder);
+        if (filters?.isPublic !== undefined) searchParams.set("isPublic", String(filters.isPublic));
+        if (filters?.startPrice !== undefined) searchParams.set("startPrice", String(filters.startPrice));
+        if (filters?.endPrice !== undefined) searchParams.set("endPrice", String(filters.endPrice));
         if (filters?.page) searchParams.set("page", String(filters.page));
         if (filters?.limit) searchParams.set("limit", String(filters.limit));
 
@@ -1027,7 +1056,27 @@ export const knowledgeQueries = {
               z.object({
                 unitId: z.string().uuid(),
                 knowledgeBaseId: z.string().uuid(),
-                sourceId: z.string().uuid(),
+                source: z.object({
+                  sourceId: z.string().uuid(),
+                  sourceType: z.enum([
+                    "image",
+                    "text",
+                    "youtube_url",
+                    "url",
+                    "file",
+                  ]),
+                  source: z.string(),
+                  processingStatus: z.enum([
+                    "pending",
+                    "processing",
+                    "completed",
+                    "failed",
+                  ]),
+                  processingErrorMessage: z.string().nullable(),
+                  createdAt: z.string().datetime(),
+                  updatedAt: z.string().datetime(),
+                  knowledgeBaseId: z.string().uuid(),
+                }),
                 name: z.string(),
                 content: z.string(),
                 tags: z.array(z.string()),
@@ -1162,6 +1211,69 @@ export const knowledgeQueries = {
       },
       staleTime: 2 * 60 * 1000,
     }),
+
+  popular: (filters?: {
+    search?: string;
+    name?: string;
+    tags?: string;
+    sortBy?: 'name' | 'rating' | 'credits' | 'installs' | 'price' | 'recent';
+    sortOrder?: 'asc' | 'desc';
+    isPublic?: boolean;
+    startPrice?: number;
+    endPrice?: number;
+    page?: number;
+    limit?: number;
+  }) => [...knowledgeQueries.all(), "popular", ...(filters ? Object.entries(filters) : [])] as const,
+
+  popularOptions: (filters?: {
+    search?: string;
+    name?: string;
+    tags?: string;
+    sortBy?: 'name' | 'rating' | 'credits' | 'installs' | 'price' | 'recent';
+    sortOrder?: 'asc' | 'desc';
+    isPublic?: boolean;
+    startPrice?: number;
+    endPrice?: number;
+    page?: number;
+    limit?: number;
+  }) =>
+    queryOptions({
+      queryKey: knowledgeQueries.popular(filters),
+      queryFn: async () => {
+        const searchParams = new URLSearchParams();
+        if (filters?.search) searchParams.set("search", filters.search);
+        if (filters?.name) searchParams.set("name", filters.name);
+        if (filters?.tags) searchParams.set("tags", filters.tags);
+        if (filters?.sortBy) searchParams.set("sortBy", filters.sortBy);
+        if (filters?.sortOrder) searchParams.set("sortOrder", filters.sortOrder);
+        if (filters?.isPublic !== undefined) searchParams.set("isPublic", String(filters.isPublic));
+        if (filters?.startPrice !== undefined) searchParams.set("startPrice", String(filters.startPrice));
+        if (filters?.endPrice !== undefined) searchParams.set("endPrice", String(filters.endPrice));
+        if (filters?.page) searchParams.set("page", String(filters.page));
+        if (filters?.limit) searchParams.set("limit", String(filters.limit));
+
+        const endpoint = `/knowledge-base/popular?${searchParams}`;
+
+        const response = await api(endpoint, {
+          schema: z.object({
+            status: z.literal("SUCCESS"),
+            data: z.array(knowledgeBaseJoinedSchema),
+            pagination: z.object({
+              total: z.number(),
+              page: z.number(),
+              limit: z.number(),
+              totalPages: z.number(),
+            }),
+          }),
+        });
+
+        if (response.status === "FAILED") {
+          throw new Error(response.error);
+        }
+        return response;
+      },
+      staleTime: 10 * 60 * 1000,
+    }),
 };
 
 export const hubQueries = {
@@ -1171,6 +1283,20 @@ export const hubQueries = {
   userAuthConnection: (id: string) => [...hubQueries.userAuth(), id] as const,
   oauthClients: () => [...hubQueries.all(), "oauth-clients"] as const,
   oauthClient: (id: string) => [...hubQueries.oauthClients(), id] as const,
+  assetBalances: (walletId: string) => [...hubQueries.all(), "asset-balances", walletId],
+
+  assetBalancesOptions: (walletId: string) => queryOptions({
+    queryKey: hubQueries.assetBalances(walletId),
+    queryFn: async () => {
+      const response = await api(`/hub/defi/balances/${walletId}`, {
+        schema: responseSchema(z.any()), // Define proper schema based on API response
+      });
+      if (response.status === "FAILED") {
+        throw new Error(response.error);
+      }
+      return response.data;
+    },
+  }),
 
   authMethodsOptions: (filters?: { name?: string; type?: string }) =>
     queryOptions({
@@ -1211,6 +1337,30 @@ export const hubQueries = {
       },
       staleTime: 10 * 60 * 1000, // 10 minutes - rarely changes
     }),
+
+  generateOsirisUrlOptions: (params: {
+    clientId: string;
+    redirectUri: string;
+    scopes: string[];
+    state?: string;
+  }) => queryOptions({
+    queryKey: [...hubQueries.all(), "osiris-url", params],
+    queryFn: async () => {
+      const response = await api("/hub/url", {
+        params: {
+          clientId: params.clientId,
+          redirectUri: params.redirectUri,
+          scopes: params.scopes.join(","),
+          state: params.state ?? "",
+        },
+        schema: responseSchema(z.object({ url: z.string().url() })),
+      });
+      if (response.status === "FAILED") {
+        throw new Error(response.error);
+      }
+      return response.data;
+    },
+  }),
 
   userAuthOptions: (enabled: boolean = true) =>
     queryOptions({
@@ -1417,5 +1567,516 @@ export const hubQueries = {
         return response.data;
       },
       enabled: enabled, // Only fetch when explicitly requested
+    }),
+};
+
+export const chatQueries = {
+  all: () => ["chat"] as const,
+  conversations: () => [...chatQueries.all(), "conversations"] as const,
+  conversation: (id: string) => [...chatQueries.conversations(), id] as const,
+  workflows: () => [...chatQueries.all(), "workflows"] as const,
+  workflow: (id: string) => [...chatQueries.workflows(), id] as const,
+  workflowExecutions: (workflowId: string) => [...chatQueries.workflows(), workflowId, "executions"] as const,
+  workflowExecution: (executionId: string) => [...chatQueries.all(), "execution", executionId] as const,
+  workflowJob: (jobId: string, queueName: string) => [...chatQueries.all(), "job", jobId, queueName] as const,
+
+
+  myWorkflows: () => [...chatQueries.all(), "my-workflows"] as const,
+
+  myWorkflowsOptions: (filters?: {
+    name?: string;
+    page?: number;
+    limit?: number;
+    isPublic?: boolean;
+  }) =>
+    queryOptions({
+      queryKey: [...chatQueries.myWorkflows(), filters],
+      queryFn: async () => {
+        const searchParams = new URLSearchParams();
+        if (filters?.name) searchParams.set("name", filters.name);
+        if (filters?.page) searchParams.set("page", String(filters.page));
+        if (filters?.limit) searchParams.set("limit", String(filters.limit));
+        if (filters?.isPublic !== undefined) searchParams.set("isPublic", String(filters.isPublic));
+
+        const response = await api(`/chat/workflows/my?${searchParams}`, {
+          schema: responseSchema(
+            z.object({
+              data: z.array(
+                z.object({
+                  id: z.string().uuid(),
+                  title: z.string(),
+                  description: z.string(),
+                  imageUrl: z.string().optional(),
+                  coverImageUrl: z.string().optional(),
+                  workflow: z.array(
+                    z.object({
+                      name: z.string(),
+                      deploymentId: z.array(z.string().uuid()),
+                      prompt: z.string(),
+                      knowledgeBaseIds: z.array(z.string()).optional(),
+                    })
+                  ),
+                  isPublic: z.boolean(),
+                  templateWorkflowId: z.string().uuid().optional(),
+                  ownerId: z.string().uuid(),
+                  createdAt: z.string().datetime(),
+                  updatedAt: z.string().datetime(),
+                })
+              ),
+              pagination: z.object({
+                total: z.number(),
+                page: z.number(),
+                limit: z.number(),
+                totalPages: z.number(),
+              }),
+            })
+          ),
+        });
+        if (response.status === "FAILED") {
+          throw new Error(response.error);
+        }
+        return response;
+      },
+    }),
+
+  // Template Workflow Queries
+  templateWorkflows: () => [...chatQueries.all(), "template-workflows"] as const,
+  templateWorkflow: (id: string) => [...chatQueries.templateWorkflows(), id] as const,
+
+  conversationsOptions: (enabled: boolean = true) =>
+    queryOptions({
+      queryKey: chatQueries.conversations(),
+      queryFn: async () => {
+        const response = await api("/chat/conversations", {
+          schema: responseSchema(
+            z.array(
+              z.object({
+                conversationId: z.string().uuid(),
+                userId: z.string().uuid(),
+                title: z.string().optional(),
+                createdAt: z.string().datetime(),
+                updatedAt: z.string().datetime(),
+                participants: z.array(
+                  z.object({
+                    participantId: z.string().uuid(),
+                    conversationId: z.string().uuid(),
+                    name: z.string(),
+                    type: z.enum(["agent", "knowledge_base", "user"]),
+                    agentId: z.string().uuid().optional(),
+                    knowledgeBaseId: z.string().uuid().optional(),
+                    createdAt: z.string().datetime(),
+                  })
+                ),
+                messages: z.array(z.any()).optional(),
+              })
+            )
+          ),
+        });
+        if (response.status === "FAILED") {
+          throw new Error(response.error);
+        }
+        return response.data;
+      },
+      staleTime: 1 * 60 * 1000,
+      enabled: enabled,
+    }),
+
+  conversationOptions: (id: string, enabled: boolean = true) =>
+    queryOptions({
+      queryKey: chatQueries.conversation(id),
+      queryFn: async () => {
+        const response = await api(`/chat/conversations/${id}`, {
+          schema: responseSchema(
+            z.object({
+              conversationId: z.string().uuid(),
+              userId: z.string().uuid(),
+              title: z.string().optional(),
+              createdAt: z.string().datetime(),
+              updatedAt: z.string().datetime(),
+              participants: z.array(
+                z.object({
+                  participantId: z.string().uuid(),
+                  conversationId: z.string().uuid(),
+                  name: z.string(),
+                  type: z.enum(["agent", "knowledge_base", "user"]),
+                  agentId: z.string().uuid().optional(),
+                  knowledgeBaseId: z.string().uuid().optional(),
+                  createdAt: z.string().datetime(),
+                })
+              ),
+              messages: z.array(
+                z.object({
+                  messageId: z.string().uuid(),
+                  conversationId: z.string().uuid(),
+                  participantId: z.string().uuid(),
+                  content: z.string(),
+                  messageType: z.enum(["text", "system", "error"]),
+                  metadata: z.record(z.any()).optional(),
+                  createdAt: z.string().datetime(),
+                })
+              ),
+            })
+          ),
+        });
+        if (response.status === "FAILED") {
+          throw new Error(response.error);
+        }
+        return response.data;
+      },
+      enabled: enabled,
+    }),
+
+  workflowsOptions: (filters?: {
+    isPublic?: boolean;
+    name?: string;
+    userId?: string;
+    page?: number;
+    limit?: number;
+  }) =>
+    queryOptions({
+      queryKey: [...chatQueries.workflows(), filters],
+      queryFn: async () => {
+        const searchParams = new URLSearchParams();
+        if (filters?.isPublic !== undefined) searchParams.set("isPublic", String(filters.isPublic));
+        if (filters?.name) searchParams.set("name", filters.name);
+        if (filters?.userId) searchParams.set("userId", filters.userId);
+        if (filters?.page) searchParams.set("page", String(filters.page));
+        if (filters?.limit) searchParams.set("limit", String(filters.limit));
+
+        const response = await api(`/chat/workflows?${searchParams}`, {
+          schema: responseSchema(
+            z.object({
+              data: z.array(
+                z.object({
+                  id: z.string().uuid(),
+                  title: z.string(),
+                  description: z.string(),
+                  imageUrl: z.string().optional(),
+                  coverImageUrl: z.string().optional(),
+                  workflow: z.array(
+                    z.object({
+                      name: z.string(),
+                      deploymentId: z.array(z.string().uuid()),
+                      prompt: z.string(),
+                      knowledgeBaseIds: z.array(z.string()).optional(),
+                    })
+                  ),
+                  isPublic: z.boolean(),
+                  templateWorkflowId: z.string().uuid().optional(),
+                  agentId: z.string().uuid().nullable(),
+                  knowledgeBaseId: z.string().uuid().nullable(),
+                  serviceClient: z.any().nullable(),
+                  embedding: z.any().nullable(),
+                  timeBasedTrigger: z.object({
+                    rrule: z.string(),
+                    startTime: z.string().datetime(),
+                  }).nullable(),
+                  nextExecution: z.string().datetime().nullable(),
+                  ownerId: z.string().uuid(),
+                  createdAt: z.string().datetime(),
+                  updatedAt: z.string().datetime(),
+                })
+              ),
+              pagination: z.object({
+                total: z.number(),
+                page: z.number(),
+                limit: z.number(),
+                totalPages: z.number(),
+              }),
+            })
+          ),
+        });
+        if (response.status === "FAILED") {
+          throw new Error(response.error);
+        }
+        return response;
+      },
+      staleTime: 2 * 60 * 1000,
+    }),
+
+  workflowOptions: (id: string, enabled: boolean = true) =>
+    queryOptions({
+      queryKey: chatQueries.workflow(id),
+      queryFn: async () => {
+        const response = await api(`/chat/workflow/${id}`, {
+          schema: responseSchema(
+            z.object({
+              id: z.string().uuid(),
+              title: z.string(),
+              description: z.string(),
+              imageUrl: z.string().optional(),
+              coverImageUrl: z.string().optional(),
+              workflow: z.array(
+                z.object({
+                  name: z.string(),
+                  deploymentId: z.array(z.string().uuid()),
+                  prompt: z.string(),
+                  knowledgeBaseIds: z.array(z.string()).optional(),
+                })
+              ),
+              isPublic: z.boolean(),
+              templateWorkflowId: z.string().uuid().optional(),
+              agentId: z.string().uuid().nullable(),
+              knowledgeBaseId: z.string().uuid().nullable(),
+              serviceClient: z.any().nullable(),
+              embedding: z.any().nullable(),
+              timeBasedTrigger: z.object({
+                rrule: z.string(),
+                startTime: z.string().datetime(),
+              }).nullable(),
+              nextExecution: z.string().datetime().nullable(),
+              ownerId: z.string().uuid(),
+              createdAt: z.string().datetime(),
+              updatedAt: z.string().datetime(),
+              agents: z.record(z.string(), z.object({
+                packageId: z.string().uuid(),
+                name: z.string(),
+                shortDescription: z.string(),
+                url: z.string().url(),
+              })).optional(),
+              knowledgeBases: z.record(z.string(), z.object({
+                id: z.string().uuid(),
+                name: z.string(),
+                description: z.string().optional(),
+              })).optional(),
+            })
+          ),
+        });
+        if (response.status === "FAILED") {
+          throw new Error(response.error);
+        }
+        return response.data;
+      },
+      enabled: enabled,
+    }),
+
+  workflowExecutionsOptions: (workflowId: string, enabled: boolean = true) =>
+    queryOptions({
+      queryKey: chatQueries.workflowExecutions(workflowId),
+      queryFn: async () => {
+        const response = await api(`/chat/workflow/execution/${workflowId}`, {
+          schema: responseSchema(
+            z.object({
+              data: z.array(
+                z.object({
+                  id: z.string().uuid(),
+                  flowId: z.string().uuid(),
+                  trigger: z.object({
+                    selfExecution: z.boolean(),
+                    timeBasedTrigger: z.object({
+                      rrule: z.string(),
+                      startTime: z.string().datetime(),
+                      endTime: z.string().datetime().optional(),
+                    }).optional(),
+                  }),
+                  results: z.array(
+                    z.object({
+                      stepId: z.number(),
+                      status: z.enum(["yet-to-be-executed", "pending", "running", "success", "failed"]),
+                      errorReason: z.string().optional(),
+                      result: z.string().optional(),
+                      toolCalls: z.any().optional(),
+                    })
+                  ),
+                  createdAt: z.string().datetime(),
+                  updatedAt: z.string().datetime(),
+                })
+              ),
+              pagination: z.object({
+                total: z.number(),
+                page: z.number(),
+                limit: z.number(),
+                totalPages: z.number(),
+              }),
+            })
+          ),
+        });
+        if (response.status === "FAILED") {
+          throw new Error(response.error);
+        }
+        return response.data;
+      },
+      enabled: enabled,
+      refetchInterval: (query) => {
+        const executions = (query.state.data as any)?.data as any[] | undefined;
+        if (!executions || executions.length === 0) return false;
+        const hasPending = executions.some((exec: any) =>
+          Array.isArray(exec.results) && exec.results.some((s: any) => s.status === "pending" || s.status === "running" || s.status === "yet-to-be-executed")
+        );
+        return hasPending ? 2000 : false;
+      },
+    }),
+
+  workflowExecutionOptions: (executionId: string, enabled: boolean = true) =>
+    queryOptions({
+      queryKey: chatQueries.workflowExecution(executionId),
+      queryFn: async () => {
+        const response = await api(`/chat/workflow/execution/id/${executionId}`, {
+          schema: responseSchema(
+            z.object({
+              id: z.string().uuid(),
+              flowId: z.string().uuid(),
+              trigger: z.object({
+                selfExecution: z.boolean(),
+                timeBasedTrigger: z.object({
+                  rrule: z.string(),
+                  startTime: z.string().datetime(),
+                  endTime: z.string().datetime().optional(),
+                }).optional(),
+              }),
+              results: z.array(
+                z.object({
+                  stepId: z.number(),
+                  status: z.enum(["yet-to-be-executed", "pending", "running", "success", "failed"]),
+                  errorReason: z.string().optional(),
+                  result: z.string().optional(),
+                  toolCalls: z.any().optional(),
+                })
+              ),
+              createdAt: z.string().datetime(),
+              updatedAt: z.string().datetime(),
+            })
+          ),
+        });
+        if (response.status === "FAILED") {
+          throw new Error(response.error);
+        }
+        return response.data;
+      },
+      enabled: enabled,
+      refetchInterval: (query) => {
+        const data = query.state.data as any | undefined;
+        if (!data) return enabled ? 2000 : false;
+        const results = data.results as any[] | undefined;
+        if (!Array.isArray(results)) return enabled ? 2000 : false;
+        const allTerminal = results.every((s: any) => s.status === "success" || s.status === "failed");
+        return allTerminal ? false : 2000;
+      },
+    }),
+
+  workflowJobOptions: (jobId: string, queueName: string = "workflow-execution", enabled: boolean = true) =>
+    queryOptions({
+      queryKey: chatQueries.workflowJob(jobId, queueName),
+      queryFn: async () => {
+        const response = await api(`/chat/workflow/job/${jobId}?queueName=${queueName}`, {
+          schema: responseSchema(
+            z.object({
+              id: z.string(),
+              status: z.enum(["waiting", "active", "completed", "failed", "delayed", "paused", "stuck", "not_found"]),
+              progress: z.number().optional(),
+              failedReason: z.string().optional(),
+              data: z.any().optional(),
+              timestamp: z.number().optional(),
+            })
+          ),
+        });
+        if (response.status === "FAILED") {
+          throw new Error(response.error);
+        }
+        return response.data;
+      },
+      enabled: enabled,
+      refetchInterval: enabled ? 2000 : false, // Poll every 2 seconds when enabled
+    }),
+
+  // Template Workflow Query Options
+  templateWorkflowsOptions: (filters?: {
+    name?: string;
+    page?: number;
+    limit?: number;
+    isPublic?: boolean;
+  }) =>
+    queryOptions({
+      queryKey: [...chatQueries.templateWorkflows(), filters],
+      queryFn: async () => {
+        const searchParams = new URLSearchParams();
+        if (filters?.name) searchParams.set("name", filters.name);
+        if (filters?.page) searchParams.set("page", String(filters.page));
+        if (filters?.limit) searchParams.set("limit", String(filters.limit));
+        if (filters?.isPublic !== undefined) searchParams.set("isPublic", String(filters.isPublic));
+
+        const response = await api(`/chat/template-workflows?${searchParams}`, {
+          schema: responseSchema(
+            z.object({
+              data: z.array(
+                z.object({
+                  id: z.string().uuid(),
+                  title: z.string(),
+                  description: z.string(),
+                  imageUrl: z.string().optional(),
+                  coverImageUrl: z.string().optional(),
+                  workflow: z.array(
+                    z.object({
+                      name: z.string(),
+                      packageIds: z.array(z.string().uuid()),
+                      knowledgeBaseIds: z.array(z.string().uuid()).optional(),
+                      prompt: z.string(),
+                    })
+                  ),
+                  isPublic: z.boolean(),
+                  ownerId: z.string().uuid(),
+                  createdAt: z.string().datetime(),
+                  updatedAt: z.string().datetime(),
+                })
+              ),
+              pagination: z.object({
+                total: z.number(),
+                page: z.number(),
+                limit: z.number(),
+                totalPages: z.number(),
+              }),
+            })
+          ),
+        });
+        if (response.status === "FAILED") {
+          throw new Error(response.error);
+        }
+        return response;
+      },
+      staleTime: 2 * 60 * 1000,
+    }),
+
+  templateWorkflowOptions: (id: string, enabled: boolean = true) =>
+    queryOptions({
+      queryKey: chatQueries.templateWorkflow(id),
+      queryFn: async () => {
+        const response = await api(`/chat/template-workflow/${id}`, {
+          schema: responseSchema(
+            z.object({
+              id: z.string().uuid(),
+              title: z.string(),
+              description: z.string(),
+              imageUrl: z.string().optional(),
+              coverImageUrl: z.string().optional(),
+              workflow: z.array(
+                z.object({
+                  name: z.string(),
+                  packageIds: z.array(z.string().uuid()),
+                  knowledgeBaseIds: z.array(z.string().uuid()).optional(),
+                  prompt: z.string(),
+                })
+              ),
+              isPublic: z.boolean(),
+              ownerId: z.string().uuid(),
+              createdAt: z.string().datetime(),
+              updatedAt: z.string().datetime(),
+              packages: z.record(z.string(), z.object({
+                name: z.string(),
+                shortDescription: z.string(),
+                url: z.string().url(),
+              })),
+              knowledgeBases: z.record(z.string(), z.object({
+                name: z.string(),
+                description: z.string().optional(),
+              })),
+            })
+          ),
+        });
+        if (response.status === "FAILED") {
+          throw new Error(response.error);
+        }
+        return response.data;
+      },
+      enabled: enabled,
     }),
 };

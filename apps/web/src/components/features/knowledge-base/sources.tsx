@@ -101,8 +101,55 @@ const StatusConfig = {
     color: "bg-green-100 text-green-800",
     label: "Completed",
   },
-  failed: { icon: XCircle, color: "bg-red-100 text-red-800", label: "Failed" },
+  failed: { 
+    icon: XCircle, 
+    color: "bg-red-100 text-red-800", 
+    label: "Failed" 
+  },
 } as const;
+
+interface SourceStatusProps {
+  status: ProcessingStatus;
+  knowledgeBaseId: string;
+  sourceId: string;
+}
+
+function SourceStatus({ status, knowledgeBaseId, sourceId }: SourceStatusProps) {
+  const { data: sources, isLoading } = useQuery({
+    ...knowledgeQueries.sourcesOptions(knowledgeBaseId),
+    refetchInterval: (query) => {
+      const currentStatus = query.state.data?.find(
+        (source) => source.sourceId === sourceId
+      )?.processingStatus;
+      return (currentStatus === "pending" || currentStatus === "processing") ? 5000 : 0; // Poll every 5 seconds for pending/processing
+    },
+  });
+
+  // Find the specific source's status
+  const source = sources?.find((s) => s.sourceId === sourceId);
+  const currentStatus = source?.processingStatus || status;
+  const statusConfig = StatusConfig[currentStatus];
+  const IconComponent = statusConfig.icon;
+
+  if (isLoading) {
+    return (
+      <Badge variant="secondary" className="flex items-center gap-1.5 animate-pulse">
+        <Clock className="w-3 h-3" />
+        Loading...
+      </Badge>
+    );
+  }
+
+  return (
+    <Badge
+      variant="secondary"
+      className={cn("flex items-center gap-1.5", statusConfig.color)}
+    >
+      <IconComponent className="w-3 h-3" />
+      {statusConfig.label}
+    </Badge>
+  );
+}
 
 function ClickableSource({ source }: { source: KnowledgeSource }) {
   const getSourceName = (source: KnowledgeSource) => {
@@ -329,7 +376,7 @@ export const createColumns = (currentUser?: any, knowledgeBaseUserId?: string): 
       const IconComponent = IconConfig[sourceType];
 
       return (
-        <div className="flex h-6 w-max items-center gap-1.5 rounded-[6px] bg-[#1717170F] px-2 py-1.5 text-[#171717CC] text-sm">
+        <div className="flex h-6 w-max items-center gap-1.5 rounded-[6px] bg delightful-dark-100 px-2 py-1.5 text-[#171717CC] text-sm">
           {IconComponent && <IconComponent className="w-2.5 h-2.5" />}
           {sourceType.replace("_", " ")}
         </div>
@@ -351,18 +398,13 @@ export const createColumns = (currentUser?: any, knowledgeBaseUserId?: string): 
     ),
     enableSorting: true,
     cell: ({ row }) => {
-      const status = row.getValue("processingStatus") as ProcessingStatus;
-      const statusConfig = StatusConfig[status];
-      const IconComponent = statusConfig.icon;
-
+      const source = row.original;
       return (
-        <Badge
-          variant="secondary"
-          className={cn("flex items-center gap-1.5", statusConfig.color)}
-        >
-          <IconComponent className="w-3 h-3" />
-          {statusConfig.label}
-        </Badge>
+        <SourceStatus
+          status={source.processingStatus}
+          knowledgeBaseId={source.knowledgeBaseId}
+          sourceId={source.sourceId}
+        />
       );
     },
   },
@@ -413,7 +455,7 @@ export const createColumns = (currentUser?: any, knowledgeBaseUserId?: string): 
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>{source.processingErrorMessage}</p>
+                <p>{"Failed to process source"}</p>
               </TooltipContent>
             </Tooltip>
           )}
@@ -442,6 +484,11 @@ export const createColumns = (currentUser?: any, knowledgeBaseUserId?: string): 
 ];
 
 export function SourcesTable() {
+  const { isAuthenticated } = useAuth();
+  const { data: user } = useQuery({
+    ...userQueries.meOptions(),
+    enabled: isAuthenticated,
+  });
   const { id: knowledgeBaseId } = Route.useParams();
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
@@ -450,8 +497,6 @@ export function SourcesTable() {
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = React.useState({});
-
-  const { isAuthenticated } = useAuth();
 
   // Fetch current user data if authenticated
   const { data: currentUser } = useQuery({
@@ -481,6 +526,7 @@ export function SourcesTable() {
     createColumns(currentUser, knowledgeBase?.userId),
     [currentUser, knowledgeBase?.userId]
   );
+  const areYouAnOwner = user?.id === knowledgeBase?.userId;
 
   const table = useReactTable({
     data: paginatedData,
@@ -513,7 +559,7 @@ export function SourcesTable() {
     );
   }
 
-  if (sources.length === 0) {
+  if (sources.length === 0 && areYouAnOwner) {
     return (
       <div className="w-full flex flex-col gap-4">
         <UploadContentInput

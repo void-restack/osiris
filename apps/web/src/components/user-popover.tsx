@@ -10,6 +10,7 @@ import { Separator } from "./ui/separator";
 import { userQueries } from "@/lib/queries";
 import { useLogoutMutation } from "@/lib/mutations";
 import { toast } from "sonner";
+import { Link } from "@tanstack/react-router";
 
 export function UserPopover() {
   const [isOpen, setIsOpen] = useState(false);
@@ -17,7 +18,6 @@ export function UserPopover() {
 
   const { data: user } = useQuery(userQueries.meOptions(isAuthenticated));
 
-  // Don't render if not authenticated or user data is not loaded
   if (!isAuthenticated || !user) {
     return null;
   }
@@ -45,9 +45,9 @@ export function UserPopover() {
                 {getInitials(user.name)}
               </AvatarFallback>
             </Avatar>
-            <div className="text-left">
-              <h3 className="text-[#171717] font-medium">{user.name}</h3>
-              <p className="text-[#A3A3A3] text-xs">{user.email}</p>
+            <div className="text-left overflow-hidden hidden md:block">
+              <h3 className="text-[#171717] font-medium truncate">{user.name}</h3>
+              <p className="text-[#A3A3A3] text-xs truncate">{user.email}</p>
             </div>
           </div>
           <ICONS.upDownIcon />
@@ -55,7 +55,7 @@ export function UserPopover() {
       </PopoverTrigger>
       <PopoverContent
         side="top"
-        className="PopoverContent mb-2 flex w-[248px] flex-col rounded-[6px] border-none bg-white p-0 shadow-none"
+        className="PopoverContent border border-primary-100 mb-2 flex w-[248px] flex-col rounded-[6px] bg-white p-0 shadow-none"
         align="start"
       >
         <Profile user={user} />
@@ -68,18 +68,18 @@ export function UserPopover() {
 
 function Profile({ user }: { user: any }) {
   return (
-    <Button
-      variant={"ghost"}
-      className="h-8 w-full cursor-pointer justify-start px-3 py-2 hover:bg-transparent"
+    <Link
+      to="/profile"
+      className="h-8 w-full flex items-center cursor-pointer justify-start px-3 py-2 hover:bg-transparent"
     >
       <User className="mr-2 h-4 w-4" />
       <div className="flex flex-col items-start">
         {/* <span className="text-sm font-medium">Profile</span> */}
         <span className="text-xs text-muted-foreground capitalize">
-          {user.role.replace('_', ' ')}
+          Profile
         </span>
       </div>
-    </Button>
+    </Link>
   );
 }
 

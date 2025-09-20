@@ -41,13 +41,11 @@ export function UnitsCardsList({ knowledgeBaseId, filters, sortConfig }: UnitsCa
         if (!matchesSearch) return false;
       }
 
-      // Source filter
       if (filters.sourceIds.length > 0) {
         if (!filters.sourceIds.includes(unit.sourceId)) return false;
       }
 
 
-      // Date range filter
       if (filters.dateRange) {
         const createdDate = new Date(unit.createdAt);
         if (createdDate < filters.dateRange[0] || createdDate > filters.dateRange[1]) {
@@ -58,7 +56,6 @@ export function UnitsCardsList({ knowledgeBaseId, filters, sortConfig }: UnitsCa
       return true;
     });
 
-    // Apply sorting
     const sorted = [...filtered].sort((a, b) => {
       let comparison = 0;
 
@@ -116,7 +113,7 @@ export function UnitsCardsList({ knowledgeBaseId, filters, sortConfig }: UnitsCa
             <UnitsCard 
               key={unit.unitId} 
               unit={unit}
-              source={sourcesMap[unit.sourceId] || null}
+              source={unit.source || null}
               onClick={() => handleUnitClick(unit)}
             />
           ))}

@@ -11,7 +11,6 @@ export function KnowledgeBaseViewToggle() {
 	const inactiveClass = "!bg-transparent";
 
 	const handleViewChange = (value: "list" | "directory") => {
-		console.log(value);
 		setKnowledgeBaseView(value);
 	};
 

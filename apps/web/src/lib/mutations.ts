@@ -8,6 +8,7 @@ import {
 } from "@/types";
 import { api } from "./api";
 import {
+  chatQueries,
   creditQueries,
   hubQueries,
   knowledgeQueries,
@@ -292,12 +293,15 @@ export const useAddWalletMutation = () => {
 };
 
 export const useCreateServiceConnectionMutation = () => {
+  const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: async (data: {
       name: string;
       serviceClientName: string;
       scopes: string[];
       redirectUri?: string;
+      preventRedirect?: boolean;
     }) => {
       const response = await api("/hub/auth/url", {
         method: "GET",
@@ -314,8 +318,21 @@ export const useCreateServiceConnectionMutation = () => {
       }
       return response.data;
     },
-    onSuccess: (data) => {
-      window.location.href = data.url;
+    onSuccess: (data, variables) => {
+      // Check if this is a popup flow (has popup=true in redirectUri) or preventRedirect is true
+      const isPopup = variables.redirectUri?.includes('popup=true');
+      const shouldPreventRedirect = variables.preventRedirect === true;
+
+      if (!isPopup && !shouldPreventRedirect) {
+        // Regular flow - redirect as before
+        localStorage.setItem('oauth-pending-refresh', 'true');
+        localStorage.setItem('oauth-service-name', variables.serviceClientName);
+        window.location.href = data.url;
+      }
+      // For popup flow or preventRedirect, just return the URL without redirecting
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: hubQueries.userAuth() });
     },
   });
 };
@@ -558,11 +575,21 @@ export const useDeleteOAuthClientMutation = () => {
     mutationFn: async (clientId: string) => {
       const response = await api(`/hub/oauth-clients/${clientId}`, {
         method: "DELETE",
+        schema: z.object({
+          status: z.literal("SUCCESS"),
+          message: z.string(),
+        }),
       });
       return response;
     },
-    onSuccess: () => {
+    onSuccess: (data, clientId) => {
       queryClient.invalidateQueries({ queryKey: hubQueries.oauthClients() });
+      queryClient.removeQueries({ queryKey: hubQueries.oauthClient(clientId) });
+      toast.success(data.message || "OAuth client deleted successfully");
+    },
+    onError: (error) => {
+      console.error("Failed to delete OAuth client:", error);
+      toast.error(error.message || "Failed to delete OAuth client");
     },
   });
 };
@@ -581,7 +608,7 @@ export const useRegenerateOAuthSecretMutation = () => {
               clientId: z.string().uuid(),
               developerId: z.string().uuid(),
               name: z.string(),
-              redirectUris: z.array(z.string().url()),
+              redirectUris: z.array(z.string()),
               metadata: z.record(z.any()),
               createdAt: z.string(),
               updatedAt: z.string(),
@@ -595,13 +622,19 @@ export const useRegenerateOAuthSecretMutation = () => {
       }
       return response.data;
     },
-    onSuccess: (_, clientId) => {
-      queryClient.invalidateQueries({
-        queryKey: hubQueries.oauthClient(clientId),
-      });
+    onSuccess: (data, clientId) => {
+      queryClient.invalidateQueries({ queryKey: hubQueries.oauthClient(clientId) });
+      queryClient.invalidateQueries({ queryKey: hubQueries.oauthClients() });
+      // toast.success("Client secret regenerated successfully");
+    },
+    onError: (error) => {
+      console.error("Failed to regenerate client secret:", error);
+      toast.error(error.message || "Failed to regenerate client secret");
     },
   });
 };
+
+
 
 // OAuth Authorization
 export const useAuthorizeOsirisMutation = () => {
@@ -848,14 +881,22 @@ export const useDeployPackageMutation = () => {
       packageId: string;
       version: string;
       url: string;
-      name?: string;
-      scopes: string[];
       authData: any;
-      connectionIds: string[];
+      serviceConnections: Array<{
+        connectionId: string;
+        scopes?: string[];
+        policy?: any;
+      }>;
     }) => {
       const response = await api("/packages/deploy", {
         method: "POST",
-        body: data,
+        body: {
+          packageId: data.packageId,
+          version: data.version,
+          url: data.url,
+          authData: data.authData,
+          serviceConnections: data.serviceConnections,
+        },
         schema: responseSchema(
           z.object({
             deployment: z.any(),
@@ -947,6 +988,20 @@ export const useValidatePolicyMutation = () => {
 };
 
 // ===== CREDIT MUTATIONS =====
+export const useGetRecentTransactionsMutation = () => {
+  return useMutation({
+    mutationFn: async (walletId: string) => {
+      const response = await api(`/hub/defi/transactions/${walletId}`, {
+        schema: responseSchema(z.any()),
+      });
+      if (response.status === "FAILED") {
+        throw new Error(response.error);
+      }
+      return response.data;
+    },
+  });
+};
+
 export const useHelioDepositMutation = () => {
   const queryClient = useQueryClient();
 
@@ -1273,7 +1328,723 @@ export const useBuyKnowledgeBaseMutation = () => {
     },
     onError: (error) => {
       console.error("Failed to purchase knowledge base:", error);
+      toast.error(error.message);
     },
   });
 };
 
+
+// export const useCreateConversationMutation = () => {
+//   const queryClient = useQueryClient();
+
+//   return useMutation({
+//     mutationFn: async (data: {
+//       message: string;
+//       participants: {
+//         participants: Array<{
+//           name: string;
+//           agentId?: string;
+//           knowledgeBaseId?: string;
+//         }>;
+//       };
+//     }) => {
+//       const response = await api("/chat/stream", {
+//         method: "POST",
+//         body: data,
+//         schema: responseSchema(
+//           z.object({
+//             conversationId: z.string().uuid(),
+//             message: z.string(),
+//             participants: z.array(
+//               z.object({
+//                 participantId: z.string().uuid(),
+//                 name: z.string(),
+//                 type: z.enum(["agent", "knowledge_base", "user"]),
+//                 agentId: z.string().uuid().optional(),
+//                 knowledgeBaseId: z.string().uuid().optional(),
+//               })
+//             ),
+//           })
+//         ),
+//       });
+//       if (response.status === "FAILED") {
+//         throw new Error(response.error);
+//       }
+//       return response.data;
+//     },
+//     onSuccess: () => {
+//       queryClient.invalidateQueries({ queryKey: chatQueries.conversations() });
+//     },
+//   });
+// };
+
+export const useAddParticipantsMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: {
+      conversationId: string;
+      participants: Array<{
+        name: string;
+        agentId?: string;
+        knowledgeBaseId?: string;
+      }>;
+    }) => {
+      const { conversationId, ...body } = data;
+      const response = await api(`/chat/add-participants/${conversationId}`, {
+        method: "POST",
+        body,
+        schema: responseSchema(
+          z.object({
+            message: z.string(),
+            participants: z.array(
+              z.object({
+                participantId: z.string().uuid(),
+                name: z.string(),
+                type: z.enum(["agent", "knowledge_base", "user"]),
+                agentId: z.string().uuid().optional(),
+                knowledgeBaseId: z.string().uuid().optional(),
+              })
+            ),
+          })
+        ),
+      });
+      if (response.status === "FAILED") {
+        throw new Error(response.error);
+      }
+      return response.data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: chatQueries.conversation(variables.conversationId),
+      });
+      queryClient.invalidateQueries({ queryKey: chatQueries.conversations() });
+    },
+  });
+};
+
+export const useRemoveParticipantsMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: {
+      conversationId: string;
+      participantIds: string[];
+    }) => {
+      const { conversationId, ...body } = data;
+      const response = await api(`/chat/remove-participants/${conversationId}`, {
+        method: "POST",
+        body,
+        schema: responseSchema(
+          z.object({
+            message: z.string(),
+            removedParticipants: z.array(z.string().uuid()),
+          })
+        ),
+      });
+      if (response.status === "FAILED") {
+        throw new Error(response.error);
+      }
+      return response.data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: chatQueries.conversation(variables.conversationId),
+      });
+      queryClient.invalidateQueries({ queryKey: chatQueries.conversations() });
+    },
+  });
+};
+
+export const useDeleteConversationMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (conversationId: string) => {
+      const response = await api(`/chat/conversations/${conversationId}`, {
+        method: "DELETE",
+        schema: responseSchema(
+          z.object({
+            message: z.string(),
+            conversationId: z.string().uuid(),
+          })
+        ),
+      });
+      if (response.status === "FAILED") {
+        throw new Error(response.error);
+      }
+      return response.data;
+    },
+    onSuccess: (data, conversationId) => {
+      queryClient.removeQueries({ queryKey: chatQueries.conversation(conversationId) });
+      queryClient.invalidateQueries({ queryKey: chatQueries.conversations() });
+      toast.success(data.message || "Conversation deleted successfully");
+    },
+    onError: (error) => {
+      console.error("Failed to delete conversation:", error);
+      toast.error(error.message || "Failed to delete conversation");
+    },
+  });
+};
+
+export const useCreateWorkflowMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: {
+      title: string;
+      description: string;
+      imageUrl?: string;
+      coverImageUrl?: string;
+      workflow: Array<{
+        name: string;
+        deploymentId: string[];
+        knowledgeBaseIds?: string[];
+        prompt: string;
+      }>;
+      isPublic?: boolean;
+      templateWorkflowId?: string;
+      timeBasedTrigger?: {
+        rrule: string;
+        startTime: string;
+      };
+    }) => {
+      const response = await api("/chat/workflows", {
+        method: "POST",
+        body: data,
+        schema: responseSchema(
+          z.object({
+            id: z.string().uuid(),
+            title: z.string(),
+            description: z.string(),
+            imageUrl: z.string().optional(),
+            coverImageUrl: z.string().optional(),
+            workflow: z.array(
+              z.object({
+                name: z.string(),
+                deploymentId: z.array(z.string().uuid()),
+                knowledgeBaseIds: z.array(z.string().uuid()).optional(),
+                prompt: z.string(),
+              })
+            ),
+            isPublic: z.boolean(),
+            templateWorkflowId: z.string().uuid().optional(),
+            timeBasedTrigger: z.object({
+              rrule: z.string(),
+              startTime: z.string().datetime(),
+            }).optional(),
+            nextExecution: z.string().datetime().nullable(),
+            ownerId: z.string().uuid(),
+            createdAt: z.string().datetime(),
+            updatedAt: z.string().datetime(),
+          })
+        ),
+      });
+      if (response.status === "FAILED") {
+        throw new Error(response.error);
+      }
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: chatQueries.workflows() });
+      toast.success("Workflow created successfully");
+    },
+    onError: (error) => {
+      console.error("Failed to create workflow:", error);
+      toast.error(error.message || "Failed to create workflow");
+    },
+  });
+};
+
+export const useUpdateWorkflowMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: {
+      workflowId: string;
+      title?: string;
+      description?: string;
+      imageUrl?: string;
+      coverImageUrl?: string;
+      workflow?: Array<{
+        name: string;
+        deploymentId: string[];
+        knowledgeBaseIds?: string[];
+        prompt: string;
+      }>;
+      isPublic?: boolean;
+      templateWorkflowId?: string;
+      timeBasedTrigger?: {
+        rrule: string;
+        startTime: string;
+      };
+    }) => {
+      const { workflowId, ...updateData } = data;
+      const response = await api(`/chat/workflows/${workflowId}`, {
+        method: "PATCH",
+        body: updateData,
+        schema: responseSchema(
+          z.object({
+            id: z.string().uuid(),
+            title: z.string(),
+            description: z.string(),
+            imageUrl: z.string().optional(),
+            coverImageUrl: z.string().optional(),
+            workflow: z.array(
+              z.object({
+                name: z.string(),
+                deploymentId: z.array(z.string().uuid()),
+                prompt: z.string(),
+                knowledgeBaseIds: z.array(z.string()).optional(),
+              })
+            ),
+            isPublic: z.boolean(),
+            templateWorkflowId: z.string().uuid().optional(),
+            agentId: z.string().uuid().nullable(),
+            knowledgeBaseId: z.string().uuid().nullable(),
+            serviceClient: z.any().nullable(),
+            embedding: z.any().nullable(),
+            timeBasedTrigger: z.object({
+              rrule: z.string(),
+              startTime: z.string().datetime(),
+            }).nullable(),
+            nextExecution: z.string().datetime().nullable(),
+            agents: z.record(z.string(), z.object({
+              packageId: z.string().uuid(),
+              name: z.string(),
+              shortDescription: z.string(),
+              url: z.string().url(),
+            })).optional(),
+            knowledgeBases: z.record(z.string(), z.object({
+              id: z.string().uuid(),
+              name: z.string(),
+              description: z.string().optional(),
+            })).optional(),
+            ownerId: z.string().uuid(),
+            createdAt: z.string().datetime(),
+            updatedAt: z.string().datetime(),
+          })
+        ),
+      });
+      if (response.status === "FAILED") {
+        throw new Error(response.error);
+      }
+      return response.data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: chatQueries.workflows() });
+      queryClient.invalidateQueries({
+        queryKey: chatQueries.workflow(variables.workflowId),
+      });
+      toast.success("Workflow updated successfully");
+    },
+    onError: (error) => {
+      console.error("Failed to update workflow:", error);
+      toast.error(error.message || "Failed to update workflow");
+    },
+  });
+};
+
+export const useDeleteWorkflowMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (workflowId: string) => {
+      const response = await api(`/chat/workflow/${workflowId}`, {
+        method: "DELETE",
+        schema: responseSchema(
+          z.object({
+            message: z.string(),
+            workflowId: z.string().uuid(),
+          })
+        ),
+      });
+      if (response.status === "FAILED") {
+        throw new Error(response.error);
+      }
+      return response.data;
+    },
+    onSuccess: (data, workflowId) => {
+      queryClient.removeQueries({ queryKey: chatQueries.workflow(workflowId) });
+      queryClient.invalidateQueries({ queryKey: chatQueries.workflows() });
+      toast.success(data.message || "Workflow deleted successfully");
+    },
+    onError: (error) => {
+      console.error("Failed to delete workflow:", error);
+      toast.error(error.message || "Failed to delete workflow");
+    },
+  });
+};
+
+export const useExecuteWorkflowMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: { workflowId: string }) => {
+      const response = await api("/chat/workflow/execute", {
+        method: "POST",
+        body: data,
+        schema: responseSchema(
+          z.object({
+            jobId: z.string(),
+            executionId: z.string().uuid(),
+            message: z.string(),
+            status: z.string(),
+          })
+        ),
+      });
+      if (response.status === "FAILED") {
+        throw new Error(response.error);
+      }
+      return response.data;
+    },
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: chatQueries.workflowExecutions(variables.workflowId),
+      });
+      toast.success(data.message || "Workflow execution started");
+    },
+    onError: (error) => {
+      console.error("Failed to execute workflow:", error);
+      toast.error(error.message || "Failed to execute workflow");
+    },
+  });
+};
+
+// ===== TEMPLATE WORKFLOW MUTATIONS =====
+export const useCreateTemplateWorkflowMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: {
+      title: string;
+      description: string;
+      imageUrl?: string;
+      coverImageUrl?: string;
+      workflow: Array<{
+        name: string;
+        packageIds: string[];
+        knowledgeBaseIds?: string[];
+        prompt: string;
+      }>;
+      isPublic?: boolean;
+    }) => {
+      const response = await api("/chat/template-workflows", {
+        method: "POST",
+        body: data,
+        schema: responseSchema(
+          z.object({
+            id: z.string().uuid(),
+            title: z.string(),
+            description: z.string(),
+            imageUrl: z.string().optional(),
+            coverImageUrl: z.string().optional(),
+            workflow: z.array(
+              z.object({
+                name: z.string(),
+                packageIds: z.array(z.string().uuid()),
+                knowledgeBaseIds: z.array(z.string().uuid()).optional(),
+                prompt: z.string(),
+              })
+            ),
+            isPublic: z.boolean(),
+            ownerId: z.string().uuid(),
+            createdAt: z.string().datetime(),
+            updatedAt: z.string().datetime(),
+          })
+        ),
+      });
+      if (response.status === "FAILED") {
+        throw new Error(response.error);
+      }
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: chatQueries.templateWorkflows() });
+      toast.success("Template workflow created successfully");
+    },
+    onError: (error) => {
+      console.error("Failed to create template workflow:", error);
+      toast.error(error.message || "Failed to create template workflow");
+    },
+  });
+};
+
+export const useUpdateTemplateWorkflowMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: {
+      templateId: string;
+      title?: string;
+      description?: string;
+      imageUrl?: string;
+      coverImageUrl?: string;
+      workflow?: Array<{
+        name: string;
+        packageIds: string[];
+        knowledgeBaseIds?: string[];
+        prompt: string;
+      }>;
+      isPublic?: boolean;
+    }) => {
+      const { templateId, ...updateData } = data;
+      const response = await api(`/chat/template-workflows/${templateId}`, {
+        method: "PATCH",
+        body: updateData,
+        schema: responseSchema(
+          z.object({
+            id: z.string().uuid(),
+            title: z.string(),
+            description: z.string(),
+            imageUrl: z.string().optional(),
+            coverImageUrl: z.string().optional(),
+            workflow: z.array(
+              z.object({
+                name: z.string(),
+                packageIds: z.array(z.string().uuid()),
+                knowledgeBaseIds: z.array(z.string().uuid()).optional(),
+                prompt: z.string(),
+              })
+            ),
+            isPublic: z.boolean(),
+            ownerId: z.string().uuid(),
+            createdAt: z.string().datetime(),
+            updatedAt: z.string().datetime(),
+          })
+        ),
+      });
+      if (response.status === "FAILED") {
+        throw new Error(response.error);
+      }
+      return response.data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: chatQueries.templateWorkflows() });
+      queryClient.invalidateQueries({
+        queryKey: chatQueries.templateWorkflow(variables.templateId),
+      });
+      toast.success("Template workflow updated successfully");
+    },
+    onError: (error) => {
+      console.error("Failed to update template workflow:", error);
+      toast.error(error.message || "Failed to update template workflow");
+    },
+  });
+};
+
+export const useDeleteTemplateWorkflowMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (templateId: string) => {
+      const response = await api(`/chat/template-workflow/${templateId}`, {
+        method: "DELETE",
+        schema: responseSchema(
+          z.object({
+            message: z.string(),
+          })
+        ),
+      });
+      if (response.status === "FAILED") {
+        throw new Error(response.error);
+      }
+      return response.data;
+    },
+    onSuccess: (data, templateId) => {
+      queryClient.removeQueries({ queryKey: chatQueries.templateWorkflow(templateId) });
+      queryClient.invalidateQueries({ queryKey: chatQueries.templateWorkflows() });
+      toast.success(data.message || "Template workflow deleted successfully");
+    },
+    onError: (error) => {
+      console.error("Failed to delete template workflow:", error);
+      toast.error(error.message || "Failed to delete template workflow");
+    },
+  });
+};
+
+export const useCreateWorkflowFromTemplateMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: {
+      templateWorkflowId: string;
+      title: string;
+      description: string;
+      imageUrl?: string;
+      coverImageUrl?: string;
+      workflow: Array<{
+        name: string;
+        deploymentId: string[];
+        knowledgeBaseIds?: string[];
+        prompt: string;
+      }>;
+      isPublic?: boolean;
+      timeBasedTrigger?: {
+        rrule: string;
+        startTime: string;
+      };
+    }) => {
+      const response = await api("/chat/workflows", {
+        method: "POST",
+        body: data,
+        schema: responseSchema(
+          z.object({
+            id: z.string().uuid(),
+            title: z.string(),
+            description: z.string(),
+            imageUrl: z.string().optional(),
+            coverImageUrl: z.string().optional(),
+            workflow: z.array(
+              z.object({
+                name: z.string(),
+                deploymentId: z.array(z.string().uuid()),
+                knowledgeBaseIds: z.array(z.string().uuid()).optional(),
+                prompt: z.string(),
+              })
+            ),
+            isPublic: z.boolean(),
+            templateWorkflowId: z.string().uuid().optional(),
+            timeBasedTrigger: z.object({
+              rrule: z.string(),
+              startTime: z.string().datetime(),
+            }).optional(),
+            nextExecution: z.string().datetime().nullable(),
+            ownerId: z.string().uuid(),
+            createdAt: z.string().datetime(),
+            updatedAt: z.string().datetime(),
+          })
+        ),
+      });
+      if (response.status === "FAILED") {
+        throw new Error(response.error);
+      }
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: chatQueries.workflows() });
+      toast.success("Workflow created from template successfully");
+    },
+    onError: (error) => {
+      console.error("Failed to create workflow from template:", error);
+      toast.error(error.message || "Failed to create workflow from template");
+    },
+  });
+};
+
+export const useCreateAITemplateWorkflowMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: { prompt: string }) => {
+      const response = await api("/chat/ai/template-workflows", {
+        method: "POST",
+        body: data,
+        schema: responseSchema(
+          z.object({
+            id: z.string().uuid(),
+            title: z.string(),
+            description: z.string(),
+            imageUrl: z.string().optional(),
+            coverImageUrl: z.string().optional(),
+            workflow: z.array(
+              z.object({
+                name: z.string(),
+                packageIds: z.array(z.string().uuid()),
+                knowledgeBaseIds: z.array(z.string().uuid()).optional(),
+                prompt: z.string(),
+              })
+            ),
+            isPublic: z.boolean(),
+            ownerId: z.string().uuid(),
+            createdAt: z.string().datetime(),
+            updatedAt: z.string().datetime(),
+          })
+        ),
+      });
+      if (response.status === "FAILED") {
+        throw new Error(response.error);
+      }
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: chatQueries.templateWorkflows() });
+      toast.success("AI template workflow created successfully");
+    },
+    onError: (error) => {
+      console.error("Failed to create AI template workflow:", error);
+      toast.error(error.message || "Failed to create AI template workflow");
+    },
+  });
+};
+
+export const useUpdateAITemplateWorkflowMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: {
+      templateId: string;
+      prompt: string;
+    }) => {
+      const { templateId, ...updateData } = data;
+      const response = await api(`/chat/ai/template-workflows/${templateId}`, {
+        method: "PATCH",
+        body: updateData,
+        schema: responseSchema(
+          z.object({
+            id: z.string().uuid(),
+            title: z.string(),
+            description: z.string(),
+            imageUrl: z.string().optional(),
+            coverImageUrl: z.string().optional(),
+            workflow: z.array(
+              z.object({
+                name: z.string(),
+                packageIds: z.array(z.string().uuid()),
+                knowledgeBaseIds: z.array(z.string().uuid()).optional(),
+                prompt: z.string(),
+              })
+            ),
+            isPublic: z.boolean(),
+            ownerId: z.string().uuid(),
+            createdAt: z.string().datetime(),
+            updatedAt: z.string().datetime(),
+          })
+        ),
+      });
+      if (response.status === "FAILED") {
+        throw new Error(response.error);
+      }
+      return response.data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: chatQueries.templateWorkflows() });
+      queryClient.invalidateQueries({
+        queryKey: chatQueries.templateWorkflow(variables.templateId),
+      });
+      toast.success("AI template workflow updated successfully");
+    },
+    onError: (error) => {
+      console.error("Failed to update AI template workflow:", error);
+      toast.error(error.message || "Failed to update AI template workflow");
+    },
+  });
+};
+
+
+// export const useWorkflowStreamMutation = () => {
+//   return useMutation({
+//     mutationFn: async (executionId: string) => {
+//       // This would typically be handled with Server-Sent Events or WebSocket
+//       // For now, we'll use a simple GET request
+//       const response = await api(`/chat/workflow/stream/${executionId}`, {
+//         method: "GET",
+//         schema: responseSchema(z.any()),
+//       });
+//       if (response.status === "FAILED") {
+//         throw new Error(response.error);
+//       }
+//       return response.data;
+//     },
+//   });
+// };

@@ -15,12 +15,12 @@ export function AuthGridView({ methods }: AuthGridViewProps) {
 
   return (
     <ScrollArea className="relative h-[calc(100vh-560px)] hidebar">
-      <div className="grid w-full grid-cols-1 gap-6 md:grid-cols-2 pb-8 lg:grid-cols-3">
+      <div className="grid w-full gap-6 pb-24 sm:pb-28 [grid-template-columns:repeat(auto-fill,minmax(280px,1fr))] md:[grid-template-columns:repeat(auto-fill,minmax(320px,1fr))]">
         {methods.map((method: ServiceClient) => (
           <div
             key={method.clientId}
             className="relative group h-fit min-h-52 rounded-xl border border-primary-100 p-6 transition-all hover:border-primary-200 hover:shadow-md block cursor-pointer"
-            style={{ zIndex: 0 }}
+            style={{ zIndex: 1 }}
             aria-label={`Go to ${method.name}`}
             tabIndex={0}
             role="link"

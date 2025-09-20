@@ -10,9 +10,10 @@ import { useSuspenseQuery, useQuery } from "@tanstack/react-query";
 import { packageQueries } from "@/lib/queries";
 import { useAuth } from "@/hooks/use-auth";
 import { ToolCaseIcon } from "lucide-react";
-import { MarkdownRenderer } from "@/components/ui/markdown-renderer";
+import { StreamdownMarkdown } from "@/components/ui/streamdown-markdown";
 import { useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { MarkdownRenderer } from "@/components/ui/markdown-renderer";
 
 export function McpTabs() {
 	const { mcpId } = useParams({ from: "/_hub/mcp/$mcpId" });
@@ -26,39 +27,51 @@ export function McpTabs() {
 	const { data: actionsData } = useQuery({
 		...packageQueries.actionsOptions(mcpId, isAuthenticated, { page: actionsPage, limit: 5 }),
 		enabled: isAuthenticated,
-		placeholderData: (previousData) => previousData, // Keep previous data while loading new data
+		placeholderData: (previousData) => previousData,
 	});
 
 	const { data: serversData } = useQuery({
 		...packageQueries.userDeploymentsForPackageOptions(mcpId, { page: serversPage, limit: 5 }),
 		enabled: isAuthenticated,
-		placeholderData: (previousData) => previousData, // Keep previous data while loading new data
+		placeholderData: (previousData) => previousData,
 	});
 
 	const serverUrl = packageData?.url || '';
 
-	const { data: mcpTools } = useSuspenseQuery(
-		packageQueries.mcpToolsOptions(serverUrl)
-	);
+	const { data: mcpTools } = useQuery({
+		...packageQueries.mcpToolsOptions(serverUrl && !/\/mcp(\/|$)/.test(serverUrl) ? `${serverUrl}/mcp` : serverUrl),
+		enabled: !!serverUrl, // Only run query if serverUrl exists
+	});
 
-	const transformedCapabilities = (mcpTools as any)?.tools?.map((tool: any, index: number) => ({
-		id: tool.name || `tool-${index}`,
-		title: tool.name || 'Unknown Tool',
-		description: tool.description || 'No description available',
-		icon: ToolCaseIcon,
-		inputSchema: tool.inputSchema,
-	}))
+	const transformedCapabilities = (mcpTools as any)?.tools?.map((tool: any, index: number) => {
+		// Add safety check for tool
+		if (!tool) {
+			return null; // Skip invalid tools
+		}
 
+		return {
+			id: tool.name || `tool-${index}`,
+			title: tool.name || 'Unknown Tool',
+			description: tool.description || 'No description available',
+			icon: ToolCaseIcon,
+			inputSchema: tool.inputSchema,
+		};
+	}).filter((item: any) => item !== null) || [];
 
-	const transformedAuthenticators = authScopes?.serviceClientMap ?
-		Object.entries(authScopes.serviceClientMap).map(([serviceName, serviceData]: [string, any]) => ({
-			id: serviceName.toLowerCase(),
-			name: serviceName,
-			icon: `/test/${serviceName.toLowerCase()}.svg`,
-			scopes: serviceData.requiredScopes || [],
+	const transformedAuthenticators = authScopes?.serviceClients ?
+		authScopes.serviceClients.map((serviceClient: any) => ({
+			id: serviceClient.name.toLowerCase(),
+			name: serviceClient.name,
+			description: serviceClient.description,
+			icon: serviceClient.iconUrl || `/test/${serviceClient.name.toLowerCase()}.svg`,
+			scopes: serviceClient.allowedScopes || [],
+			scopeDefinitions: serviceClient.scopeDefinitions || {},
+			metadata: serviceClient.metadata || {},
 		})) : [];
 
-	const transformedActions = actionsData?.data?.map((action: any) => ({
+	const finalActionsData = actionsData || { data: [] };
+
+	const finalTransformedActions = finalActionsData.data?.map((action: any) => ({
 		actionId: action.mcp_actions.actionId,
 		deploymentId: action.mcp_actions.deploymentId,
 		userId: action.mcp_actions.userId,
@@ -72,60 +85,29 @@ export function McpTabs() {
 		updatedAt: action.mcp_actions.updatedAt,
 	})) || [];
 
-	// Temporary mock data for testing if API is not working
-	const mockActionsData = {
-		status: "SUCCESS",
-		data: [
-			{
-				mcp_actions: {
-					actionId: "test-action-1",
-					deploymentId: "test-deployment-1",
-					userId: "test-user-1",
-					connectionId: "test-connection-1",
-					actionType: "test-action-type",
-					request: { test: "request" },
-					response: { test: "response" },
-					status: "success",
-					errorMessage: null,
-					createdAt: "2025-01-08T13:44:50.000Z",
-					updatedAt: "2025-01-08T13:44:50.000Z",
-				}
-			}
-		],
-		pagination: {
-			total: 1,
-			totalPages: 1,
-			page: 1,
-			limit: 10
+	const transformedServers = serversData?.data?.map((deployment: any) => {
+		if (!deployment) {
+			return null;
 		}
-	};
 
-	// Use mock data if actionsData is not available
-	const finalActionsData = actionsData || mockActionsData;
+		console.log(deployment);
 
-	const finalTransformedActions = finalActionsData?.data?.map((action: any) => ({
-		actionId: action.mcp_actions.actionId,
-		deploymentId: action.mcp_actions.deploymentId,
-		userId: action.mcp_actions.userId,
-		connectionId: action.mcp_actions.connectionId,
-		actionType: action.mcp_actions.actionType || "Unknown Action",
-		request: action.mcp_actions.request,
-		response: action.mcp_actions.response,
-		status: action.mcp_actions.status,
-		errorMessage: action.mcp_actions.errorMessage,
-		createdAt: action.mcp_actions.createdAt,
-		updatedAt: action.mcp_actions.updatedAt,
-	})) || [];
+		const deploymentUrl = deployment.url ?
+			`${deployment.url}?deploymentId=${deployment.deploymentId}` :
+			'No URL';
 
-	const transformedServers = serversData?.data?.map((deployment: any) => ({
-		deploymentId: deployment.deploymentId,
-		userMcpId: deployment.userMcpId,
-		url: deployment.userServiceConnectionMcpDeployments?.[0]?.connectionId || 'No URL',
-		scopes: deployment.userServiceConnectionMcpDeployments?.[0]?.scopes || [],
-		status: deployment.status,
-		createdAt: deployment.createdAt,
-		updatedAt: deployment.updatedAt,
-	})) || [];
+		return {
+			deploymentId: deployment.deploymentId,
+			userMcpId: deployment.userMcpId,
+			url: deploymentUrl,
+			scopes: deployment.userServiceConnectionMcpDeployments?.[0]?.scopes || [],
+			status: deployment.status,
+			createdAt: deployment.createdAt,
+			updatedAt: deployment.updatedAt,
+			userServiceConnectionMcpDeployments: deployment.userServiceConnectionMcpDeployments,
+			name: deployment.name
+		};
+	}).filter(Boolean) || [];
 
 	return (
 		<Tabs defaultValue="readme" className="flex w-full flex-col gap-y-8">
@@ -148,11 +130,14 @@ export function McpTabs() {
 			</TabsList>
 			<TabsContent value="readme">
 				<TabLayout>
-					<div className="w-full max-w-none">
+					<div className="w-full ">
 						{packageData?.description ? (
 							<ScrollArea className="h-[calc(100vh-200px)] hidebar">
-								<div className="rounded-lg max-h-[calc(100vh-480px)] hidebar overflow-y-auto">
-									<MarkdownRenderer
+								<div className="rounded-lg max-h-[calc(100vh-480px)] hidebar overflow-y-auto whitespace-normal">
+									{/* <MarkdownRenderer
+										content={packageData.description}
+									/> */}
+									<StreamdownMarkdown
 										content={packageData.description}
 									/>
 								</div>

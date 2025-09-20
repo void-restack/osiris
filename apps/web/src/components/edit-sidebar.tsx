@@ -26,9 +26,7 @@ import {
   type WalletFormData
 } from "@/types/auth";
 import {
-  useCreateSecretSharingMutation,
   useCreateServiceConnectionMutation,
-  useUpdateWalletMutation,
   useUpdateSecretSharingMutation,
   useAddWalletMutation
 } from "@/lib/mutations";
@@ -36,6 +34,8 @@ import { useQuery } from "@tanstack/react-query";
 import { hubQueries } from "@/lib/queries";
 import { PermissionSelector, type Permission } from "./ui/permission-selector";
 import { getScopeDisplayName } from "@/lib/scope-definitions";
+import { WalletDialog } from "./features/wallet/wallet-dialog";
+import { transformScopeDefinitions } from "@/lib/scope-utils";
 
 const BLOCKCHAIN_OPTIONS = {
   EVM: {
@@ -74,9 +74,7 @@ export function EditConnectionSidebar() {
 
   const initialFormDataRef = useRef<ConnectionFormData | null>(null);
 
-  const createSecretSharingMutation = useCreateSecretSharingMutation();
   const createServiceConnectionMutation = useCreateServiceConnectionMutation();
-  const updateWalletMutation = useUpdateWalletMutation();
   const updateSecretSharingMutation = useUpdateSecretSharingMutation();
   const addWalletMutation = useAddWalletMutation();
 
@@ -298,12 +296,9 @@ export function EditConnectionSidebar() {
               disabled={isWalletConnection(selectedConnection)}
               title={isWalletConnection(selectedConnection) ? "Wallet names cannot be changed" : ""}
             />
-            {isWalletConnection(selectedConnection) && (
-              <p className="text-xs text-primary-400">
-                Wallet names cannot be changed after creation
-              </p>
-            )}
           </div>
+
+          <div className="border-t border-t-primary-100 border-dashed" />
 
           {isDatabaseConnection(selectedConnection) && (
             <DatabaseFields
@@ -361,11 +356,6 @@ export function EditConnectionSidebar() {
             {saveButtonText}
           </Button>
         </div>
-        {hasChanges && (
-          <p className="text-xs text-primary-500 text-center">
-            You have unsaved changes
-          </p>
-        )}
       </div>
     </div>
   );
@@ -472,7 +462,6 @@ const DatabaseFields = ({
         </div>
         {hasLocalChanges && (
           <div className="flex items-center justify-between">
-            <p className="text-xs text-amber-600">You have unsaved changes</p>
             <Button
               variant="outline"
               size="sm"
@@ -536,14 +525,15 @@ const OAuthFields = ({
 }) => {
   const { selectedServiceClient } = useAppStore();
 
-  const scopeDefinitions = selectedServiceClient?.scopeDefinitions || {};
+  const rawScopeDefinitions = selectedServiceClient?.scopeDefinitions || {};
+  const transformedScopeDefinitions = transformScopeDefinitions(selectedServiceClient?.name || '', rawScopeDefinitions);
 
   const availablePermissions = useMemo(() =>
-    Object.entries(scopeDefinitions).map(([scope, label]) => ({
-      id: scope,
+    Object.entries(transformedScopeDefinitions).map(([scope, label]) => ({
+      id: scope, // Will be "notion:all" for notion
       label: getScopeDisplayName(scope) || (label as string) || scope
     })),
-    [scopeDefinitions]
+    [transformedScopeDefinitions]
   );
 
   return (
@@ -555,6 +545,8 @@ const OAuthFields = ({
       </div>
 
       <PermissionSelector
+        context="edit-sidebar"
+        key={`edit-sidebar-${formData.clientId}`}
         permissions={availablePermissions}
         initialSelected={selectedScopes}
         onSelectionChange={onScopesChange}
@@ -624,18 +616,6 @@ const WalletFields = ({
     return chainValue;
   }, []);
 
-  const handleAddChain = useCallback((chainValue: string) => {
-    if (chainValue && !formData.chains.includes(chainValue)) {
-      const newChains = [...formData.chains, chainValue];
-      onChange("chains", newChains);
-    }
-  }, [formData.chains, onChange]);
-
-  const handleRemoveChain = useCallback((chainToRemove: string) => {
-    const newChains = formData.chains.filter(chain => chain !== chainToRemove);
-    onChange("chains", newChains);
-  }, [formData.chains, onChange]);
-
   const handleCopyAddress = useCallback((address: string) => {
     navigator.clipboard.writeText(address);
     toast.success("Address copied to clipboard");
@@ -644,52 +624,27 @@ const WalletFields = ({
   return (
     <>
       <div className="space-y-[6px]">
-        <Label className="text-[13px] text-primary-400">
+        {/* <Label className="text-[13px] text-primary-400">
           Wallet Addresses ({formData.addresses.length})
-        </Label>
+        </Label> */}
         <div className="space-y-3">
           {formData.addresses.map((address, index) => (
-            <div key={`address-${index}-${address.address}`} className="border rounded-lg p-3 bg-primary-25">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex gap-1 flex-wrap">
-                    {address.chains.map((chain) => (
-                      <span
-                        key={`${index}-${chain}`}
-                        className="text-xs bg-primary-100 text-primary-700 px-2 py-0.5 rounded"
-                      >
-                        {getChainDisplayName(chain)}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="font-mono text-sm text-primary-800 bg-white px-2 py-1 rounded border flex items-center justify-between">
-                  {address.address.slice(0, 10)}...{address.address.slice(-10)}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleCopyAddress(address.address)}
-                    className="ml-2 h-5 px-1"
-                  >
-                    <Copy className="size-3" />
-                  </Button>
-                </div>
-
-                {address.derivationPath && (
-                  <div className="text-xs text-primary-500">
-                    Path: {address.derivationPath} | Curve: {address.curve.replace('CURVE_', '')}
-                  </div>
-                )}
-              </div>
-            </div>
+            <WalletDialog
+              key={`address-${index}-${address.address}`}
+              address={address}
+              index={index}
+              getChainDisplayName={getChainDisplayName}
+              handleCopyAddress={handleCopyAddress}
+              userServiceConnectionId={connection.id}
+              formData={formData}
+            />
           ))}
         </div>
 
         {!showAddAddress && (
           <Button
-            variant="outline"
-            size="sm"
+            variant="outline2"
+            size="default"
             onClick={() => setShowAddAddress(true)}
             className="w-full mt-2"
           >
@@ -705,67 +660,10 @@ const WalletFields = ({
             handleCancelAddAddress={handleCancelAddAddress}
             addWalletMutation={addWalletMutation}
             getChainDisplayName={getChainDisplayName}
+            formData={formData}
           />
         )}
       </div>
-
-      <div className="space-y-[6px]">
-        <Label className="text-[13px] text-primary-400">
-          Supported Chains
-        </Label>
-
-        {formData.chains.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-2 w-full">
-            {formData.chains.map((chainValue) => (
-              <div key={`chain-${chainValue}`} className="flex overflow-hidden items-center gap-1 bg-primary-100 text-primary-700 px-2 py-1 rounded-md text-xs">
-                <span className="whitespace-nowrap">{getChainDisplayName(chainValue)}</span>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="w-full h-auto p-0 text-primary-500 hover:text-primary-700"
-                  onClick={() => handleRemoveChain(chainValue)}
-                >
-                  ×
-                </Button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <Select onValueChange={handleAddChain}>
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder="Add blockchain chain" />
-          </SelectTrigger>
-          <SelectContent>
-            {Object.entries(BLOCKCHAIN_OPTIONS).map(([groupKey, group]) => (
-              <SelectGroup key={groupKey}>
-                <SelectLabel>{group.label}</SelectLabel>
-                {Object.entries(group.chains).map(([chainName, chainValue]) => (
-                  <SelectItem
-                    key={chainValue}
-                    value={chainValue}
-                    disabled={formData.chains.includes(chainValue)}
-                  >
-                    {chainName}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {formData.balance && (
-        <div className="space-y-[6px]">
-          <Label htmlFor="wallet-balance" className="text-[13px] text-primary-400">
-            Balance
-          </Label>
-          <div className="rounded-md bg-primary-50 px-3 py-2 text-13px text-primary-400">
-            {formData.balance}
-          </div>
-        </div>
-      )}
     </>
   );
 };
@@ -776,7 +674,8 @@ const AddAddressForm = ({
   handleAddAddress,
   handleCancelAddAddress,
   addWalletMutation,
-  getChainDisplayName
+  getChainDisplayName,
+  formData
 }: {
   newAddress: any;
   setNewAddress: (value: any) => void;
@@ -784,22 +683,141 @@ const AddAddressForm = ({
   handleCancelAddAddress: () => void;
   addWalletMutation: any;
   getChainDisplayName: (chainValue: string) => string;
+  formData: WalletFormData;
 }) => {
-  const handleChainChange = useCallback((value: string) => {
-    if (value && !newAddress.chains.includes(value)) {
-      setNewAddress((prev: any) => ({
-        ...prev,
-        chains: [...prev.chains, value]
-      }));
+  const getChainType = (chainValue: string): 'EVM' | 'SVM' | null => {
+    if (Object.values(BLOCKCHAIN_OPTIONS.EVM.chains).includes(chainValue)) {
+      return 'EVM';
     }
-  }, [newAddress.chains, setNewAddress]);
+    if (Object.values(BLOCKCHAIN_OPTIONS.SVM.chains).includes(chainValue)) {
+      return 'SVM';
+    }
+    return null;
+  };
 
-  const handleRemoveChain = useCallback((chainIndex: number) => {
+  const currentChainType = newAddress.chains.length > 0 ? getChainType(newAddress.chains[0]) : null;
+
+  const calculateNextDerivationPath = useCallback((chainType: 'EVM' | 'SVM'): string => {
+    const existingAddresses = formData.addresses || [];
+
+    if (chainType === 'EVM') {
+      const evmAddresses = existingAddresses.filter(addr =>
+        addr.chains.some(chain => getChainType(chain) === 'EVM')
+      );
+
+      let maxIndex = -1;
+      evmAddresses.forEach(addr => {
+        if (addr.derivationPath) {
+          const match = addr.derivationPath.match(/m\/44'\/60'\/0'\/0\/(\d+)/);
+          if (match) {
+            maxIndex = Math.max(maxIndex, parseInt(match[1]));
+          }
+        }
+      });
+
+      return `m/44'/60'/0'/0/${maxIndex + 1}`;
+    } else {
+      // For SVM (Solana), use similar pattern but with Solana's coin type
+      const svmAddresses = existingAddresses.filter(addr =>
+        addr.chains.some(chain => getChainType(chain) === 'SVM')
+      );
+
+      let maxIndex = -1;
+      svmAddresses.forEach(addr => {
+        if (addr.derivationPath) {
+          const match = addr.derivationPath.match(/m\/44'\/501'\/0'\/0\/(\d+)/);
+          if (match) {
+            maxIndex = Math.max(maxIndex, parseInt(match[1]));
+          }
+        }
+      });
+
+      return `m/44'/501'/0'/0/${maxIndex + 1}`;
+    }
+  }, [formData.addresses]);
+
+  // Auto-fill fields based on chain type
+  const autoFillFields = useCallback((chainType: 'EVM' | 'SVM') => {
+    const updates: any = {
+      pathFormat: 'PATH_FORMAT_BIP32',
+      path: calculateNextDerivationPath(chainType)
+    };
+
+    if (chainType === 'EVM') {
+      updates.curve = 'CURVE_SECP256K1';
+      updates.addressFormat = 'ADDRESS_FORMAT_ETHEREUM';
+    } else if (chainType === 'SVM') {
+      updates.curve = 'CURVE_ED25519';
+      updates.addressFormat = 'ADDRESS_FORMAT_SOLANA';
+    }
+
     setNewAddress((prev: any) => ({
       ...prev,
-      chains: prev.chains.filter((_: any, i: number) => i !== chainIndex)
+      ...updates
     }));
+  }, [calculateNextDerivationPath, setNewAddress]);
+
+  const handleChainChange = useCallback((value: string) => {
+    if (!value || newAddress.chains.includes(value)) return;
+
+    const selectedChainType = getChainType(value);
+    if (!selectedChainType) return;
+
+    // If this is the first chain selection, auto-fill fields
+    if (newAddress.chains.length === 0) {
+      setNewAddress((prev: any) => ({
+        ...prev,
+        chains: [value]
+      }));
+      autoFillFields(selectedChainType);
+    } else {
+      // Check if the new chain is compatible with existing selections
+      if (currentChainType === selectedChainType) {
+        setNewAddress((prev: any) => ({
+          ...prev,
+          chains: [...prev.chains, value]
+        }));
+      } else {
+        toast.error(`Cannot mix ${currentChainType} and ${selectedChainType} chains in the same address`);
+      }
+    }
+  }, [newAddress.chains, currentChainType, setNewAddress, autoFillFields]);
+
+  const handleRemoveChain = useCallback((chainIndex: number) => {
+    setNewAddress((prev: any) => {
+      const newChains = prev.chains.filter((_: any, i: number) => i !== chainIndex);
+
+      // If all chains are removed, reset the auto-filled fields
+      if (newChains.length === 0) {
+        return {
+          ...prev,
+          chains: newChains,
+          curve: '',
+          addressFormat: '',
+          path: '',
+          pathFormat: ''
+        };
+      }
+
+      return {
+        ...prev,
+        chains: newChains
+      };
+    });
   }, [setNewAddress]);
+
+  // Filter available chains based on current selection
+  const getAvailableChains = useMemo(() => {
+    const available: { [key: string]: { [key: string]: string } } = {};
+
+    Object.entries(BLOCKCHAIN_OPTIONS).forEach(([groupKey, group]) => {
+      if (currentChainType === null || groupKey === currentChainType) {
+        available[groupKey] = { ...group.chains };
+      }
+    });
+
+    return available;
+  }, [currentChainType]);
 
   return (
     <div className="border rounded-lg p-4 bg-primary-25 mt-2">
@@ -809,6 +827,12 @@ const AddAddressForm = ({
         <Label className="text-xs text-primary-400">
           Blockchain Chains <span className="text-red-500">*</span>
         </Label>
+
+        {currentChainType && (
+          <div className="text-xs text-primary-500 mb-2">
+            Selected type: {currentChainType} (only {currentChainType} chains can be added to this address)
+          </div>
+        )}
 
         {newAddress.chains.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-2">
@@ -834,10 +858,10 @@ const AddAddressForm = ({
             <SelectValue placeholder="Select blockchain chains" />
           </SelectTrigger>
           <SelectContent>
-            {Object.entries(BLOCKCHAIN_OPTIONS).map(([groupKey, group]) => (
+            {Object.entries(getAvailableChains).map(([groupKey, chains]) => (
               <SelectGroup key={groupKey}>
-                <SelectLabel>{group.label}</SelectLabel>
-                {Object.entries(group.chains).map(([chainName, chainValue]) => (
+                <SelectLabel>{BLOCKCHAIN_OPTIONS[groupKey as keyof typeof BLOCKCHAIN_OPTIONS].label}</SelectLabel>
+                {Object.entries(chains).map(([chainName, chainValue]) => (
                   <SelectItem
                     key={chainValue}
                     value={chainValue}
@@ -855,43 +879,22 @@ const AddAddressForm = ({
       <div className="grid grid-cols-2 gap-3 mb-4">
         <div className="space-y-1">
           <Label className="text-xs text-primary-400">Curve</Label>
-          <Select
-            value={newAddress.curve || "none"}
-            onValueChange={(value) => setNewAddress((prev: any) => ({
-              ...prev,
-              curve: value === "none" ? "" : value
-            }))}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select curve" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">None</SelectItem>
-              <SelectItem value="CURVE_SECP256K1">SECP256K1 (Ethereum/Bitcoin)</SelectItem>
-              <SelectItem value="CURVE_ED25519">ED25519 (Solana)</SelectItem>
-            </SelectContent>
-          </Select>
+          <Input
+            value={newAddress.curve || ''}
+            disabled
+            placeholder="Auto-filled based on chain"
+            className="bg-gray-50"
+          />
         </div>
 
         <div className="space-y-1">
           <Label className="text-xs text-primary-400">Address Format</Label>
-          <Select
-            value={newAddress.addressFormat || "none"}
-            onValueChange={(value) => setNewAddress((prev: any) => ({
-              ...prev,
-              addressFormat: value === "none" ? "" : value
-            }))}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select format" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">None</SelectItem>
-              <SelectItem value="ADDRESS_FORMAT_ETHEREUM">Ethereum</SelectItem>
-              <SelectItem value="ADDRESS_FORMAT_SOLANA">Solana</SelectItem>
-              <SelectItem value="ADDRESS_FORMAT_BITCOIN">Bitcoin</SelectItem>
-            </SelectContent>
-          </Select>
+          <Input
+            value={newAddress.addressFormat || ''}
+            disabled
+            placeholder="Auto-filled based on chain"
+            className="bg-gray-50"
+          />
         </div>
       </div>
 
@@ -899,29 +902,24 @@ const AddAddressForm = ({
         <div className="space-y-1">
           <Label className="text-xs text-primary-400">Derivation Path</Label>
           <Input
-            placeholder="e.g., m/44'/60'/0'/0/0"
-            value={newAddress.path}
-            onChange={(e) => setNewAddress((prev: any) => ({ ...prev, path: e.target.value }))}
+            value={newAddress.path || ''}
+            disabled
+            placeholder="Auto-generated based on existing addresses"
+            className="bg-gray-50"
           />
+          <p className="text-xs text-primary-400">
+            Automatically calculated as the next available path
+          </p>
         </div>
 
         <div className="space-y-1">
           <Label className="text-xs text-primary-400">Path Format</Label>
-          <Select
-            value={newAddress.pathFormat || "none"}
-            onValueChange={(value) => setNewAddress((prev: any) => ({
-              ...prev,
-              pathFormat: value === "none" ? "" : value
-            }))}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select path format" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">None</SelectItem>
-              <SelectItem value="PATH_FORMAT_BIP32">BIP32</SelectItem>
-            </SelectContent>
-          </Select>
+          <Input
+            value={newAddress.pathFormat || ''}
+            disabled
+            placeholder="Always BIP32"
+            className="bg-gray-50"
+          />
         </div>
       </div>
 

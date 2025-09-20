@@ -14,7 +14,7 @@ export function PackagesGridView({
 }: PackagesGridViewProps) {
     return (
         <ScrollArea className="relative h-[calc(100vh-560px)] hidebar">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 p-2 pb-8 hidebar gap-4">
+            <div className="grid w-full gap-6 p-2 pb-24 sm:pb-28 hidebar [grid-template-columns:repeat(auto-fill,minmax(280px,1fr))] md:[grid-template-columns:repeat(auto-fill,minmax(320px,1fr))]">
                 {rows.map((row) => {
                     const pkg = row.original;
                     const name = pkg.name || (pkg as any).packageName;
@@ -23,7 +23,7 @@ export function PackagesGridView({
                     const iconUrl = pkg.iconUrl || (pkg as any).packageIconUrl;
 
                     return (
-                        <Link to={`/mcp/${pkg.packageId}`} key={row.id} className="min-h-[200px] group hover:shadow-md transition-shadow duration-200 p-3 inset-shadow-card rounded-xl bg-primary-00 opacity-100 min-w-[348px] relative overflow-hidden">
+                        <Link to={`/mcp/${pkg.packageId}`} key={row.id} className="min-h-[200px] group hover:shadow-md transition-shadow duration-200 p-3 inset-shadow-card rounded-xl bg-primary-00 opacity-100 w-full relative overflow-hidden">
                             <div className="p-0">
                                 <div className="flex items-start justify-between">
                                     <div className="flex flex-col items-start gap-3 min-w-0 flex-1" >
@@ -42,7 +42,7 @@ export function PackagesGridView({
                                             </p>
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-2 mt-3">
+                                    <div className="flex items-center gap-2 mt-3 flex-wrap">
                                         <Badge variant="secondary" className="text-xs rounded-[6px] text-[13px]">
                                             {(pkg as any).packageType || pkg.type || "MCP"}
                                         </Badge>
@@ -52,7 +52,7 @@ export function PackagesGridView({
                                     </div>
                                 </div>
                             </div>
-                            <div className="p-0 absolute bottom-4 text-wrap text-sm text-primary-300 line-clamp-3 truncate">
+                            <div className="p-0 absolute bottom-4 left-3 right-3 text-wrap text-sm text-primary-300 line-clamp-3">
                                 {description}
                             </div>
                         </Link>
