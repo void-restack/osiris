@@ -25,7 +25,7 @@ export function useKnowledgeBaseSearch(filters: KnowledgeBaseSearchFilters = {})
     isError,
   } = useQuery({
     ...knowledgeQueries.searchOptions(filters),
-    enabled: true, 
+    enabled: true,
   });
 
   // Handle response structure - the API returns { status: "SUCCESS", data: [...], pagination: {...} }
@@ -33,11 +33,11 @@ export function useKnowledgeBaseSearch(filters: KnowledgeBaseSearchFilters = {})
   const pagination = data?.pagination || { totalPages: 0, total: 0, page: 1, limit: 10 };
 
   // Debug logging
-  if (process.env.NODE_ENV === 'development') {
-    console.log('useKnowledgeBaseSearch - Raw data:', data);
-    console.log('useKnowledgeBaseSearch - Extracted knowledgeBases:', knowledgeBases);
-    console.log('useKnowledgeBaseSearch - Extracted pagination:', pagination);
-  }
+  // if (process.env.NODE_ENV === 'development') {
+  //   console.log('useKnowledgeBaseSearch - Raw data:', data);
+  //   console.log('useKnowledgeBaseSearch - Extracted knowledgeBases:', knowledgeBases);
+  //   console.log('useKnowledgeBaseSearch - Extracted pagination:', pagination);
+  // }
 
   return {
     data: knowledgeBases,

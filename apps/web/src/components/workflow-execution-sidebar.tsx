@@ -319,11 +319,11 @@ export function WorkflowExecutionSidebar() {
     };
 
     return (
-        <div className="relative h-full">
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+        <div className="flex flex-col h-full">
+            <div className="flex items-center justify-between p-6 border-b border-primary-100">
                 <div className="flex flex-col">
-                    <h2 className="text-lg font-medium text-gray-900">Workflow Execution</h2>
-                    <p className="text-sm text-gray-500">{selectedWorkflowExecution.workflowTitle}</p>
+                    <h2 className="text-lg font-semibold text-primary-800">Workflow Execution</h2>
+                    <p className="text-sm text-primary-400">{selectedWorkflowExecution.workflowTitle}</p>
                     <div className="mt-2">
                         <StatusBadge status={getCurrentWorkflowStatus()} />
                     </div>
@@ -338,101 +338,97 @@ export function WorkflowExecutionSidebar() {
                 </Button>
             </div>
 
-            <div className="p-6 space-y-6 overflow-y-auto h-full">
-                {/* Loading state for completed executions */}
-                {isCompletedExecution && isLoadingDetails && (
-                    <div className="space-y-4">
-                        <h3 className="text-sm font-medium text-gray-900">Loading Execution Details...</h3>
-                        <div className="flex items-center justify-center p-4">
-                            <Loader2 className="h-6 w-6 animate-spin text-primary-500" />
+            <div className="flex-1 overflow-y-auto p-6">
+                <div className="space-y-6">
+                    {/* Loading state for completed executions */}
+                    {isCompletedExecution && isLoadingDetails && (
+                        <div className="space-y-4">
+                            <h3 className="text-sm font-medium text-primary-800">Loading Execution Details...</h3>
+                            <div className="flex items-center justify-center p-4">
+                                <Loader2 className="h-6 w-6 animate-spin text-primary-500" />
+                            </div>
                         </div>
-                    </div>
-                )}
+                    )}
 
-                {/* Connection error placeholder removed since streaming is disabled */}
-
-                {/* Events section removed since streaming is disabled */}
-
-                {/* Workflow Steps - show from polled execution details when running */}
-                {isRunningExecution && executionDetails?.results && (
-                    <div className="space-y-4">
-                        <h3 className="text-sm font-medium text-gray-900">Workflow Progress</h3>
-                        <div className="space-y-2 max-h-[500px] overflow-y-auto">
-                            {executionDetails.results.map((step: any, index: number) => (
-                                <WorkflowStep key={step.stepId || index} step={step} index={index} />
-                            ))}
+                    {/* Workflow Steps - show from polled execution details when running */}
+                    {isRunningExecution && executionDetails?.results && (
+                        <div className="space-y-4">
+                            <h3 className="text-sm font-medium text-primary-800">Workflow Progress</h3>
+                            <div className="space-y-2 max-h-[500px] overflow-y-auto">
+                                {executionDetails.results.map((step: any, index: number) => (
+                                    <WorkflowStep key={step.stepId || index} step={step} index={index} />
+                                ))}
+                            </div>
                         </div>
-                    </div>
-                )}
+                    )}
 
-                {/* Show initial step data for running execution without polled data */}
-                {isRunningExecution && !executionDetails?.results && selectedWorkflowExecution.results && (
-                    <div className="space-y-4">
-                        <h3 className="text-sm font-medium text-gray-900">Workflow Steps</h3>
-                        <div className="space-y-2 max-h-[500px] overflow-y-auto">
-                            {selectedWorkflowExecution.results.map((step: any, index: number) => (
-                                <WorkflowStep key={step.stepId || index} step={step} index={index} />
-                            ))}
+                    {/* Show initial step data for running execution without polled data */}
+                    {isRunningExecution && !executionDetails?.results && selectedWorkflowExecution.results && (
+                        <div className="space-y-4">
+                            <h3 className="text-sm font-medium text-primary-800">Workflow Steps</h3>
+                            <div className="space-y-2 max-h-[500px] overflow-y-auto">
+                                {selectedWorkflowExecution.results.map((step: any, index: number) => (
+                                    <WorkflowStep key={step.stepId || index} step={step} index={index} />
+                                ))}
+                            </div>
                         </div>
-                    </div>
-                )}
+                    )}
 
-                {/* Running state fallback */}
-                {isRunningExecution && !executionDetails?.results && (
-                    <div className="space-y-4">
-                        <h3 className="text-sm font-medium text-gray-900">Current Status</h3>
-                        <Task defaultOpen={true}>
-                            <TaskTrigger title="Workflow Execution in Progress" />
-                            <TaskContent>
-                                <TaskItem>
-                                    <div className="space-y-2">
-                                        <div className="flex items-center space-x-2">
-                                            <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
-                                            <span className="text-sm">Processing workflow...</span>
+                    {/* Running state fallback */}
+                    {isRunningExecution && !executionDetails?.results && (
+                        <div className="space-y-4">
+                            <h3 className="text-sm font-medium text-primary-800">Current Status</h3>
+                            <Task defaultOpen={true}>
+                                <TaskTrigger title="Workflow Execution in Progress" />
+                                <TaskContent>
+                                    <TaskItem>
+                                        <div className="space-y-2">
+                                            <div className="flex items-center space-x-2">
+                                                <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+                                                <span className="text-sm">Processing workflow...</span>
+                                            </div>
                                         </div>
-                                    </div>
-                                </TaskItem>
-                            </TaskContent>
-                        </Task>
-                    </div>
-                )}
-
-                {/* Completed Execution Steps - Only show for completed executions */}
-                {isCompletedExecution && executionDetails?.results && (
-                    <div className="space-y-4">
-                        <h3 className="text-sm font-medium text-gray-900">Completed Workflow</h3>
-                        <div className="space-y-2 max-h-[calc(100vh-250px)] overflow-y-auto">
-                            {executionDetails.results.map((step: any, index: number) => (
-                                <CompletedWorkflowStep key={step.stepId || index} step={step} index={index} />
-                            ))}
+                                    </TaskItem>
+                                </TaskContent>
+                            </Task>
                         </div>
-                    </div>
-                )}
+                    )}
 
-                {/* Show completed execution from selectedWorkflowExecution if no detailed data */}
-                {isCompletedExecution && !executionDetails?.results && selectedWorkflowExecution.results && (
-                    <div className="space-y-4">
-                        <h3 className="text-sm font-medium text-gray-900">Workflow Results</h3>
-                        <div className="space-y-2 max-h-[calc(100vh-250px)] overflow-y-auto">
-                            {selectedWorkflowExecution.results.map((step: any, index: number) => (
-                                <CompletedWorkflowStep key={step.stepId || index} step={step} index={index} />
-                            ))}
+                    {/* Completed Execution Steps - Only show for completed executions */}
+                    {isCompletedExecution && executionDetails?.results && (
+                        <div className="space-y-4">
+                            <h3 className="text-sm font-medium text-primary-800">Completed Workflow</h3>
+                            <div className="space-y-2 max-h-[calc(100vh-250px)] overflow-y-auto">
+                                {executionDetails.results.map((step: any, index: number) => (
+                                    <CompletedWorkflowStep key={step.stepId || index} step={step} index={index} />
+                                ))}
+                            </div>
                         </div>
-                    </div>
-                )}
+                    )}
 
-                {/* Actions */}
-                <div className="flex w-full gap-3 p-2 rounded-b-lg border-t border-t-primary-100 items-center justify-center absolute bottom-0 left-0 right-0">
-                    {/* Retry removed since streaming is disabled */}
-                    <Button
-                        variant="outline"
-                        onClick={closeWorkflowExecutionSidebar}
-                        size="sm"
-                        className="flex-1"
-                    >
-                        Close
-                    </Button>
+                    {/* Show completed execution from selectedWorkflowExecution if no detailed data */}
+                    {isCompletedExecution && !executionDetails?.results && selectedWorkflowExecution.results && (
+                        <div className="space-y-4">
+                            <h3 className="text-sm font-medium text-primary-800">Workflow Results</h3>
+                            <div className="space-y-2 max-h-[calc(100vh-250px)] overflow-y-auto">
+                                {selectedWorkflowExecution.results.map((step: any, index: number) => (
+                                    <CompletedWorkflowStep key={step.stepId || index} step={step} index={index} />
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
+            </div>
+
+            <div className="p-6 border-t border-primary-100">
+                <Button
+                    variant="outline"
+                    onClick={closeWorkflowExecutionSidebar}
+                    size="sm"
+                    className="w-full"
+                >
+                    Close
+                </Button>
             </div>
         </div>
     );

@@ -42,7 +42,7 @@ export const useChatStream = () => {
     const getAuthHeaders = () => {
         const token =
             localStorage.getItem("access_token") ??
-            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIzODlmYzFkOS0yMTdjLTRmZmQtYTM3Ny0wNjQ2NjlmZjZhMDkiLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3NTgxNjk0MjksImV4cCI6MTc1ODI1NTgyOX0.t8adnk6PNDW8merLPchc1kAx_oBtlPP6hRURjJZ8d0M";
+            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIzODlmYzFkOS0yMTdjLTRmZmQtYTM3Ny0wNjQ2NjlmZjZhMDkiLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3NTgzMzMwOTEsImV4cCI6MTc1ODQxOTQ5MX0.yDd6GPrVYjiFVViPkxlNfk_oUDoE9AFiSnn-2w6rMCg";
         return {
             'Content-Type': 'application/json',
             'Accept': 'text/event-stream',

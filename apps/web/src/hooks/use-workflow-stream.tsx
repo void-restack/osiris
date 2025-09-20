@@ -30,7 +30,7 @@ export const useWorkflowStream = (executionId: string | null) => {
     const maxReconnectAttempts = 5;
 
     const getAuthHeaders = () => {
-        const token = localStorage.getItem("access_token") ?? "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIzODlmYzFkOS0yMTdjLTRmZmQtYTM3Ny0wNjQ2NjlmZjZhMDkiLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3NTgwODIwMzcsImV4cCI6MTc1ODE2ODQzN30.p0jDIvJWIPz3Nir89xTqcuPVd8HRlcg8KQUWZMzBuIo";
+        const token = localStorage.getItem("access_token") ?? "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIzODlmYzFkOS0yMTdjLTRmZmQtYTM3Ny0wNjQ2NjlmZjZhMDkiLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3NTgzMzMwOTEsImV4cCI6MTc1ODQxOTQ5MX0.yDd6GPrVYjiFVViPkxlNfk_oUDoE9AFiSnn-2w6rMCg";
 
         console.log('🔑 Getting auth token:', token ? 'Found' : 'Not found');
 

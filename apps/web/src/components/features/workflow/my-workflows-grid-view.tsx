@@ -20,16 +20,13 @@ export function MyWorkflowsGridView({
                 {rows.map((row) => {
                     const workflow = row.original;
                     const createdAt = new Date(workflow.createdAt);
-                    const diffInDays = differenceInDays(new Date(), createdAt);
-
-
-                    console.log(workflow, "!!!!!");
+                    // const diffInDays = differenceInDays(new Date(), createdAt);
 
                     return (
-                        <Link key={row.id} to={`/workflow/${workflow.id}`} className="group relative overflow-hidden rounded-md border border-primary-100 bg-white p-3">
+                        <Link key={row.id} to={`/workflow/${workflow.id}`} className="relative group min-h-[200px] overflow-hidden rounded-xl border border-primary-100 bg-white p-3">
                             <div className="flex items-start justify-between mb-4">
-                                <div className="flex items-center gap-3 min-w-0 flex-1">
-                                    <Avatar className="size-10 shrink-0 rounded-sm">
+                                <div className="flex flex-col items-start mb-12 gap-3 min-w-0 flex-1">
+                                    <Avatar className="size-12 shrink-0 rounded-sm">
                                         <AvatarImage
                                             src={workflow.imageUrl || workflow.coverImageUrl || undefined}
                                             alt={workflow.title}
@@ -39,19 +36,19 @@ export function MyWorkflowsGridView({
                                         </AvatarFallback>
                                     </Avatar>
                                     <div className="min-w-0 flex-1">
-                                        <h3 className="font-semibold text-sm text-primary-800 truncate line-clamp-1">
+                                        <h3 className="font-medium text-[15px] text-primary-800 truncate line-clamp-2 text-wrap">
                                             {workflow.title}
                                         </h3>
-                                        <div className="flex items-center gap-2 mt-1">
+                                        {/* <div className="flex items-center gap-2 mt-1">
                                             <Badge variant="outline" className="text-xs">
                                                 {workflow.isPublic ? "Public" : "Private"}
                                             </Badge>
-                                        </div>
+                                        </div> */}
                                     </div>
                                 </div>
                             </div>
 
-                            <p className="text-xs text-primary-400 line-clamp-1">
+                            <p className="text-sm text-primary-300 line-clamp-3 absolute bottom-4 left-3 right-3 text-wrap">
                                 {workflow.description}
                             </p>
                         </Link>

@@ -345,7 +345,7 @@ function RouteComponent() {
               onClick={() => handleEdit(client)}
             >
               <Avatar className="size-10 rounded-md">
-                <AvatarImage src={client.iconUrl || undefined} alt={client.name} />
+                <AvatarImage src={client.iconUrl || "/logo.png"} alt={client.name} />
                 <AvatarFallback className="size-10 rounded-md text-xs font-medium bg-primary-100 text-primary-700">
                   {client.name.charAt(0).toUpperCase()}
                 </AvatarFallback>

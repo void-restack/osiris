@@ -69,7 +69,7 @@ export function OAuthClientsGridView({ rows }: OAuthClientsGridViewProps) {
 
     return (
         <ScrollArea className="relative h-[calc(100vh-560px)] hidebar">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 p-2 pb-8 hidebar gap-4">
+            <div className="grid w-full gap-6 p-2 pb-24 sm:pb-28 hidebar [grid-template-columns:repeat(auto-fill,minmax(280px,1fr))] md:[grid-template-columns:repeat(auto-fill,minmax(320px,1fr))]">
                 {rows.map((row) => {
                     const client = row.original;
                     const description = client.metadata?.description || client.metadata?.purpose;
@@ -77,13 +77,13 @@ export function OAuthClientsGridView({ rows }: OAuthClientsGridViewProps) {
                     return (
                         <div
                             key={row.id}
-                            className="min-h-[200px] group hover:shadow-md transition-shadow duration-200 p-4 inset-shadow-card rounded-xl bg-primary-00 opacity-100 min-w-[348px] relative overflow-hidden cursor-pointer"
+                            className="min-h-[200px] group hover:shadow-md transition-shadow duration-200 p-4 inset-shadow-card rounded-xl bg-primary-00 opacity-100 min-w-[348px] overflow-hidden cursor-pointer relative"
                             onClick={() => handleEdit(client)}
                         >
                             <div className="flex items-start justify-between mb-4">
-                                <div className="flex items-start gap-3 min-w-0 flex-1">
-                                    <Avatar className="size-12 rounded-md shrink-0">
-                                        <AvatarImage src={client.iconUrl || undefined} alt={client.name} />
+                                <div className="flex flex-col items-start gap-3 min-w-0 flex-1">
+                                    <Avatar className="size-12 rounded-sm shrink-0">
+                                        <AvatarImage src={client.iconUrl || "/logo.png"} alt={client.name} />
                                         <AvatarFallback className="size-12 rounded-md text-xs font-medium bg-primary-100 text-primary-700">
                                             {client.name.charAt(0).toUpperCase()}
                                         </AvatarFallback>
@@ -93,7 +93,7 @@ export function OAuthClientsGridView({ rows }: OAuthClientsGridViewProps) {
                                             {client.name}
                                         </h4>
                                         <p className="text-[13px] text-primary-300 truncate">
-                                            {client.clientId}
+                                            {client.clientId.slice(0, 8)}...{client.clientId.slice(-8)}
                                         </p>
                                     </div>
                                 </div>
@@ -146,16 +146,31 @@ export function OAuthClientsGridView({ rows }: OAuthClientsGridViewProps) {
                                 </DropdownMenu>
                             </div>
 
+                            <div>
+                                <div className="space-y-1">
+                                    {client.redirectUris.slice(0, 2).map((uri, index) => (
+                                        <Badge variant="secondary" className="text-xs rounded-[6px] text-[13px] p-0 px-1">
+                                            {uri}
+                                        </Badge>
+                                    ))}
+                                    {client.redirectUris.length > 2 && (
+                                        <p className="text-xs text-primary-400">
+                                            +{client.redirectUris.length - 2} more
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+
                             {description && (
-                                <div className="mb-4">
-                                    <p className="text-xs text-primary-600 line-clamp-3">
+                                <div className="mb-4 absolute bottom-0 left-3 right-3">
+                                    <p className="text-xs text-primary-600 line-clamp-3 truncate">
                                         {description}
                                     </p>
                                 </div>
                             )}
 
-                            <div className="space-y-3">
-                                <div>
+                            {/* <div className="space-y-3"> */}
+                            {/* <div>
                                     <p className="text-xs font-medium text-primary-700 mb-1">Redirect URIs</p>
                                     <div className="space-y-1">
                                         {client.redirectUris.slice(0, 2).map((uri, index) => (
@@ -169,9 +184,9 @@ export function OAuthClientsGridView({ rows }: OAuthClientsGridViewProps) {
                                             </p>
                                         )}
                                     </div>
-                                </div>
+                                </div> */}
 
-                                <div className="flex items-center justify-between pt-2 border-t border-primary-100">
+                            {/* <div className="flex items-center justify-between pt-2 border-t border-primary-100">
                                     <div className="flex items-center gap-2">
                                         <Badge variant="secondary" className="text-xs rounded-[6px] text-[13px]">
                                             OAuth Client
@@ -180,8 +195,8 @@ export function OAuthClientsGridView({ rows }: OAuthClientsGridViewProps) {
                                     <div className="text-xs text-primary-400">
                                         {formatRelativeTime(client.createdAt)}
                                     </div>
-                                </div>
-                            </div>
+                                </div> */}
+                            {/* </div> */}
                         </div>
                     );
                 })}
