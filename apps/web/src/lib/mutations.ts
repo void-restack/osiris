@@ -625,7 +625,7 @@ export const useRegenerateOAuthSecretMutation = () => {
     onSuccess: (data, clientId) => {
       queryClient.invalidateQueries({ queryKey: hubQueries.oauthClient(clientId) });
       queryClient.invalidateQueries({ queryKey: hubQueries.oauthClients() });
-      toast.success("Client secret regenerated successfully");
+      // toast.success("Client secret regenerated successfully");
     },
     onError: (error) => {
       console.error("Failed to regenerate client secret:", error);

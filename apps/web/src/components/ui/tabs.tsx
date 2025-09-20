@@ -47,7 +47,6 @@ function TabsTrigger({
 			{...props}
 		>
 			{children}
-			<div className="-translate-x-1/2 absolute bottom-0 left-1/2 h-px w-4/5 transform rounded-full bg-success-500 opacity-0 data-[state=active]:opacity-100" />
 		</TabsPrimitive.Trigger>
 	);
 }

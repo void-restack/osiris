@@ -22,6 +22,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Download, Clock, Cpu, MoreHorizontal, Eye, Share2, Edit, Trash2, RefreshCw, Copy } from "lucide-react"
 import { toast } from "sonner"
 import { gridViewColumns } from '@/components/features/packages-table/packages-grid-view'
+import { KnowledgeBasesEmptyState } from '@/components/features/knowledge-bases/knowledge-bases-empty-state'
 import { AddFundsModal } from '@/components/features/wallet/add-funds-modal'
 import { formatRelativeTime } from "@/lib/format"
 import { useDeleteOAuthClientMutation, useRegenerateOAuthSecretMutation } from "@/lib/mutations"
@@ -45,7 +46,6 @@ export const Route = createFileRoute('/_hub/profile')({
     return { auth };
   },
   loader: async ({ context: { queryClient } }) => {
-    // Always fetch user and credit data
     const [userData] = await Promise.all([
       queryClient.ensureQueryData(userQueries.meOptions()),
       queryClient.ensureQueryData(creditQueries.balanceOptions()),
@@ -67,7 +67,6 @@ function RouteComponent() {
   const { data: creditBalance, isPending: creditLoading } = useQuery(creditQueries.balanceOptions());
   const { openOAuthClientEditSidebar } = useAppStore();
 
-  // View mode states for both tables
   const [mcpViewMode, setMcpViewMode] = useState<"table" | "grid">("grid");
   const [oauthViewMode, setOauthViewMode] = useState<"table" | "grid">("grid");
 
@@ -90,7 +89,6 @@ function RouteComponent() {
     toast.success("Package URL copied to clipboard");
   };
 
-  // OAuth Client handlers
   const handleCopyClientId = (clientId: string) => {
     navigator.clipboard.writeText(clientId);
     toast.success("Client ID copied to clipboard");
@@ -130,7 +128,6 @@ function RouteComponent() {
     }
   };
 
-  // MCP Package columns
   const mcpColumns = useMemo<ColumnDef<PackageList>[]>(
     () => [
       {
@@ -327,7 +324,6 @@ function RouteComponent() {
     [handleInstall, handleShare]
   );
 
-  // OAuth Client table columns
   const oauthClientTableColumns = useMemo<ColumnDef<OAuthClient>[]>(
     () => [
       {
@@ -479,7 +475,6 @@ function RouteComponent() {
     [deleteClientMutation, regenerateSecretMutation, handleEdit, handleCopyClientId, handleRegenerateSecret, handleDelete]
   );
 
-  // OAuth Client grid columns (simplified for grid view)
   const oauthClientGridColumns = useMemo<ColumnDef<OAuthClient>[]>(
     () => [
       {
@@ -562,23 +557,19 @@ function RouteComponent() {
     [handleEdit, handleCopyClientId, handleRegenerateSecret, handleDelete]
   );
 
-  // Active columns pattern for MCP packages
   const activeMcpColumns = useMemo(() => {
     return mcpViewMode === "grid" ? gridViewColumns : mcpColumns;
   }, [mcpViewMode, mcpColumns]);
 
-  // Active columns pattern for OAuth clients
   const activeOauthColumns = useMemo(() => {
     return oauthViewMode === "grid" ? oauthClientGridColumns : oauthClientTableColumns;
   }, [oauthViewMode, oauthClientGridColumns, oauthClientTableColumns]);
 
-  // Custom filters for MCP packages (only show user's packages)
   const customFilters = useMemo(() => {
     if (!user?.id) return {};
     return { publisherId: user.id };
   }, [user?.id]);
 
-  // Create table instances at parent level
   const { table: mcpTable, isLoading: mcpLoading, isFetching: mcpFetching } = usePackagesTable({
     columns: activeMcpColumns,
     initialPageSize: 10,
@@ -592,8 +583,8 @@ function RouteComponent() {
 
   return (
     <div className='h-full'>
-      <div className="pt-10 px-8 flex gap-32 flex-col w-full">
-        <div className="w-full flex items-center justify-between">
+      <div className="pt-10 flex gap-32 flex-col w-full">
+        <div className="px-8 w-full flex items-center justify-between">
           <div className="flex flex-col items-start">
             {creditLoading ? (
               <div className="space-y-2">
@@ -649,6 +640,7 @@ function RouteComponent() {
             </div>
             <AddFundsModal>
               <button
+                disabled
                 className="h-[52px] w-[30px] bg-primary-800 flex items-center justify-center rounded-[8px] inset-shadow-search-btn cursor-pointer hover:bg-primary-700 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
                 aria-label="Add Funds"
               >
@@ -659,7 +651,7 @@ function RouteComponent() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className='z-20'>
+          <TabsList className='z-20 px-8'>
             <TabsTrigger value="oauth-clients" className='px-0 flex gap-2 items-center'>
               <Icon name="ai" size='md' />
               OAuth Clients</TabsTrigger>
@@ -673,7 +665,7 @@ function RouteComponent() {
 
           <div className='border-t border-t-primary-100 w-full -translate-y-[3px] z-10' />
 
-          <TabsContent value="oauth-clients" className="mt-2">
+          <TabsContent value="oauth-clients" className="mt-2 px-8">
             {user?.id ? (
               <div>
                 <OAuthClientsTable
@@ -693,7 +685,7 @@ function RouteComponent() {
             )}
           </TabsContent>
 
-          <TabsContent value="mcps" className="mt-2">
+          <TabsContent value="mcps" className="mt-2 px-8">
             {user?.id ? (
               <PackagesTable
                 table={mcpTable}
@@ -701,7 +693,6 @@ function RouteComponent() {
                 isFetching={mcpFetching}
                 viewMode={mcpViewMode}
                 onViewModeChange={setMcpViewMode}
-                title="Developed MCPs"
               />
             ) : (
               <div className="text-center py-12">
@@ -711,15 +702,9 @@ function RouteComponent() {
             )}
           </TabsContent>
 
-          <TabsContent value="knowledge-bases" className="mt-2">
+          <TabsContent value="knowledge-bases" className="mt-2 px-8">
             {user?.id ? (
-              <div className="text-center py-12">
-                <Icon name="file" className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">My Knowledge Bases</h3>
-                <p className="text-gray-500">
-                  Knowledge bases functionality coming soon.
-                </p>
-              </div>
+              <KnowledgeBasesEmptyState />
             ) : (
               <div className="text-center py-12">
                 <Skeleton className="h-8 w-48 mx-auto mb-4" />
@@ -731,8 +716,8 @@ function RouteComponent() {
       </div>
 
       <div className="absolute bottom-0 border-t border-t-primary-100 flex h-12 w-full items-center overflow-hidden rounded-b-xl bg-primary-00 p-6">
-        {activeTab === "mcps" && <DataTablePagination table={mcpTable} />}
-        {activeTab === "oauth-clients" && <DataTablePagination table={oauthTable} />}
+        {activeTab === "mcps" && mcpTable.getRowModel().rows.length > 0 && <DataTablePagination table={mcpTable} />}
+        {activeTab === "oauth-clients" && oauthTable.getRowModel().rows.length > 0 && <DataTablePagination table={oauthTable} />}
       </div>
     </div>
   )
