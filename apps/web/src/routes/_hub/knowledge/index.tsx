@@ -94,7 +94,7 @@ export const Route = createFileRoute("/_hub/knowledge/")({
   shouldReload: false,
   component: () => (
     <Suspense fallback={<KnowledgePageSkeleton />}>
-    <RouteComponent />
+      <RouteComponent />
     </Suspense>
   ),
   validateSearch: searchSchema,
@@ -109,7 +109,7 @@ function normalizeKnowledgeBase(kb: any): KnowledgeBase {
       knowledgeBaseId: kb.knowledge_base.knowledgeBaseId,
       name: kb.knowledge_base.name,
       description: kb.knowledge_base.description,
-      iconUrl: kb.knowledge_base.iconUrl,
+      iconUrl: kb.knowledge_base.iconUrl ? kb.knowledge_base.iconUrl : "/default_kb_img.png",
       tags: kb.knowledge_base.tags || [],
       isPublic: kb.knowledge_base.isPublic,
       publicMetadata: {
@@ -119,7 +119,7 @@ function normalizeKnowledgeBase(kb: any): KnowledgeBase {
         ratingCount: kb.knowledge_base.publicMetadata?.ratingCount || 0,
       },
       userId: kb.knowledge_base.userId,
-      coverImageUrl: kb.knowledge_base.coverImageUrl,
+      coverImageUrl: kb.knowledge_base?.coverImageUrl ? kb.knowledge_base.coverImageUrl : "/default_knowledge_base_img.png",
       createdAt: kb.knowledge_base.createdAt,
       updatedAt: kb.knowledge_base.updatedAt,
     };
@@ -130,7 +130,7 @@ function normalizeKnowledgeBase(kb: any): KnowledgeBase {
       knowledgeBaseId: kb.knowledgeBase.knowledgeBaseId,
       name: kb.knowledgeBase.name,
       description: kb.knowledgeBase.description,
-      iconUrl: kb.knowledgeBase.iconUrl,
+      iconUrl: kb.knowledgeBase.iconUrl ? kb.knowledgeBase.iconUrl : "/default_kb_img.png",
       tags: kb.knowledgeBase.tags || [],
       isPublic: kb.knowledgeBase.isPublic,
       publicMetadata: {
@@ -140,7 +140,7 @@ function normalizeKnowledgeBase(kb: any): KnowledgeBase {
         ratingCount: kb.knowledgeBase.publicMetadata?.ratingCount || 0,
       },
       userId: kb.knowledgeBase.userId,
-      coverImageUrl: kb.knowledgeBase.coverImageUrl,
+      coverImageUrl: kb.knowledge_base?.coverImageUrl ? kb.knowledge_base.coverImageUrl : "/default_knowledge_base_img.png",
       createdAt: kb.knowledgeBase.createdAt,
       updatedAt: kb.knowledgeBase.updatedAt,
     };
@@ -151,7 +151,7 @@ function normalizeKnowledgeBase(kb: any): KnowledgeBase {
       knowledgeBaseId: kb.knowledge_bases.knowledgeBaseId,
       name: kb.knowledge_bases.name,
       description: kb.knowledge_bases.description,
-      iconUrl: kb.knowledge_bases.iconUrl,
+      iconUrl: kb.knowledge_bases.iconUrl ? kb.knowledge_bases.iconUrl : "/default_kb_img.png",
       tags: kb.knowledge_bases.tags || [],
       isPublic: kb.knowledge_bases.isPublic,
       publicMetadata: {
@@ -161,7 +161,7 @@ function normalizeKnowledgeBase(kb: any): KnowledgeBase {
         ratingCount: kb.knowledge_base_ratings?.ratingCount || kb.knowledge_bases.publicMetadata?.ratingCount || 0,
       },
       userId: kb.knowledge_bases.userId,
-      coverImageUrl: kb.knowledge_bases.coverImageUrl,
+      coverImageUrl: kb.knowledge_base?.coverImageUrl ? kb.knowledge_base.coverImageUrl : "/default_knowledge_base_img.png",
       createdAt: kb.knowledge_bases.createdAt,
       updatedAt: kb.knowledge_bases.updatedAt,
     };
@@ -171,7 +171,7 @@ function normalizeKnowledgeBase(kb: any): KnowledgeBase {
     knowledgeBaseId: kb.knowledgeBaseId,
     name: kb.name,
     description: kb.description,
-    iconUrl: kb.iconUrl,
+    iconUrl: kb.iconUrl ? kb.iconUrl : "/default_kb_img.png",
     tags: kb.tags || [],
     isPublic: kb.isPublic,
     publicMetadata: {
@@ -181,7 +181,7 @@ function normalizeKnowledgeBase(kb: any): KnowledgeBase {
       ratingCount: kb.publicMetadata?.ratingCount || 0,
     },
     userId: kb.userId,
-    coverImageUrl: kb.coverImageUrl,
+    coverImageUrl: kb.coverImageUrl ? kb.coverImageUrl : "/default_knowledge_base_img.png",
     createdAt: kb.createdAt,
     updatedAt: kb.updatedAt,
   };
@@ -208,16 +208,16 @@ function RouteComponent() {
         page: 1,
         limit: 10
       }));
-      
+
       const grouped = new Map<string, {
         knowledgeBase: any;
         units: any[];
       }>();
-      
+
       response.data.forEach((result: any) => {
         const kbId = result.knowledge_bases?.knowledgeBaseId;
         if (!kbId) return;
-        
+
         if (!grouped.has(kbId)) {
           grouped.set(kbId, {
             knowledgeBase: result.knowledge_bases,
@@ -226,7 +226,7 @@ function RouteComponent() {
         }
         grouped.get(kbId)!.units.push(result);
       });
-      
+
       return Array.from(grouped.values()).map(group => ({
         value: group.knowledgeBase.knowledgeBaseId,
         label: group.knowledgeBase.name,
@@ -550,7 +550,7 @@ function RouteComponent() {
                   <Link to="/knowledge/new">
                     <Button size="sm">
                       <Plus className="h-3 w-3 mr-2" />
-                      Create Knowledge Base 
+                      Create Knowledge Base
                     </Button>
                   </Link>
                 )}

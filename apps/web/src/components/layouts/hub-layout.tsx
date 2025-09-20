@@ -28,7 +28,8 @@ function HubLayoutInner({ children }: { children: React.ReactNode }) {
     isWorkflowExecutionSidebarOpen,
     closeWorkflowExecutionSidebar,
     isMainChatSidebarOpen,
-    setSidebarOpenCallback
+    setSidebarOpenCallback,
+    closeMainChatSidebar
   } = useAppStore();
   const { setOpen } = useSidebar();
   const isMobile = useIsMobile();
@@ -85,11 +86,11 @@ function HubLayoutInner({ children }: { children: React.ReactNode }) {
           <WorkflowExecutionSidebar />
         </SidebarInset>
       )}
-      {isMainChatSidebarOpen && !isMobile && (
+      {/* {isMainChatSidebarOpen && !isMobile && (
         <SidebarInset className="w-full max-w-[448px] border-primary-100 border-l bg-white md:w-[448px]">
           <MainChatSidebar />
         </SidebarInset>
-      )}
+      )} */}
       {isMobile && (
         <>
           <Drawer open={isEditSidebarOpen} onOpenChange={(open) => !open && closeEditSidebar()}>
@@ -117,11 +118,17 @@ function HubLayoutInner({ children }: { children: React.ReactNode }) {
               <WorkflowExecutionSidebar />
             </DrawerContent>
           </Drawer>
+          {/* <Drawer open={isMainChatSidebarOpen} onOpenChange={(open) => !open && closeMainChatSidebar()}>
+            <DrawerContent className="h-[90vh]">
+              <MainChatSidebar />
+            </DrawerContent>
+          </Drawer> */}
         </>
-      )}
+      )
+      }
 
       {/* Floating chat button for non-index pages */}
-      {!isIndexPage && <FloatingChatButton />}
+      {/* {!isIndexPage && <FloatingChatButton />} */}
     </>
   );
 }

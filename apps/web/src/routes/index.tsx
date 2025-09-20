@@ -1,4 +1,3 @@
-import React from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import HubLayout from "@/components/layouts/hub-layout";
