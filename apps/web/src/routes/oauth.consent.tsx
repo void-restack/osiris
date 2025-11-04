@@ -7,7 +7,7 @@ import {
   useAuthorizeFrontendMutation,
   useLoginMutation
 } from '@/lib/mutations'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { useState, useCallback, useMemo, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
@@ -609,6 +609,18 @@ function RouteComponent() {
 
   const [authDialogOpen, setAuthDialogOpen] = useState(false)
   const [selectedAuthMethod, setSelectedAuthMethod] = useState<any>(null)
+  const queryClient = useQueryClient()
+
+  const handleConnectionCreated = useCallback((connectionId: string, serviceName: string) => {
+    // Invalidate and refetch user auth connections
+    queryClient.invalidateQueries({ queryKey: hubQueries.userAuth() })
+    // Select the newly created connection
+    if (isWalletOnlyFlow && selectedAuthMethod?.type === 'embedded_wallet') {
+      setSelectedAuthConnections({ wallet: connectionId })
+    } else if (!isWalletOnlyFlow && serviceName) {
+      setSelectedAuthConnections((prev) => ({ ...prev, [serviceName]: connectionId }))
+    }
+  }, [queryClient, isWalletOnlyFlow, selectedAuthMethod])
 
   const handleAllowConsent = async () => {
     setIsLoading(true)
@@ -1060,7 +1072,7 @@ function RouteComponent() {
           {isWalletOnlyFlow ? (
             // Wallet-only flow - show embedded wallet connections
             userAuthConnections.length > 0 ? (
-              <div>
+              <div className="space-y-3">
                 <p className="text-sm font-medium text-primary-800 mb-4">Select a wallet connection:</p>
                 <RadioGroup
                   value={Object.values(selectedAuthConnections)[0] || ''}
@@ -1077,11 +1089,45 @@ function RouteComponent() {
                     />
                   ))}
                 </RadioGroup>
+                <Button
+                  onClick={() => {
+                    const walletAuthMethod = authMethods?.find((method: any) => method.type === 'embedded_wallet')
+                    if (walletAuthMethod) {
+                      setSelectedAuthMethod(walletAuthMethod)
+                      setAuthDialogOpen(true)
+                    } else {
+                      toast.error('Wallet authentication method not found')
+                    }
+                  }}
+                  variant="outline"
+                  className="w-full rounded-lg border-dashed border-2 border-primary-200 bg-primary-25 hover:bg-primary-50 hover:border-primary-300 text-primary-700 h-12"
+                  type="button"
+                >
+                  + Create a new wallet
+                </Button>
               </div>
             ) : (
-              <div className="text-center py-6 px-4 bg-primary-25 rounded-lg border border-primary-100">
-                <p className="text-sm text-primary-600 mb-2">No wallet connections found</p>
-                <p className="text-xs text-primary-400">You need to create a wallet connection first</p>
+              <div className="space-y-3">
+                <div className="text-center py-6 px-4 bg-primary-25 rounded-lg border border-primary-100">
+                  <p className="text-sm text-primary-600 mb-2">No wallet connections found</p>
+                  <p className="text-xs text-primary-400">Create a wallet connection to proceed with authorization</p>
+                </div>
+                <Button
+                  onClick={() => {
+                    const walletAuthMethod = authMethods?.find((method: any) => method.type === 'embedded_wallet')
+                    if (walletAuthMethod) {
+                      setSelectedAuthMethod(walletAuthMethod)
+                      setAuthDialogOpen(true)
+                    } else {
+                      toast.error('Wallet authentication method not found')
+                    }
+                  }}
+                  variant="outline"
+                  className="w-full rounded-lg border-dashed border-2 border-primary-200 bg-primary-25 hover:bg-primary-50 hover:border-primary-300 text-primary-700 h-12"
+                  type="button"
+                >
+                  + Create a new wallet
+                </Button>
               </div>
             )
           ) : (
@@ -1227,6 +1273,7 @@ function RouteComponent() {
             if (!open) setSelectedAuthMethod(null)
           }}
           mode="connect"
+          onSuccess={handleConnectionCreated}
         />
       )}
     </div>
