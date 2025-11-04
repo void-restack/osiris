@@ -289,7 +289,7 @@ export function AuthMethodDialog({
           toast.success("Wallet created successfully!");
 
           if (onSuccess) {
-            onSuccess(secretConnectionId, method.name);
+            onSuccess(walletConnectionId, method.name);
             setTimeout(() => {
               onOpenChange?.(false);
             }, 1500);
