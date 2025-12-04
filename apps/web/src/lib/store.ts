@@ -149,6 +149,9 @@ interface AppState {
 
   isMainChatSidebarOpen: boolean;
 
+  isProfileSidebarOpen: boolean;
+
+  selectedProfileId: string | null;
 
   openEditSidebar: (
     connection: UserServiceConnection,
@@ -177,6 +180,11 @@ interface AppState {
 
   openMainChatSidebar: () => void;
   closeMainChatSidebar: () => void;
+
+      openProfileSidebar: () => void;
+  closeProfileSidebar: () => void;
+
+  setSelectedProfile: (profileId: string | null) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -205,6 +213,9 @@ export const useAppStore = create<AppState>()(
 
       isMainChatSidebarOpen: false,
 
+      isProfileSidebarOpen: false,
+
+      selectedProfileId: null,
 
       openEditSidebar: (connection, serviceClient) => {
         set((state) => ({
@@ -219,6 +230,7 @@ export const useAppStore = create<AppState>()(
           selectedWorkflow: null,
           isWorkflowExecutionSidebarOpen: false,
           selectedWorkflowExecution: null,
+          isProfileSidebarOpen: false,
         }));
 
         const state = get();
@@ -253,6 +265,7 @@ export const useAppStore = create<AppState>()(
           selectedWorkflow: null,
           isWorkflowExecutionSidebarOpen: false,
           selectedWorkflowExecution: null,
+          isProfileSidebarOpen: false,
         }));
 
         const state = get();
@@ -283,6 +296,7 @@ export const useAppStore = create<AppState>()(
           selectedWorkflow: null,
           isWorkflowExecutionSidebarOpen: false,
           selectedWorkflowExecution: null,
+          isProfileSidebarOpen: false,
         }));
 
         const state = get();
@@ -313,6 +327,7 @@ export const useAppStore = create<AppState>()(
           selectedOAuthClient: null,
           isWorkflowExecutionSidebarOpen: false,
           selectedWorkflowExecution: null,
+          isProfileSidebarOpen: false,
         }));
 
         const state = get();
@@ -343,6 +358,7 @@ export const useAppStore = create<AppState>()(
           selectedOAuthClient: null,
           isWorkflowEditSidebarOpen: false,
           selectedWorkflow: null,
+          isProfileSidebarOpen: false,
         }));
 
         const state = get();
@@ -366,12 +382,41 @@ export const useAppStore = create<AppState>()(
       closeMainChatSidebar: () =>
         set({ isMainChatSidebarOpen: false }),
 
+      openProfileSidebar: () => {
+        set((state) => ({
+          isProfileSidebarOpen: true,
+          isEditSidebarOpen: false,
+          selectedConnection: null,
+          selectedServiceClient: null,
+          isMcpServerEditSidebarOpen: false,
+          selectedMcpServer: null,
+          isOAuthClientEditSidebarOpen: false,
+          selectedOAuthClient: null,
+          isWorkflowEditSidebarOpen: false,
+          selectedWorkflow: null,
+          isWorkflowExecutionSidebarOpen: false,
+          selectedWorkflowExecution: null,
+        }));
+
+        const state = get();
+        if (state.setSidebarOpen) {
+          state.setSidebarOpen(false);
+        }
+      },
+
+      closeProfileSidebar: () =>
+        set({ isProfileSidebarOpen: false }),
+
+      setSelectedProfile: (profileId) =>
+        set({ selectedProfileId: profileId }),
+
     }),
     {
       name: "osiris-app-store",
       partialize: (state) => ({
         mcpView: state.mcpView,
         knowledgeBaseView: state.knowledgeBaseView,
+        selectedProfileId: state.selectedProfileId,
       }),
     },
   ),

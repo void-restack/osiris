@@ -10,7 +10,7 @@ import { Separator } from "./ui/separator";
 import { userQueries } from "@/lib/queries";
 import { useLogoutMutation } from "@/lib/mutations";
 import { toast } from "sonner";
-import { Link } from "@tanstack/react-router";
+import { useAppStore } from "@/lib/store";
 
 export function UserPopover() {
   const [isOpen, setIsOpen] = useState(false);
@@ -58,7 +58,7 @@ export function UserPopover() {
         className="PopoverContent border border-primary-100 mb-2 flex w-[248px] flex-col rounded-[6px] bg-white p-0 shadow-none"
         align="start"
       >
-        <Profile user={user} />
+        <Profile user={user} onClose={() => setIsOpen(false)} />
         <Separator />
         <Logout onLogout={() => setIsOpen(false)} />
       </PopoverContent>
@@ -66,11 +66,17 @@ export function UserPopover() {
   );
 }
 
-function Profile({ user }: { user: any }) {
+function Profile({ user, onClose }: { user: any; onClose: () => void }) {
+  const { openProfileSidebar } = useAppStore();
+
   return (
-    <Link
-      to="/profile"
+    <Button
+      variant="ghost"
       className="h-8 w-full flex items-center cursor-pointer justify-start px-3 py-2 hover:bg-transparent"
+      onClick={() => {
+        openProfileSidebar();
+        onClose();
+      }}
     >
       <User className="mr-2 h-4 w-4" />
       <div className="flex flex-col items-start">
@@ -79,7 +85,7 @@ function Profile({ user }: { user: any }) {
           Profile
         </span>
       </div>
-    </Link>
+    </Button>
   );
 }
 

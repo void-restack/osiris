@@ -57,7 +57,7 @@ const BLOCKCHAIN_OPTIONS = {
 };
 
 export function EditConnectionSidebar() {
-  const { selectedConnection, selectedServiceClient, closeEditSidebar, isEditSidebarOpen } = useAppStore();
+  const { selectedConnection, selectedServiceClient, closeEditSidebar, isEditSidebarOpen, selectedProfileId } = useAppStore();
   const [formData, setFormData] = useState<ConnectionFormData | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
   const [selectedScopes, setSelectedScopes] = useState<Permission[]>([]);
@@ -149,6 +149,7 @@ export function EditConnectionSidebar() {
           serviceClientName: selectedServiceClient?.name || 'oauth',
           scopes: scopeIds,
           name: formData.name,
+          profileId: selectedProfileId || '',
           redirectUri: window.location.href
         });
       } else if (isWalletConnection(selectedConnection)) {

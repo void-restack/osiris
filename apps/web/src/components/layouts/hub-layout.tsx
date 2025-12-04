@@ -13,6 +13,7 @@ import { WorkflowEditSidebar } from "../workflow-edit-sidebar";
 import { WorkflowExecutionSidebar } from "../workflow-execution-sidebar";
 import { MainChatSidebar } from "../main-chat-sidebar";
 import { FloatingChatButton } from "../floating-chat-button";
+import { ProfileSidebar } from "../profile-sidebar";
 import { useLocation } from "@tanstack/react-router";
 
 function HubLayoutInner({ children }: { children: React.ReactNode }) {
@@ -29,7 +30,9 @@ function HubLayoutInner({ children }: { children: React.ReactNode }) {
     closeWorkflowExecutionSidebar,
     isMainChatSidebarOpen,
     setSidebarOpenCallback,
-    closeMainChatSidebar
+    closeMainChatSidebar,
+    isProfileSidebarOpen,
+    closeProfileSidebar
   } = useAppStore();
   const { setOpen } = useSidebar();
   const isMobile = useIsMobile();
@@ -58,7 +61,7 @@ function HubLayoutInner({ children }: { children: React.ReactNode }) {
   return (
     <>
       <AppSidebar />
-      <SidebarInset className={(isEditSidebarOpen || isWorkflowEditSidebarOpen || isWorkflowExecutionSidebarOpen || (isMainChatSidebarOpen && isIndexPage)) && !isMobile ? "flex-1" : ""}>
+      <SidebarInset className={(isEditSidebarOpen || isWorkflowEditSidebarOpen || isWorkflowExecutionSidebarOpen || isProfileSidebarOpen || (isMainChatSidebarOpen && isIndexPage)) && !isMobile ? "flex-1" : ""}>
         {children}
       </SidebarInset>
       {isEditSidebarOpen && !isMobile && (
@@ -84,6 +87,11 @@ function HubLayoutInner({ children }: { children: React.ReactNode }) {
       {isWorkflowExecutionSidebarOpen && !isMobile && (
         <SidebarInset className="w-full max-w-[448px] border-primary-100 border-l bg-white md:w-[448px]">
           <WorkflowExecutionSidebar />
+        </SidebarInset>
+      )}
+      {isProfileSidebarOpen && !isMobile && (
+        <SidebarInset className="w-full max-w-[448px] border-primary-100 border-l bg-white md:w-[448px]">
+          <ProfileSidebar />
         </SidebarInset>
       )}
       {/* {isMainChatSidebarOpen && !isMobile && (
@@ -116,6 +124,11 @@ function HubLayoutInner({ children }: { children: React.ReactNode }) {
           <Drawer open={isWorkflowExecutionSidebarOpen} onOpenChange={(open) => !open && closeWorkflowExecutionSidebar()}>
             <DrawerContent className="h-[90vh]">
               <WorkflowExecutionSidebar />
+            </DrawerContent>
+          </Drawer>
+          <Drawer open={isProfileSidebarOpen} onOpenChange={(open) => !open && closeProfileSidebar()}>
+            <DrawerContent className="h-[90vh]">
+              <ProfileSidebar />
             </DrawerContent>
           </Drawer>
           {/* <Drawer open={isMainChatSidebarOpen} onOpenChange={(open) => !open && closeMainChatSidebar()}>

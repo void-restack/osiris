@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { packageQueries, userQueries } from "@/lib/queries";
 import { getAuthState } from "@/lib/auth-utils";
-import type { Package, PackageList } from "@/types";
+import type { Package, PackageList, PackageWithUserStatus } from "@/types";
 import { PackagesTable } from "@/components/features/packages-table/packages-table";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
 import { usePackagesTable } from "@/hooks/use-packages-table";
@@ -30,6 +30,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { McpDeployDialog } from "@/components/mcp-deploy-dialog";
 
 const searchSchema = z.object({
   publisherId: z.string().optional(),
@@ -163,6 +164,8 @@ function normalizePackage(pkg: any): Package {
 function RouteComponent() {
   const queryClient = useQueryClient();
   const [viewMode, setViewMode] = useState<"table" | "grid">("grid");
+  const [selectedPackageForDialog, setSelectedPackageForDialog] = useState<PackageWithUserStatus | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const { data: popularPackages } = useSuspenseQuery(
     packageQueries.popularOptions()
@@ -200,8 +203,23 @@ function RouteComponent() {
   }, [popularPackages]);
 
   const handleInstall = (pkg: PackageList) => {
-    const name = pkg.name || (pkg as any).packageName;
-    toast.success(`Installing ${name}...`);
+    const packageWithUserStatus: PackageWithUserStatus = {
+      packageId: pkg.packageId,
+      name: pkg.name || (pkg as any).packageName,
+      description: pkg.description || (pkg as any).packageDescription || "",
+      shortDescription: pkg.shortDescription || null,
+      publisherId: pkg.publisherId,
+      latestVersion: pkg.latestVersion || (pkg as any).packageLatestVersion || "1.0.0",
+      url: pkg.url || (pkg as any).packageUrl,
+      iconUrl: pkg.iconUrl || (pkg as any).packageIconUrl || null,
+      coverImageUrl: pkg.coverImageUrl || (pkg as any).packageCoverImageUrl || null,
+      paymentConfig: pkg.paymentConfig,
+      isInstalled: false,
+      isDeployed: false,
+      clientId: (pkg as any).clientId || "",
+    };
+    setSelectedPackageForDialog(packageWithUserStatus);
+    setIsDialogOpen(true);
   };
 
   const handleShare = (pkg: PackageList) => {
@@ -390,7 +408,7 @@ function RouteComponent() {
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => handleInstall(pkg)}>
                     <Download className="h-3 w-3 mr-2" />
-                    Deploy Package
+                    View MCP URL
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => handleShare(pkg)}>
                     <Share2 className="h-3 w-3 mr-2" />
@@ -496,6 +514,20 @@ function RouteComponent() {
       <div className="absolute bottom-0 z-40 border-t border-t-primary-100 flex h-12 w-full items-center overflow-hidden rounded-b-xl bg-primary-00 p-6">
         <DataTablePagination table={table} />
       </div>
+
+      {/* MCP Deploy Dialog */}
+      {selectedPackageForDialog && (
+        <McpDeployDialog
+          package={selectedPackageForDialog}
+          open={isDialogOpen}
+          onOpenChange={(open) => {
+            setIsDialogOpen(open);
+            if (!open) {
+              setSelectedPackageForDialog(null);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

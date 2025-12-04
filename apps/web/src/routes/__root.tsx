@@ -5,6 +5,7 @@ import {
 } from "@tanstack/react-router";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
+import { UsernameValidationDialog } from "@/components/username-validation-dialog";
 import "../index.css";
 import type { QueryClient } from "@tanstack/react-query";
 import { getAuthState } from "@/lib/auth-utils";
@@ -55,6 +56,7 @@ function RootComponent() {
           <Outlet />
         </div>
         <Toaster richColors />
+        <UsernameValidationDialog />
       </ThemeProvider>
     </>
   );

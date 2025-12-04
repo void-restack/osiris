@@ -23,6 +23,7 @@ import { getScopeDisplayName } from "@/lib/scope-definitions"
 import { type WorkflowStep } from "./workflow-step-item"
 import PolicyBuilder from "@/components/policy-builder"
 import { toast } from "sonner"
+import { useAppStore } from "@/lib/store"
 
 interface AddStepDialogProps {
     open: boolean
@@ -140,7 +141,8 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
     })
 
     const { data: user } = useQuery(userQueries.meOptions(isAuthenticated))
-    const { data: allUserAuth } = useQuery(hubQueries.userAuthOptions(isAuthenticated))
+    const { selectedProfileId } = useAppStore();
+    const { data: allUserAuth } = useQuery(hubQueries.userAuthOptions(isAuthenticated, selectedProfileId || undefined))
     const { data: authMethods } = useQuery(hubQueries.authMethodsOptions())
 
     const { data: authScopes } = useQuery({
@@ -390,6 +392,7 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
                         serviceClientName: serviceName,
                         scopes: selectedPermissions[serviceName]?.map(permission => permission.id) || [],
                         name: authHubName,
+                        profileId: selectedProfileId || '',
                         redirectUri: window.location.href,
                         preventRedirect: true
                     })
@@ -410,6 +413,7 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
                     }
                     const secretResult = await createSecretSharing.mutateAsync({
                         serviceClientId: serviceClient.clientId,
+                        profileId: selectedProfileId || '',
                         name: authHubName,
                         secret: secretData
                     })
@@ -446,6 +450,7 @@ export function AddStepDialog({ open, onOpenChange, onAddStep, insertIndex, next
 
                     const walletResult = await createWallet.mutateAsync({
                         name: authHubName,
+                        profileId: selectedProfileId || '',
                         accounts: processedAccounts
                     })
                     connectionId = walletResult?.[0]?.id || 'created'

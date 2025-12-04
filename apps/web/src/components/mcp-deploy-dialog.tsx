@@ -1,10 +1,9 @@
-import { useState, useCallback, useMemo } from "react";
-import { Loader2, CheckCircle, AlertCircle, X, Copy, ExternalLink } from "lucide-react";
-import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { X, Copy, ExternalLink, HelpCircle } from "lucide-react";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogFooter,
@@ -13,28 +12,12 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/original-tabs";
-import { PermissionSelector, type Permission } from "@/components/ui/permission-selector";
-import { userQueries, hubQueries, packageQueries } from "@/lib/queries";
-import { useDeployPackageMutation, useCreateServiceConnectionMutation, useAuthorizeFrontendMutation, useCreateSecretSharingMutation, useCreateWalletMutation } from "@/lib/mutations";
-import { AuthMethodDialog } from "@/components/features/authhub/auth-method-dialog";
-import { useAuth } from "@/hooks/use-auth";
-import { cn, getInitials } from "@/lib/utils";
-
-import { getScopeDisplayName } from "@/lib/scope-definitions";
+import { packageQueries } from "@/lib/queries";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { PackageWithUserStatus } from "@/types";
-import PolicyBuilder from "@/components/policy-builder";
 
 interface McpDeployDialogProps {
   package: PackageWithUserStatus;
@@ -43,244 +26,6 @@ interface McpDeployDialogProps {
   onOpenChange?: (open: boolean) => void;
 }
 
-function ServiceSection({
-  serviceName,
-  serviceClient,
-  requiredScopes,
-  userAuth,
-  authScopes,
-  selectedPermissions,
-  onPermissionSelect,
-  selectedConnections,
-  onConnectionSelect,
-  authMethods,
-  createServiceConnection,
-  createSecretSharing,
-  createWallet,
-  onConnectNewAccount,
-}: {
-  serviceName: string;
-  serviceClient: any;
-  requiredScopes: string[];
-  userAuth: any[];
-  authScopes: any;
-  selectedPermissions: Record<string, Permission[]>;
-  onPermissionSelect: (serviceName: string, permissions: Permission[]) => void;
-  selectedConnections: Record<string, string>;
-  onConnectionSelect: (serviceName: string, id: string) => void;
-  authMethods: any[];
-  createServiceConnection: any;
-  createSecretSharing: any;
-  createWallet: any;
-  onConnectNewAccount: (serviceName: string, requiredScopes: string[]) => void;
-}) {
-  const serviceConnections = useMemo(
-    () => userAuth.filter((c: any) => c.service_clients.name === serviceName),
-    [userAuth, serviceName]
-  );
-
-  const permissions = useMemo(() => {
-    const req = Array.isArray(requiredScopes) ? requiredScopes : [];
-    return req.map((scope) => ({
-      id: scope,
-      label: getScopeDisplayName(scope) || scope
-    }));
-  }, [requiredScopes]);
-
-  const handleServicePermissionSelect = useCallback(
-    (perms: Permission[]) => onPermissionSelect(serviceName, perms),
-    [serviceName, onPermissionSelect]
-  );
-
-  const initialSelected = useMemo(
-    () => selectedPermissions[serviceName] || [],
-    [selectedPermissions, serviceName]
-  );
-
-  const isAllSelected = useMemo(() => {
-    const selected = selectedPermissions[serviceName] || [];
-    return permissions.length > 0 && selected.length === permissions.length;
-  }, [selectedPermissions, serviceName, permissions]);
-
-  const pendingConnect =
-    createServiceConnection.isPending ||
-    createSecretSharing.isPending ||
-    createWallet.isPending;
-
-  return (
-    <Accordion type="single" collapsible className="border border-primary-100 rounded-[6px]">
-      <AccordionItem value={serviceName} className="border-none">
-        <AccordionTrigger className="px-4 py-3 hover:no-underline">
-          <div className="flex items-center gap-3 w-full">
-            <Avatar className="size-10 rounded-[6px] shadow-xl">
-              <AvatarImage
-                src={serviceClient.iconUrl}
-                alt={serviceName}
-                className="rounded-[6px]"
-              />
-              <AvatarFallback className="bg-purple-300 text-white font-bold text-lg capitalize rounded-[6px]">
-                {serviceName.charAt(0)}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex flex-col items-start flex-1">
-              <h3 className="text-primary-800 capitalize font-medium">{serviceName} Account</h3>
-              <p className="text-[13px] text-primary-300">Select an existing {serviceName} account or connect a new one</p>
-            </div>
-          </div>
-        </AccordionTrigger>
-        <AccordionContent className="px-4 pb-4">
-          {permissions.length > 0 && (
-            <div className="mb-6">
-              <div className="flex justify-between items-center mb-3">
-                <p className="text-sm font-medium text-primary-800">Select permissions to grant:</p>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    if (isAllSelected) {
-                      handleServicePermissionSelect([]);
-                    } else {
-                      handleServicePermissionSelect(permissions);
-                    }
-                  }}
-                  className="text-xs h-7 px-2"
-                >
-                  {isAllSelected ? 'Deselect All' : 'Select All'}
-                </Button>
-              </div>
-
-              <PermissionSelector
-                context="deploy-dialog"
-                key={`deploy-${serviceName}`}
-                permissions={permissions}
-                placeholder={`Search ${serviceName} permissions...`}
-                onSelectionChange={handleServicePermissionSelect}
-                initialSelected={initialSelected}
-              />
-            </div>
-          )}
-
-          {serviceConnections.length > 0 && (
-            <div className="mb-6">
-              <p className="text-sm font-medium text-primary-800 mb-3">Your connected accounts:</p>
-              <RadioGroup
-                value={selectedConnections[serviceName] || ''}
-                onValueChange={(value) => onConnectionSelect(serviceName, value)}
-                className="space-y-3"
-              >
-                {serviceConnections.map((connection: any) => {
-                  const radioId = `radio-${connection.user_service_connections.id}`;
-                  const connectionScopes = connection.user_service_connections.scopes || [];
-                  const requiredScopesArray = Array.isArray(requiredScopes) ? requiredScopes : [];
-
-                  const serviceIcon = connection.service_clients?.iconUrl;
-
-                  const hasAllRequiredScopes = requiredScopesArray.every((requiredScope) => {
-                    const scopeWithoutPrefix = requiredScope.startsWith(`${serviceName}:`)
-                      ? requiredScope.replace(`${serviceName}:`, '')
-                      : requiredScope;
-                    const scopeWithPrefix = `${serviceName}:${requiredScope}`;
-
-                    return (
-                      connectionScopes.includes(requiredScope) ||
-                      connectionScopes.includes(scopeWithoutPrefix) ||
-                      connectionScopes.includes(scopeWithPrefix)
-                    );
-                  });
-                  return (
-                    <div key={connection.user_service_connections.id} className={cn("flex items-start space-x-3 group border border-primary-100 rounded-[6px] relative p-2 cursor-pointer", hasAllRequiredScopes ? "border-success-600/30 bg-success-25" : "")}>
-                      <RadioGroupItem
-                        id={radioId}
-                        value={connection.user_service_connections.id}
-                        className="mt-1 absolute top-2 right-2 cursor-pointer"
-                      />
-                      <label
-                        htmlFor={radioId}
-                        className="flex-1"
-                      >
-                        <div className="flex items-center space-x-2">
-                          <Avatar className="size-8 rounded-[6px] shadow-xl">
-                            <AvatarImage src={serviceIcon} alt={serviceName} className="rounded-[6px]" />
-                            <AvatarFallback className="font-bold text-lg capitalize rounded-[6px]">
-                              {serviceName.charAt(0)}
-                            </AvatarFallback>
-                          </Avatar>
-
-                          <div className="flex flex-col">
-                            <p className="text-sm font-medium text-primary-800">
-                              {(() => {
-                                const md = connection.user_service_connections.metadata;
-                                const t = connection.service_clients?.type;
-                                // const shortId = connection.user_service_connections.id.slice(0, 8);
-                                if (!t) return `${connection.user_service_connections.name || 'Unknown Connection'}`;
-
-                                switch (t) {
-                                  case 'oauth':
-                                    return `${md?.user?.name || md?.user?.email || 'Unknown User'}`;
-                                  case 'secret_sharing':
-                                    return `${connection.user_service_connections.name || 'Database Connection'}`;
-                                  case 'embedded_wallet': {
-                                    const walletName = md?.name || connection.user_service_connections.name || 'Wallet Connection';
-                                    return `${walletName}`;
-                                  }
-                                  default:
-                                    return `${connection.user_service_connections.name || 'Unknown Connection'}`;
-                                }
-                              })()}
-                            </p>
-
-                            <p className="text-[13px] text-primary-400">
-                              {(() => {
-                                const md = connection.user_service_connections.metadata;
-                                const t = connection.service_clients?.type;
-                                if (!t) return 'Unknown connection type';
-
-                                switch (t) {
-                                  case 'oauth':
-                                    return md?.user?.email || md?.user?.name || 'No email available';
-                                  case 'secret_sharing':
-                                    return 'Database connection';
-                                  case 'embedded_wallet': {
-                                    const addr = md?.accounts?.addresses?.[0]?.address;
-                                    if (addr) return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
-                                    const chains = md?.accounts?.chains;
-                                    if (chains?.length) return `${chains.length} chain${chains.length > 1 ? 's' : ''}`;
-                                    return 'Blockchain wallet';
-                                  }
-                                  default:
-                                    return 'Unknown type';
-                                }
-                              })()}
-                            </p>
-                          </div>
-                        </div>
-                      </label>
-                    </div>
-                  );
-                })}
-              </RadioGroup>
-            </div>
-          )}
-
-          <Button
-            onClick={() => onConnectNewAccount(serviceName, requiredScopes)}
-            variant="outline"
-            className="w-full rounded-[6px]"
-            disabled={pendingConnect}
-          >
-            {pendingConnect ? 'Connecting...' : `Connect a new ${serviceName} account`}
-          </Button>
-
-          {serviceConnections.length === 0 && (
-            <p className="text-[13px] text-primary-300 italic mt-3">
-              No {serviceName} accounts connected yet.
-            </p>
-          )}
-        </AccordionContent>
-      </AccordionItem>
-    </Accordion>
-  );
-}
 
 export function McpDeployDialog({
   package: pkg,
@@ -288,29 +33,9 @@ export function McpDeployDialog({
   open,
   onOpenChange
 }: McpDeployDialogProps) {
-  const [selectedPermissions, setSelectedPermissions] = useState<Record<string, Permission[]>>({});
-  const [selectedConnections, setSelectedConnections] = useState<Record<string, string>>({});
-  const [deploymentName, setDeploymentName] = useState(`${pkg.name} deployment`);
-  const [connectingService, setConnectingService] = useState<string | null>(null);
   const [copiedText, setCopiedText] = useState<string | null>(null);
-  const [policyJson, setPolicyJson] = useState<string>('{\n  "allow": [{}],\n  "deny": []\n}');
-
-  const authorizeMutation = useAuthorizeFrontendMutation()
-  const deployMutation = useDeployPackageMutation();
-  const createServiceConnection = useCreateServiceConnectionMutation();
-  const createSecretSharing = useCreateSecretSharingMutation();
-  const createWallet = useCreateWalletMutation();
-  const { isAuthenticated } = useAuth();
-  const { data: user } = useQuery(userQueries.meOptions(isAuthenticated));
   const { data: authScopes } = useSuspenseQuery(packageQueries.authScopesOptions(pkg.packageId));
-
-  const { data: allUserAuth } = useQuery(hubQueries.userAuthOptions(isAuthenticated));
-  const { data: authMethods } = useSuspenseQuery(hubQueries.authMethodsOptions());
-
-  const userAuth = allUserAuth?.filter((connection: any) => {
-    const allowedServices = Object.keys(authScopes?.serviceClientMap || {});
-    return allowedServices.includes(connection.service_clients.name);
-  }) || [];
+  const { data: packageData } = useSuspenseQuery(packageQueries.detailOptions(pkg.packageId));
 
   const copyToClipboard = async (text: string, label: string) => {
     try {
@@ -323,243 +48,97 @@ export function McpDeployDialog({
     }
   };
 
-  const mcpDeploymentUrl = deployMutation.data?.deployment ?
-    `${deployMutation.data?.deployment.url}?deploymentId=${deployMutation.data.deployment.deploymentId}` :
-    deployMutation.data?.deployment.url;
-
-  const handleDeploy = async () => {
-    const requiredServices = Object.keys(authScopes?.serviceClientMap || {});
-    const missingServices = requiredServices.filter(service => !selectedConnections[service]);
-
-    if (missingServices.length > 0) {
-      toast.error(`Please select connections for: ${missingServices.join(', ')}`);
-      return;
-    }
-
-    const servicesWithScopes = requiredServices.filter(service => {
-      const mcpRequiredScopes = authScopes?.serviceClientMap?.[service] || [];
-      const authMethod = authMethods?.find((method: any) => method.name === service);
-      // Skip scope validation for embedded wallet services
-      if (authMethod?.type === 'embedded_wallet') return false;
-      return mcpRequiredScopes.length > 0;
-    });
-
-    const servicesWithoutPermissions = servicesWithScopes.filter(
-      service => !selectedPermissions[service] || selectedPermissions[service].length === 0
-    );
-
-    if (servicesWithoutPermissions.length > 0) {
-      toast.error(`Please select permissions for: ${servicesWithoutPermissions.join(', ')}`);
-      return;
-    }
-
-    // Validate policy JSON if there are embedded wallet services
-    const hasEmbeddedWalletServices = requiredServices.some(service => {
-      const authMethod = authMethods?.find((method: any) => method.name === service);
-      return authMethod?.type === 'embedded_wallet';
-    });
-
-    if (hasEmbeddedWalletServices) {
-      try {
-        JSON.parse(policyJson);
-      } catch {
-        toast.error('Invalid policy JSON format');
-        return;
-      }
-    }
-
-    try {
-      const serviceConnections = requiredServices
-        .filter(service => selectedConnections[service])
-        .map(service => {
-          const authMethod = authMethods?.find((method: any) => method.name === service);
-          const isEmbeddedWallet = authMethod?.type === 'embedded_wallet';
-
-          return {
-            connectionId: selectedConnections[service],
-            ...(isEmbeddedWallet
-              ? { policy: JSON.parse(policyJson) }
-              : { scopes: selectedPermissions[service]?.map(permission => permission.id) || [] }
-            )
-          };
-        });
-
-      const deploymentData = await deployMutation.mutateAsync({
-        packageId: pkg.packageId,
-        version: pkg.latestVersion,
-        url: `${pkg?.url?.replace(/\/$/, '')}/mcp`,
-        authData: {},
-        serviceConnections: serviceConnections,
-      });
-
-      const deploymentId = deploymentData.deployment.deploymentId
-
-      const mcpRedirectUri = new URL(pkg?.url as string)
-      mcpRedirectUri.pathname = mcpRedirectUri.pathname.replace(/\/$/, '') + '/osiris/callback'
-
-      // Flatten scopes for authorization
-      const allScopes = serviceConnections.flatMap(sc => 'scopes' in sc ? sc.scopes : []);
-
-      const data = await authorizeMutation.mutateAsync({
-        clientId: pkg?.clientId ?? "",
-        redirectUri: mcpRedirectUri.toString(),
-        responseType: 'code',
-        scopes: [...allScopes, "osiris:auth:read", "osiris:auth:action"],
-        state: deploymentId || '',
-        deploymentId: deploymentId,
-      })
-
-      const url = new URL(data.url)
-      const res = await fetch(url.toString())
-      if (res.status !== 200) {
-        throw new Error('Failed to authorize')
-      }
-
-      // Show success message
-      toast.success('Package deployed successfully!');
-    } catch (error: any) {
-      // Show error message
-      const errorMessage = error?.message || 'Deployment failed. Please try again.';
-      toast.error(errorMessage);
-      console.error('Deployment error:', error);
-    }
-  };
+  const publisherUsername = 
+    authScopes?.publisher?.username || 
+    authScopes?.publisher?.name || 
+    '';
+  const gatewayBaseUrl = import.meta.env.VITE_GATEWAY_BASE_URL || 'https://osiris-gateway.staging.osirislabs.xyz';
+  const mcpUrl =  `${gatewayBaseUrl}/@${publisherUsername}/${pkg.name}`
+  
+  const requiresAuth = (authScopes?.serviceClients?.length || 0) > 0;
+  const authServices = authScopes?.serviceClients?.map((sc: any) => sc.name).join(', ') || '';
 
   const handleClose = () => {
     onOpenChange?.(false);
     setTimeout(() => {
-      setSelectedPermissions({});
-      setSelectedConnections({});
-      setPolicyJson('{\n  "allow": [{}],\n  "deny": []\n}');
-      deployMutation.reset();
-      authorizeMutation.reset();
+      setCopiedText(null);
     }, 100);
   };
 
-  const handlePermissionSelect = useCallback((serviceName: string, permissions: Permission[]) => {
-    setSelectedPermissions(prev => ({ ...prev, [serviceName]: permissions }));
-  }, []);
-
-  const handleConnectionSelect = (serviceName: string, connectionId: string) => {
-    setSelectedConnections(prev => ({
-      ...prev,
-      [serviceName]: connectionId
-    }));
-  };
-
-  const handleConnectNewAccount = useCallback((serviceName: string, requiredScopes: string[]) => {
-    const serviceAuthMethod = authMethods?.find((method: any) => method.name === serviceName);
-
-    if (!serviceAuthMethod) {
-      toast.error(`Auth method not found for ${serviceName}`);
-      return;
-    }
-
-    setConnectingService(serviceName);
-  }, [authMethods]);
-
-  const isPending = deployMutation.isPending || authorizeMutation.isPending;
-  const isSuccess = deployMutation.isSuccess && authorizeMutation.isSuccess;
-  const isError = deployMutation.isError || authorizeMutation.isError;
-
-  const renderDeployForm = () => (
-    <div className="flex flex-col px-4">
-      {/* Services and Permissions */}
-      <div className="space-y-3 overflow-y-scroll hidebar">
-        {/* <ScrollArea className="max-h-64"> */}
-        {authScopes?.serviceClients?.map((serviceClient: any) => (
-          <div key={serviceClient.name}>
-            <ServiceSection
-              serviceName={serviceClient.name}
-              serviceClient={serviceClient}
-              requiredScopes={authScopes?.serviceClientMap?.[serviceClient.name] || []}
-              userAuth={userAuth}
-              authScopes={authScopes}
-              selectedPermissions={selectedPermissions}
-              onPermissionSelect={handlePermissionSelect}
-              selectedConnections={selectedConnections}
-              onConnectionSelect={handleConnectionSelect}
-              authMethods={authMethods}
-              createServiceConnection={createServiceConnection}
-              createSecretSharing={createSecretSharing}
-              createWallet={createWallet}
-              onConnectNewAccount={handleConnectNewAccount}
-            />
-          </div>
-        ))}
-        {/* </ScrollArea> */}
-      </div>
-
-      {/* Policy Builder for Embedded Wallet Services */}
-      {authScopes?.serviceClients?.some((serviceClient: any) => {
-        const method = authMethods?.find((m: any) => m.name === serviceClient.name);
-        return method?.type === 'embedded_wallet';
-      }) && (
-          <div className="pt-4 border-t border-primary-100">
-            <div className="space-y-3">
-              <div>
-                <h4 className="text-sm font-medium text-primary-800">Access Policies</h4>
-                <p className="text-xs text-primary-400">Define access rules and constraints for wallet operations</p>
-              </div>
-
-              {/* Policy Status Message */}
-              {(() => {
-                try {
-                  const policy = JSON.parse(policyJson);
-                  const isAllowAll = policy.allow?.some((rule: any) => Object.keys(rule).length === 0);
-                  return isAllowAll ? (
-                    <div className="p-3 bg-blue-25 border border-blue-200 rounded-lg">
-                      <p className="text-sm text-blue-700">
-                        <span className="font-medium">Current Policy:</span> Allows all wallet operations
-                      </p>
-                      <p className="text-xs text-blue-600 mt-1">
-                        The policy currently grants unrestricted access. Modify below to add restrictions.
-                      </p>
-                    </div>
-                  ) : null;
-                } catch {
-                  return null;
-                }
-              })()}
-
-              <PolicyBuilder value={policyJson} onChange={setPolicyJson} />
-            </div>
-          </div>
-        )}
-    </div>
+  const defaultTrigger = (
+    <Button variant="ghost" size="sm" className="gap-2">
+      View URL
+    </Button>
   );
 
-  const renderStatusVisual = () => {
-    let statusColor, statusIcon, statusText;
+  return (
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
+      <AlertDialogTrigger asChild>
+        {trigger || defaultTrigger}
+      </AlertDialogTrigger>
+      <AlertDialogContent className="w-full max-w-[520px] rounded-[12px] border-primary-100 p-0">
+        <AlertDialogHeader className="border-b border-b-primary-100 px-4 py-3">
+          <div className="flex items-center justify-between">
+            <AlertDialogTitle className="font-normal text-base text-primary-400">
+              {pkg.name} MCP URL
+            </AlertDialogTitle>
+            {requiresAuth && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <HelpCircle className="h-4 w-4 text-primary-400 cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="text-sm">
+                      This MCP requires authentication: {authServices}
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+          </div>
+        </AlertDialogHeader>
 
-    if (isPending) {
-      statusColor = "primary-600/20";
-      statusIcon = <Loader2 className="size-3 animate-spin" />;
-      statusText = "Deploying";
-    } else if (isSuccess) {
-      statusColor = "success-600/20";
-      statusIcon = <CheckCircle className="size-3" />;
-      statusText = "Deployed";
-    } else if (isError) {
-      statusColor = "warning-600/20";
-      statusIcon = <AlertCircle className="size-3" />;
-      statusText = "Failed";
-    }
-
-    if (isSuccess) {
-      return (
-        <div className="w-full px-4">
-          <div className="flex flex-col text-center mb-6">
-            <h3 className="flex items-center justify-center gap-2 text-lg font-medium">
-              <CheckCircle className="size-5 text-green-600" />
-              {pkg.name} Deployed Successfully!
-            </h3>
-            <span className="text-sm text-primary-400">
-              Your MCP package is now live and ready to connect
-            </span>
+        <div className="w-full max-h-[calc(100vh-200px)] overflow-y-scroll">
+          <div className="flex items-center justify-between px-4 pt-4">
+            <div className="flex">
+              <Avatar className="rounded-lg size-10">
+                <AvatarImage src={pkg.iconUrl ?? ""} alt={pkg.name} />
+                <AvatarFallback className="rounded-sm text-white font-bold">
+                  {pkg.name.charAt(0).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <div className="ml-2 flex flex-col">
+                <span className="text-primary-800 text-sm">{pkg.name}</span>
+                <span className="text-primary-300 text-xs">{pkg.shortDescription || 'MCP Package'}</span>
+              </div>
+            </div>
           </div>
 
-          <Tabs defaultValue="cursor" className="w-full">
+          {/* MCP URL Display */}
+          <div className="px-4 pt-6 pb-4">
+            <Label className="text-[13px] text-primary-400 mb-2 block">MCP Server URL</Label>
+            <div className="p-2 bg-gray-100 rounded-[6px] relative">
+              <code className="text-xs break-all">{mcpUrl}</code>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="absolute top-1 right-1 h-6 w-6 p-0"
+                onClick={() => copyToClipboard(mcpUrl, 'MCP URL')}
+              >
+                <Copy className="size-3" />
+              </Button>
+            </div>
+            {requiresAuth && (
+              <p className="text-xs text-primary-400 mt-2">
+                ⚠️ This MCP requires authentication. You'll need to configure auth when connecting.
+              </p>
+            )}
+          </div>
+
+          <div className="border-t border-t-primary-200 border-dashed my-4" />
+
+          <Tabs defaultValue="cursor" className="w-full px-4">
             <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="cursor">Cursor</TabsTrigger>
               <TabsTrigger value="claude">Claude</TabsTrigger>
@@ -575,7 +154,7 @@ export function McpDeployDialog({
                   onClick={() => {
                     const configObj = {
                       type: "http",
-                      url: mcpDeploymentUrl
+                      url: mcpUrl
                     };
                     const cursorUrl = `cursor://anysphere.cursor-deeplink/mcp/install?name=${encodeURIComponent(pkg.name)}&config=${encodeURIComponent(btoa(JSON.stringify(configObj)))}`;
                     window.open(cursorUrl, '_blank');
@@ -601,12 +180,12 @@ export function McpDeployDialog({
                     <li>Enter the MCP URL and name:</li>
                   </ol>
                   <div className="mt-2 p-2 bg-gray-100 rounded-[6px] relative">
-                    <code className="text-xs">{mcpDeploymentUrl}</code>
+                    <code className="text-xs break-all">{mcpUrl}</code>
                     <Button
                       variant="ghost"
                       size="sm"
                       className="absolute top-1 right-1 h-6 w-6 p-0"
-                      onClick={() => copyToClipboard(mcpDeploymentUrl, 'MCP URL')}
+                      onClick={() => copyToClipboard(mcpUrl, 'MCP URL')}
                     >
                       <Copy className="size-3" />
                     </Button>
@@ -615,12 +194,12 @@ export function McpDeployDialog({
                 <div>
                   <h4 className="font-medium mb-2">Claude Code</h4>
                   <div className="p-2 bg-gray-100 rounded-[6px] relative">
-                    <code className="text-xs">claude mcp add --transport http {pkg.name} -s user "{mcpDeploymentUrl}"</code>
+                    <code className="text-xs break-all">claude mcp add --transport http {pkg.name} -s user "{mcpUrl}"</code>
                     <Button
                       variant="ghost"
                       size="sm"
                       className="absolute top-1 right-1 h-6 w-6 p-0"
-                      onClick={() => copyToClipboard(`claude mcp add --transport http ${pkg.name} -s user "${mcpDeploymentUrl}"`, 'Claude Code command')}
+                      onClick={() => copyToClipboard(`claude mcp add --transport http ${pkg.name} -s user "${mcpUrl}"`, 'Claude Code command')}
                     >
                       <Copy className="size-3" />
                     </Button>
@@ -637,7 +216,7 @@ export function McpDeployDialog({
                     const configObj = {
                       name: pkg.name,
                       type: "http",
-                      url: mcpDeploymentUrl
+                      url: mcpUrl
                     };
                     const vscodeUrl = `vscode:mcp/install?${encodeURIComponent(JSON.stringify(configObj))}`;
                     window.open(vscodeUrl, '_blank');
@@ -663,7 +242,7 @@ export function McpDeployDialog({
   "mcpServers": {
     "${pkg.name}": {
       "type": "streamable-http",
-      "url": "${mcpDeploymentUrl}"
+      "url": "${mcpUrl}"
     }
   }
 }`}
@@ -676,7 +255,7 @@ export function McpDeployDialog({
   "mcpServers": {
     "${pkg.name}": {
       "type": "streamable-http",
-      "url": "${mcpDeploymentUrl}"
+      "url": "${mcpUrl}"
     }
   }
 }`, 'JSON configuration')}
@@ -695,10 +274,8 @@ export function McpDeployDialog({
                   <pre className="text-xs text-wrap">
                     {`import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js"
 
-// Construct server URL with authentication
-const url = new URL("${mcpDeploymentUrl}")
-url.searchParams.set("deploymentId", "${deployMutation.data?.deployment?.deploymentId || ''}")
-const serverUrl = url.toString()
+// Connect to MCP server
+const serverUrl = "${mcpUrl}"
 
 const transport = new StreamableHTTPClientTransport(serverUrl)
 
@@ -721,10 +298,8 @@ console.log(\`Available tools: \${tools.map(t => t.name).join(", ")}\`)`}
                     className="absolute top-2 right-2 h-6 w-6 p-0"
                     onClick={() => copyToClipboard(`import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js"
 
-// Construct server URL with authentication
-const url = new URL("${mcpDeploymentUrl}")
-url.searchParams.set("deploymentId", "${deployMutation.data?.deployment?.deploymentId || ''}")
-const serverUrl = url.toString()
+// Connect to MCP server
+const serverUrl = "${mcpUrl}"
 
 const transport = new StreamableHTTPClientTransport(serverUrl)
 
@@ -748,195 +323,14 @@ console.log(\`Available tools: \${tools.map(t => t.name).join(", ")}\`)`, 'TypeS
             </TabsContent>
           </Tabs>
         </div>
-      );
-    }
 
-    return (
-      <div className="w-full flex flex-col justify-center items-center mt-8 mb-12 text-[18px]">
-        <div className="flex flex-col text-center mb-8">
-          <h3 className="flex items-center justify-center gap-2">
-            {isPending ? 'Deploying' : isError ? 'Deploy Failed' : ''}
-            <div className="size-[18px] rounded flex items-center justify-center text-white text-xs font-bold">
-              {pkg.name.charAt(0).toUpperCase()}
-            </div>
-            {pkg.name}
-          </h3>
-          <span className="text-sm text-primary-400">
-            {isPending ? 'Setting up your MCP deployment...' :
-              isError ? 'Deployment encountered an error' : ''}
-          </span>
-        </div>
-
-        <div className="flex items-center justify-center w-full relative max-w-[294px]">
-          <div className="flex z-20 w-full items-center justify-between">
-            {/* User Avatar */}
-            <Avatar className="size-14 rounded-[6px]">
-              <AvatarImage src={user?.profileImageUrl} alt={user?.name || 'User'} />
-              <AvatarFallback className="text-lg font-bold">
-                {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
-              </AvatarFallback>
-            </Avatar>
-
-            <div className={`bg-${statusColor} w-full h-0.5`} />
-
-            {/* Status Indicator */}
-            <div className={`h-fit text-xs border flex items-center gap-1 rounded-[6px] p-1 ${isPending ? 'border-primary-600/15 text-primary-400 bg-primary-50' :
-              isError ? 'border-warning-600/15 text-warning-600 bg-warning-50' : ''
-              }`}>
-              {statusIcon}
-              {statusText}
-            </div>
-
-            <div className={`bg-${statusColor} w-full h-0.5`} />
-
-            {/* Package Avatar */}
-            <Avatar className="size-14 rounded-[6px]">
-              <AvatarImage src={pkg.iconUrl || undefined} alt={pkg.name} />
-              <AvatarFallback className="text-lg font-bold">
-                {pkg.name.charAt(0).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const defaultTrigger = (
-    <Button variant="ghost" size="sm" className="gap-2">
-      Deploy
-    </Button>
-  );
-
-  const requiredServices = Object.keys(authScopes?.serviceClientMap || {});
-
-  const servicesWithScopes = requiredServices.filter(service => {
-    const mcpRequiredScopes = authScopes?.serviceClientMap?.[service] || [];
-    return mcpRequiredScopes.length > 0;
-  });
-
-  const isFormValid = requiredServices.every(service => selectedConnections[service]) &&
-    servicesWithScopes.every(service => selectedPermissions[service]?.length > 0);
-
-  return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogTrigger asChild>
-        {trigger || defaultTrigger}
-      </AlertDialogTrigger>
-      <AlertDialogContent className="w-full max-w-[520px] rounded-[12px] border-primary-100 p-0">
-        <AlertDialogHeader className="border-b border-b-primary-100 px-4 py-3">
-          <AlertDialogTitle className="font-normal text-base text-primary-400">
-            Deploy {pkg.name}
-          </AlertDialogTitle>
-        </AlertDialogHeader>
-
-        <div className="w-full max-h-[calc(100vh-200px)] overflow-y-scroll">
-          <div className="flex items-center justify-between px-4 pt-4">
-            <div className="flex">
-              <Avatar className="rounded-lg size-10">
-                <AvatarImage src={user?.profileImageUrl} alt={user?.name || 'User'} />
-                <AvatarFallback className="rounded-sm">
-                  {user ? getInitials(user.name) : 'U'}
-                </AvatarFallback>
-              </Avatar>
-              <Avatar className="-ml-3 rounded-lg size-10">
-                <AvatarImage src={pkg.iconUrl ?? ""} alt={pkg.name} />
-                <AvatarFallback className="rounded-sm text-white font-bold">
-                  {pkg.name.charAt(0).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              <div className="ml-2 flex flex-col">
-                <span className="text-primary-800 text-sm">{user?.name || 'User'}</span>
-                <span className="text-primary-300 text-xs">{user?.email || 'user@example.com'}</span>
-              </div>
-            </div>
-            {/* <div className="rounded-md border border-primary-300 p-1">
-              <RefreshCcw className="size-4 text-primary-300" />
-            </div> */}
-          </div>
-
-          {/* Deployment Name */}
-          <div className="flex flex-col space-y-1.5 mt-6 px-4 text-[13px] text-primary-400">
-            <Label htmlFor="deployment_name">Deployment Name</Label>
-            <Input
-              id="deployment_name"
-              type="text"
-              value={deploymentName}
-              onChange={(e) => setDeploymentName(e.target.value)}
-              placeholder={`${pkg.name} deployment`}
-              disabled={isPending || isSuccess || isError}
-            />
-          </div>
-
-          <div className="border-t border-t-primary-200 border-dashed my-6" />
-
-          {/* Main Content Area - Always present with consistent structure */}
-          <div className="min-h-[200px]">
-            {(isPending || isSuccess || isError) ? (
-              renderStatusVisual()
-            ) : (
-              <div className="flex flex-col">
-                <div className="mb-4 flex flex-col px-4">
-                  <span>Configure Deployment</span>
-                  <span className="text-[13px] text-primary-300">
-                    Set up your MCP server connection and permissions
-                  </span>
-                </div>
-                {renderDeployForm()}
-              </div>
-            )}
-          </div>
-        </div>
-
-        <AlertDialogFooter className="flex w-full items-center justify-between rounded-b-[12px] border-t border-t-primary-100 bg-primary-25 px-4 py-2 sm:justify-end">
-          {isSuccess ? (
-            <AlertDialogCancel onClick={handleClose} className="gap-2">
-              <X className="size-4" />
-              Close
-            </AlertDialogCancel>
-          ) : isError ? (
-            <AlertDialogFooter className="flex w-full items-center rounded-b-[12px] bg-primary-25 px-4 py-1 sm:justify-end">
-              <AlertDialogCancel onClick={handleClose}>
-                Close
-              </AlertDialogCancel>
-            </AlertDialogFooter>
-          ) : !isPending ? (
-            <div className="w-full flex items-center justify-between">
-              <AlertDialogCancel className="bg-primary-50" onClick={handleClose}>
-                Cancel
-              </AlertDialogCancel>
-              <AlertDialogAction
-                className="inset-shadow-search-btn"
-                onClick={(e) => {
-                  e.preventDefault();
-                  handleDeploy();
-                }}
-                disabled={!isFormValid}
-              >
-                Deploy Package
-              </AlertDialogAction>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <Loader2 className="size-4 animate-spin" />
-              Deploying...
-            </div>
-          )}
+        <AlertDialogFooter className="flex w-full items-center justify-end rounded-b-[12px] border-t border-t-primary-100 bg-primary-25 px-4 py-2">
+          <AlertDialogCancel onClick={handleClose} className="gap-2">
+            <X className="size-4" />
+            Close
+          </AlertDialogCancel>
         </AlertDialogFooter>
       </AlertDialogContent>
-
-      {/* Auth Method Dialog for connecting new accounts */}
-      {connectingService && authMethods && (
-        <AuthMethodDialog
-          method={authMethods.find((method: any) => method.name === connectingService)}
-          open={!!connectingService}
-          onOpenChange={(open) => {
-            if (!open) {
-              setConnectingService(null);
-            }
-          }}
-        />
-      )}
     </AlertDialog>
   );
 }
