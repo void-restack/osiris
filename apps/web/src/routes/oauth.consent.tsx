@@ -76,43 +76,80 @@ function getPermissionsForService(serviceName: string, requiredScopes: string[],
 
 const BASE_CONNECTION_SCOPES = ['osiris:auth', 'osiris:auth:action']
 
+/**
+ * API contract (Zod-validated in hubQueries.userAuthOptions):
+ * - GET /hub/auth/user returns data: Array<{ user_service_connections: { id }, service_clients: { clientId, name } }>
+ * We use only service_clients.clientId and service_clients.name.
+ */
+type ProfileConnection = {
+  user_service_connections: { id: string }
+  service_clients: { clientId: string; name: string }
+}
+
+/**
+ * API contract (Zod-validated in packageQueries.authScopesOptions):
+ * - GET /packages/:id/auth-scopes returns { serviceClients: Array<{ serviceClientId, name }>, ... }
+ * Required service client IDs for the package come from serviceClients only.
+ */
+function getRequiredServiceClientIds(
+  authScopes: { serviceClients?: Array<{ serviceClientId: string }> } | null | undefined
+): string[] {
+  const list = authScopes?.serviceClients
+  return list ? list.map((c) => c.serviceClientId) : []
+}
+
+/**
+ * Build connectionIds (service client UUIDs) and connectionScopes from the user's
+ * explicit selection. Uses only API-contract fields: service_clients.clientId, service_clients.name.
+ */
 function buildConnectionIdsAndScopes(
   selectedAuthConnections: Record<string, string>,
   selectedPermissions: Record<string, Permission[]>,
-  userAuthConnections: any[]
+  userAuthConnections: ProfileConnection[]
 ): { connectionIds: string[]; connectionScopes: Record<string, string[]> } {
   const connectionIds: string[] = []
   const connectionScopes: Record<string, string[]> = {}
   for (const [serviceName, userConnId] of Object.entries(selectedAuthConnections)) {
     if (!userConnId) continue
     const connection = userAuthConnections.find(
-      (c: any) => c.service_clients?.name === serviceName && c.user_service_connections?.id === userConnId
+      (c) =>
+        c.service_clients.name === serviceName &&
+        c.user_service_connections.id === userConnId
     )
-    if (!connection?.service_clients?.clientId) continue
-    const serviceClientId = connection.service_clients.clientId
-    connectionIds.push(serviceClientId)
-    const serviceScopes = selectedPermissions[serviceName]?.map((p) => p.id) || []
-    connectionScopes[serviceClientId] = [...BASE_CONNECTION_SCOPES, ...serviceScopes]
+    if (!connection) continue
+    const { clientId } = connection.service_clients
+    connectionIds.push(clientId)
+    const serviceScopes = selectedPermissions[serviceName]?.map((p) => p.id) ?? []
+    connectionScopes[clientId] = [...BASE_CONNECTION_SCOPES, ...serviceScopes]
   }
   return { connectionIds, connectionScopes }
 }
 
+/**
+ * Build connectionIds and connectionScopes from profile when the user has not
+ * selected connections (e.g. existing deployment). Single rule:
+ * - If the package declares required services (serviceClients), use only those profile connections.
+ * - If the package declares none (empty serviceClients), use all profile connections.
+ */
 function buildConnectionIdsAndScopesFromProfile(
-  authScopes: { serviceClientMap?: Record<string, string[]> } | null | undefined,
-  userAuthConnections: any[],
+  authScopes: { serviceClients?: Array<{ serviceClientId: string }> } | null | undefined,
+  profileConnections: ProfileConnection[],
   packageScopes: string[] = []
 ): { connectionIds: string[]; connectionScopes: Record<string, string[]> } {
   const connectionIds: string[] = []
   const connectionScopes: Record<string, string[]> = {}
-  const requiredServices = Object.keys(authScopes?.serviceClientMap || {})
-  for (const serviceName of requiredServices) {
-    const connection = userAuthConnections.find(
-      (c: any) => c.service_clients?.name === serviceName
-    )
-    if (!connection?.service_clients?.clientId) continue
-    const serviceClientId = connection.service_clients.clientId
-    connectionIds.push(serviceClientId)
-    connectionScopes[serviceClientId] = [...BASE_CONNECTION_SCOPES, ...packageScopes]
+  if (!profileConnections.length) return { connectionIds, connectionScopes }
+
+  const requiredIds = getRequiredServiceClientIds(authScopes)
+  const connectionsToUse =
+    requiredIds.length > 0
+      ? profileConnections.filter((c) => requiredIds.includes(c.service_clients.clientId))
+      : profileConnections
+
+  for (const connection of connectionsToUse) {
+    const { clientId } = connection.service_clients
+    connectionIds.push(clientId)
+    connectionScopes[clientId] = [...BASE_CONNECTION_SCOPES, ...packageScopes]
   }
   return { connectionIds, connectionScopes }
 }
@@ -787,10 +824,10 @@ function RouteComponent() {
       if (type === 'agent') {
         let { connectionIds: agentConnectionIds, connectionScopes: agentConnectionScopes } =
           buildConnectionIdsAndScopes(selectedAuthConnections, selectedPermissions, userAuthConnections)
-        if (agentConnectionIds.length === 0 && authScopes?.serviceClientMap && userAuthConnections.length > 0) {
+        if (agentConnectionIds.length === 0 && (rawUserAuthConnections?.length ?? 0) > 0) {
           const fromProfile = buildConnectionIdsAndScopesFromProfile(
             authScopes,
-            userAuthConnections,
+            rawUserAuthConnections ?? [],
             [...scopesArray, 'osiris:auth:read', 'osiris:auth:action']
           )
           agentConnectionIds = fromProfile.connectionIds
@@ -818,10 +855,10 @@ function RouteComponent() {
 
       let { connectionIds: packageConnectionIds, connectionScopes: packageConnectionScopes } =
         buildConnectionIdsAndScopes(selectedAuthConnections, selectedPermissions, userAuthConnections)
-      if (packageConnectionIds.length === 0 && authScopes?.serviceClientMap && userAuthConnections.length > 0) {
+      if (packageConnectionIds.length === 0 && (rawUserAuthConnections?.length ?? 0) > 0) {
         const fromProfile = buildConnectionIdsAndScopesFromProfile(
           authScopes,
-          userAuthConnections,
+          rawUserAuthConnections ?? [],
           scopesArray
         )
         packageConnectionIds = fromProfile.connectionIds
