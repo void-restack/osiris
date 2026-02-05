@@ -77,13 +77,16 @@ function getPermissionsForService(serviceName: string, requiredScopes: string[],
 const BASE_CONNECTION_SCOPES = ['osiris:auth', 'osiris:auth:action']
 
 /**
- * API contract (Zod-validated in hubQueries.userAuthOptions):
- * - GET /hub/auth/user returns data: Array<{ user_service_connections: { id }, service_clients: { clientId, name } }>
- * We use only service_clients.clientId and service_clients.name.
+ * Backend expects connectionIds = user_service_connections.id (user's connection row id),
+ * and connectionScopes keyed by that same id. See POST /hub/authorize in backend.
  */
 type ProfileConnection = {
   user_service_connections: { id: string }
   service_clients: { clientId: string; name: string }
+}
+
+function uniqueScopes(scopes: string[]): string[] {
+  return [...new Set(scopes)]
 }
 
 /**
@@ -99,8 +102,8 @@ function getRequiredServiceClientIds(
 }
 
 /**
- * Build connectionIds (service client UUIDs) and connectionScopes from the user's
- * explicit selection. Uses only API-contract fields: service_clients.clientId, service_clients.name.
+ * Build connectionIds (user_service_connections.id) and connectionScopes from the user's
+ * explicit selection. Backend expects connectionIds = user's connection row ids.
  */
 function buildConnectionIdsAndScopes(
   selectedAuthConnections: Record<string, string>,
@@ -117,19 +120,17 @@ function buildConnectionIdsAndScopes(
         c.user_service_connections.id === userConnId
     )
     if (!connection) continue
-    const { clientId } = connection.service_clients
-    connectionIds.push(clientId)
+    const userConnId_ = connection.user_service_connections.id
+    connectionIds.push(userConnId_)
     const serviceScopes = selectedPermissions[serviceName]?.map((p) => p.id) ?? []
-    connectionScopes[clientId] = [...BASE_CONNECTION_SCOPES, ...serviceScopes]
+    connectionScopes[userConnId_] = uniqueScopes([...BASE_CONNECTION_SCOPES, ...serviceScopes])
   }
   return { connectionIds, connectionScopes }
 }
 
 /**
- * Build connectionIds and connectionScopes from profile when the user has not
- * selected connections (e.g. existing deployment). Single rule:
- * - If the package declares required services (serviceClients), use only those profile connections.
- * - If the package declares none (empty serviceClients), use all profile connections.
+ * Build connectionIds (user_service_connections.id) and connectionScopes from profile when the user has not
+ * selected connections (e.g. existing deployment). Backend expects connectionIds = user's connection row ids.
  */
 function buildConnectionIdsAndScopesFromProfile(
   authScopes: { serviceClients?: Array<{ serviceClientId: string }> } | null | undefined,
@@ -147,9 +148,9 @@ function buildConnectionIdsAndScopesFromProfile(
       : profileConnections
 
   for (const connection of connectionsToUse) {
-    const { clientId } = connection.service_clients
-    connectionIds.push(clientId)
-    connectionScopes[clientId] = [...BASE_CONNECTION_SCOPES, ...packageScopes]
+    const userConnId = connection.user_service_connections.id
+    connectionIds.push(userConnId)
+    connectionScopes[userConnId] = uniqueScopes([...BASE_CONNECTION_SCOPES, ...packageScopes])
   }
   return { connectionIds, connectionScopes }
 }
