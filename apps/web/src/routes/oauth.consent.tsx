@@ -97,6 +97,26 @@ function buildConnectionIdsAndScopes(
   return { connectionIds, connectionScopes }
 }
 
+function buildConnectionIdsAndScopesFromProfile(
+  authScopes: { serviceClientMap?: Record<string, string[]> } | null | undefined,
+  userAuthConnections: any[],
+  packageScopes: string[] = []
+): { connectionIds: string[]; connectionScopes: Record<string, string[]> } {
+  const connectionIds: string[] = []
+  const connectionScopes: Record<string, string[]> = {}
+  const requiredServices = Object.keys(authScopes?.serviceClientMap || {})
+  for (const serviceName of requiredServices) {
+    const connection = userAuthConnections.find(
+      (c: any) => c.service_clients?.name === serviceName
+    )
+    if (!connection?.service_clients?.clientId) continue
+    const serviceClientId = connection.service_clients.clientId
+    connectionIds.push(serviceClientId)
+    connectionScopes[serviceClientId] = [...BASE_CONNECTION_SCOPES, ...packageScopes]
+  }
+  return { connectionIds, connectionScopes }
+}
+
 function ConnectionItem({
   connection,
   serviceName,
@@ -433,10 +453,11 @@ function ServiceConsentSection({
 }
 
 function RouteComponent() {
-  const { client_id, redirect_uri, state, scopes, response_type, package_id, type, resource } = Route.useSearch()
+  const { client_id, redirect_uri, state, scopes, scope, response_type, package_id, type, resource } = Route.useSearch()
   const { auth } = Route.useLoaderData() as { auth: { isAuthenticated: boolean; user: any | null } }
   const isAuthenticated = auth.isAuthenticated
-  const scopesArray = scopes ? scopes.split(' ') : []
+  const scopeParam = scopes ?? scope
+  const scopesArray = (scopeParam && typeof scopeParam === 'string') ? scopeParam.split(/\s+/).filter(Boolean) : []
 
   const isWalletOnlyFlow = !package_id && scopesArray.includes('osiris:auth:wallet')
 
@@ -670,10 +691,8 @@ function RouteComponent() {
           state: String(state) || '',
           ...(resource != null && { resource: String(resource) }),
           ...(selectedProfileId != null && { profileId: selectedProfileId }),
-          ...(walletConnectionIds.length > 0 && {
-            connectionIds: walletConnectionIds,
-            connectionScopes: walletConnectionScopes,
-          }),
+          connectionIds: walletConnectionIds,
+          connectionScopes: walletConnectionScopes,
         })
 
         const url = new URL(authResultFrontend.url)
@@ -766,8 +785,17 @@ function RouteComponent() {
       mcpRedirectUri.pathname = mcpRedirectUri.pathname.replace(/\/$/, '') + '/osiris/callback'
 
       if (type === 'agent') {
-        const { connectionIds: agentConnectionIds, connectionScopes: agentConnectionScopes } =
+        let { connectionIds: agentConnectionIds, connectionScopes: agentConnectionScopes } =
           buildConnectionIdsAndScopes(selectedAuthConnections, selectedPermissions, userAuthConnections)
+        if (agentConnectionIds.length === 0 && authScopes?.serviceClientMap && userAuthConnections.length > 0) {
+          const fromProfile = buildConnectionIdsAndScopesFromProfile(
+            authScopes,
+            userAuthConnections,
+            [...scopesArray, 'osiris:auth:read', 'osiris:auth:action']
+          )
+          agentConnectionIds = fromProfile.connectionIds
+          agentConnectionScopes = fromProfile.connectionScopes
+        }
         const authResultOsiris = await authorizeFrontendMutation.mutateAsync({
           clientId: packageDetails?.clientId,
           redirectUri: mcpRedirectUri.toString(),
@@ -777,10 +805,8 @@ function RouteComponent() {
           deploymentId: deploymentId,
           ...(resource != null && { resource: String(resource) }),
           ...(selectedProfileId != null && { profileId: selectedProfileId }),
-          ...(agentConnectionIds.length > 0 && {
-            connectionIds: agentConnectionIds,
-            connectionScopes: agentConnectionScopes,
-          }),
+          connectionIds: agentConnectionIds,
+          connectionScopes: agentConnectionScopes,
         })
 
         const url = new URL(authResultOsiris.url)
@@ -790,8 +816,17 @@ function RouteComponent() {
         }
       }
 
-      const { connectionIds: packageConnectionIds, connectionScopes: packageConnectionScopes } =
+      let { connectionIds: packageConnectionIds, connectionScopes: packageConnectionScopes } =
         buildConnectionIdsAndScopes(selectedAuthConnections, selectedPermissions, userAuthConnections)
+      if (packageConnectionIds.length === 0 && authScopes?.serviceClientMap && userAuthConnections.length > 0) {
+        const fromProfile = buildConnectionIdsAndScopesFromProfile(
+          authScopes,
+          userAuthConnections,
+          scopesArray
+        )
+        packageConnectionIds = fromProfile.connectionIds
+        packageConnectionScopes = fromProfile.connectionScopes
+      }
       const authResultFrontend = await authorizeFrontendMutation.mutateAsync({
         clientId: client_id,
         redirectUri: redirect_uri,
@@ -800,10 +835,8 @@ function RouteComponent() {
         state: String(state) || '',
         ...(resource != null && { resource: String(resource) }),
         ...(selectedProfileId != null && { profileId: selectedProfileId }),
-        ...(packageConnectionIds.length > 0 && {
-          connectionIds: packageConnectionIds,
-          connectionScopes: packageConnectionScopes,
-        }),
+        connectionIds: packageConnectionIds,
+        connectionScopes: packageConnectionScopes,
       })
       const url = new URL(authResultFrontend.url)
       url.searchParams.set(
