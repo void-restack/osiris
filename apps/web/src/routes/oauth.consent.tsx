@@ -74,6 +74,29 @@ function getPermissionsForService(serviceName: string, requiredScopes: string[],
   }));
 }
 
+const BASE_CONNECTION_SCOPES = ['osiris:auth', 'osiris:auth:action']
+
+function buildConnectionIdsAndScopes(
+  selectedAuthConnections: Record<string, string>,
+  selectedPermissions: Record<string, Permission[]>,
+  userAuthConnections: any[]
+): { connectionIds: string[]; connectionScopes: Record<string, string[]> } {
+  const connectionIds: string[] = []
+  const connectionScopes: Record<string, string[]> = {}
+  for (const [serviceName, userConnId] of Object.entries(selectedAuthConnections)) {
+    if (!userConnId) continue
+    const connection = userAuthConnections.find(
+      (c: any) => c.service_clients?.name === serviceName && c.user_service_connections?.id === userConnId
+    )
+    if (!connection?.service_clients?.clientId) continue
+    const serviceClientId = connection.service_clients.clientId
+    connectionIds.push(serviceClientId)
+    const serviceScopes = selectedPermissions[serviceName]?.map((p) => p.id) || []
+    connectionScopes[serviceClientId] = [...BASE_CONNECTION_SCOPES, ...serviceScopes]
+  }
+  return { connectionIds, connectionScopes }
+}
+
 function ConnectionItem({
   connection,
   serviceName,
@@ -637,6 +660,8 @@ function RouteComponent() {
         }
 
         // Direct authorization for wallet-only flow
+        const { connectionIds: walletConnectionIds, connectionScopes: walletConnectionScopes } =
+          buildConnectionIdsAndScopes(selectedAuthConnections, selectedPermissions, userAuthConnections)
         const authResultFrontend = await authorizeFrontendMutation.mutateAsync({
           clientId: client_id,
           redirectUri: redirect_uri,
@@ -645,6 +670,10 @@ function RouteComponent() {
           state: String(state) || '',
           ...(resource != null && { resource: String(resource) }),
           ...(selectedProfileId != null && { profileId: selectedProfileId }),
+          ...(walletConnectionIds.length > 0 && {
+            connectionIds: walletConnectionIds,
+            connectionScopes: walletConnectionScopes,
+          }),
         })
 
         const url = new URL(authResultFrontend.url)
@@ -737,6 +766,8 @@ function RouteComponent() {
       mcpRedirectUri.pathname = mcpRedirectUri.pathname.replace(/\/$/, '') + '/osiris/callback'
 
       if (type === 'agent') {
+        const { connectionIds: agentConnectionIds, connectionScopes: agentConnectionScopes } =
+          buildConnectionIdsAndScopes(selectedAuthConnections, selectedPermissions, userAuthConnections)
         const authResultOsiris = await authorizeFrontendMutation.mutateAsync({
           clientId: packageDetails?.clientId,
           redirectUri: mcpRedirectUri.toString(),
@@ -746,6 +777,10 @@ function RouteComponent() {
           deploymentId: deploymentId,
           ...(resource != null && { resource: String(resource) }),
           ...(selectedProfileId != null && { profileId: selectedProfileId }),
+          ...(agentConnectionIds.length > 0 && {
+            connectionIds: agentConnectionIds,
+            connectionScopes: agentConnectionScopes,
+          }),
         })
 
         const url = new URL(authResultOsiris.url)
@@ -755,6 +790,8 @@ function RouteComponent() {
         }
       }
 
+      const { connectionIds: packageConnectionIds, connectionScopes: packageConnectionScopes } =
+        buildConnectionIdsAndScopes(selectedAuthConnections, selectedPermissions, userAuthConnections)
       const authResultFrontend = await authorizeFrontendMutation.mutateAsync({
         clientId: client_id,
         redirectUri: redirect_uri,
@@ -763,6 +800,10 @@ function RouteComponent() {
         state: String(state) || '',
         ...(resource != null && { resource: String(resource) }),
         ...(selectedProfileId != null && { profileId: selectedProfileId }),
+        ...(packageConnectionIds.length > 0 && {
+          connectionIds: packageConnectionIds,
+          connectionScopes: packageConnectionScopes,
+        }),
       })
       const url = new URL(authResultFrontend.url)
       url.searchParams.set(

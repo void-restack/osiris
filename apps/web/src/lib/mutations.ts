@@ -797,6 +797,8 @@ export const useAuthorizeFrontendMutation = () => {
       deploymentId?: string;
       resource?: string;
       profileId?: string;
+      connectionIds?: string[];
+      connectionScopes?: Record<string, string[]>;
     }) => {
       const response = await api("/hub/authorize?type=consent_frontend", {
         method: "POST",
