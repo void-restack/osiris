@@ -43,6 +43,11 @@ export function McpTabs() {
 		enabled: !!serverUrl, // Only run query if serverUrl exists
 	});
 
+	// @ts-ignore
+	// let mcpTools: {
+	// 	tools: any;
+	// } | undefined = [];
+
 	const transformedCapabilities = (mcpTools as any)?.tools?.map((tool: any, index: number) => {
 		// Add safety check for tool
 		if (!tool) {

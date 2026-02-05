@@ -16,6 +16,7 @@ import {
   userQueries,
 } from "./queries";
 import { toast } from "sonner";
+import { useAppStore } from "./store";
 
 // ===== USER MUTATIONS =====
 export const useCreateUserMutation = () => {
@@ -59,6 +60,7 @@ export const useUpdateUserMutation = () => {
   return useMutation({
     mutationFn: async (data: {
       role?: "admin" | "developer" | "viewer" | "super_admin";
+      username?: string;
     }) => {
       const response = await api("/users", {
         method: "PUT",
@@ -287,7 +289,8 @@ export const useAddWalletMutation = () => {
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: hubQueries.userAuth() });
+      const { selectedProfileId } = useAppStore.getState();
+      queryClient.invalidateQueries({ queryKey: hubQueries.userAuth(selectedProfileId || undefined) });
     },
   });
 };
@@ -300,15 +303,19 @@ export const useCreateServiceConnectionMutation = () => {
       name: string;
       serviceClientName: string;
       scopes: string[];
+      profileId: string;
       redirectUri?: string;
       preventRedirect?: boolean;
+      authType?: 'frontend' | 'app' | 'cli';
     }) => {
       const response = await api("/hub/auth/url", {
         method: "GET",
         params: {
           type: data.serviceClientName,
           scopes: data.scopes.join(","),
-          name: data.name ?? `Updated ${data.serviceClientName} connection`,
+          name: data.name,
+          profileId: data.profileId,
+          authType: data.authType ?? 'frontend',
           redirectUri: data?.redirectUri ?? "http://localhost:3000/auth",
         },
         schema: responseSchema(z.object({ url: z.string().url() })),
@@ -319,20 +326,18 @@ export const useCreateServiceConnectionMutation = () => {
       return response.data;
     },
     onSuccess: (data, variables) => {
-      // Check if this is a popup flow (has popup=true in redirectUri) or preventRedirect is true
       const isPopup = variables.redirectUri?.includes('popup=true');
       const shouldPreventRedirect = variables.preventRedirect === true;
 
       if (!isPopup && !shouldPreventRedirect) {
-        // Regular flow - redirect as before
         localStorage.setItem('oauth-pending-refresh', 'true');
         localStorage.setItem('oauth-service-name', variables.serviceClientName);
         window.location.href = data.url;
       }
-      // For popup flow or preventRedirect, just return the URL without redirecting
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: hubQueries.userAuth() });
+      const { selectedProfileId } = useAppStore.getState();
+      queryClient.invalidateQueries({ queryKey: hubQueries.userAuth(selectedProfileId || undefined) });
     },
   });
 };
@@ -349,7 +354,8 @@ export const useDisconnectServiceMutation = () => {
       return response;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: hubQueries.userAuth() });
+      const { selectedProfileId } = useAppStore.getState();
+      queryClient.invalidateQueries({ queryKey: hubQueries.userAuth(selectedProfileId || undefined) });
     },
   });
 };
@@ -360,18 +366,13 @@ export const useCreateSecretSharingMutation = () => {
   return useMutation({
     mutationFn: async (data: {
       serviceClientId: string;
+      profileId: string;
       name?: string;
       secret: Record<string, any>;
     }) => {
-      const payload = {
-        serviceClientId: data.serviceClientId,
-        name: data.name || 'Database Connection',
-        secret: data.secret
-      };
-
       const response = await api("/hub/secret/create", {
         method: "POST",
-        body: payload,
+        body: data,
         schema: responseSchema(z.any()),
       });
       if (response.status === "FAILED") {
@@ -380,7 +381,9 @@ export const useCreateSecretSharingMutation = () => {
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: hubQueries.userAuth() });
+      const { selectedProfileId } = useAppStore.getState();
+      queryClient.invalidateQueries({ queryKey: hubQueries.userAuth(selectedProfileId || undefined) });
+      toast.success("Secret created successfully");
     },
   });
 };
@@ -390,9 +393,9 @@ export const useUpdateSecretSharingMutation = () => {
 
   return useMutation({
     mutationFn: async (data: {
-      id: string;
+      userServiceConnectionId: string;
       name?: string;
-      secret: Record<string, any>;
+      secret?: Record<string, any>;
     }) => {
       const response = await api("/hub/secret/update", {
         method: "PATCH",
@@ -404,11 +407,10 @@ export const useUpdateSecretSharingMutation = () => {
       }
       return response.data;
     },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: hubQueries.userAuthConnection(variables.id),
-      });
-      queryClient.invalidateQueries({ queryKey: hubQueries.userAuth() });
+    onSuccess: () => {
+      const { selectedProfileId } = useAppStore.getState();
+      queryClient.invalidateQueries({ queryKey: hubQueries.userAuth(selectedProfileId || undefined) });
+      toast.success("Secret updated successfully");
     },
   });
 };
@@ -419,6 +421,7 @@ export const useCreateWalletMutation = () => {
   return useMutation({
     mutationFn: async (data: {
       name: string;
+      profileId: string;
       accounts: Array<{
         chains: string[];
         pathFormat: string;
@@ -438,7 +441,9 @@ export const useCreateWalletMutation = () => {
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: hubQueries.userAuth() });
+      const { selectedProfileId } = useAppStore.getState();
+      queryClient.invalidateQueries({ queryKey: hubQueries.userAuth(selectedProfileId || undefined) });
+      toast.success("Wallet created successfully");
     },
   });
 };
@@ -466,6 +471,113 @@ export const useUpdateWalletMutation = () => {
   });
 };
 
+export const useImportWalletMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: {
+      id: string;
+      name: string;
+      profileId: string;
+      mnemonic?: string;
+      accounts: Array<{
+        chains: string[];
+        pathFormat: string;
+        path: string;
+        curve: string;
+        addressFormat: string;
+        privateKey?: string;
+        keyFormat?: string;
+      }>;
+    }) => {
+      const response = await api("/hub/wallet/import", {
+        method: "POST",
+        body: data,
+        schema: responseSchema(z.any()),
+      });
+      if (response.status === "FAILED") {
+        throw new Error(response.error);
+      }
+      return response.data;
+    },
+    onSuccess: () => {
+      const { selectedProfileId } = useAppStore.getState();
+      queryClient.invalidateQueries({ queryKey: hubQueries.userAuth(selectedProfileId || undefined) });
+      toast.success("Wallet imported successfully");
+    },
+  });
+};
+
+export const useExportWalletInitMutation = () => {
+  return useMutation({
+    mutationFn: async (data: {
+      id: string;
+      address: string;
+    }) => {
+      const response = await api("/hub/wallet/export/init", {
+        method: "POST",
+        body: data,
+        schema: responseSchema(z.object({
+          message: z.string(),
+        })),
+      });
+      if (response.status === "FAILED") {
+        throw new Error(response.error);
+      }
+      return response.data;
+    },
+    onSuccess: () => {
+      toast.success("OTP sent to your email");
+    },
+  });
+};
+
+export const useExportWalletVerifyMutation = () => {
+  return useMutation({
+    mutationFn: async (data: {
+      id: string;
+      address: string;
+      otp: string;
+    }) => {
+      const response = await api("/hub/wallet/export/verify", {
+        method: "POST",
+        body: data,
+        schema: responseSchema(z.object({
+          privateKey: z.string(),
+          address: z.string(),
+        })),
+      });
+      if (response.status === "FAILED") {
+        throw new Error(response.error);
+      }
+      return response.data;
+    },
+  });
+};
+
+export const useSignWalletMutation = () => {
+  return useMutation({
+    mutationFn: async (data: {
+      id: string;
+      method: string;
+      walletAddress: string;
+      chain: string;
+      payload: any;
+      metadata?: any;
+    }) => {
+      const response = await api("/hub/wallet/sign", {
+        method: "POST",
+        body: data,
+        schema: responseSchema(z.any()),
+      });
+      if (response.status === "FAILED") {
+        throw new Error(response.error);
+      }
+      return response.data;
+    },
+  });
+};
+
 export const useAddWalletAccountMutation = () => {
   const queryClient = useQueryClient();
 
@@ -482,7 +594,7 @@ export const useAddWalletAccountMutation = () => {
         addressFormat: string;
       }>;
     }) => {
-      const response = await api("/wallet/add", {
+      const response = await api("/hub/wallet/add", {
         method: "PATCH",
         body: data,
         schema: responseSchema(z.any()),
@@ -493,10 +605,11 @@ export const useAddWalletAccountMutation = () => {
       return response.data;
     },
     onSuccess: (_, variables) => {
+      const { selectedProfileId } = useAppStore.getState();
       queryClient.invalidateQueries({
         queryKey: hubQueries.userAuthConnection(variables.id),
       });
-      queryClient.invalidateQueries({ queryKey: hubQueries.userAuth() });
+      queryClient.invalidateQueries({ queryKey: hubQueries.userAuth(selectedProfileId || undefined) });
     },
   });
 };
@@ -990,8 +1103,19 @@ export const useValidatePolicyMutation = () => {
 // ===== CREDIT MUTATIONS =====
 export const useGetRecentTransactionsMutation = () => {
   return useMutation({
-    mutationFn: async (walletId: string) => {
-      const response = await api(`/hub/defi/transactions/${walletId}`, {
+    mutationFn: async (data: {
+      userServiceConnectionId: string;
+      chainIds?: number[];
+      limit?: number;
+      skipCache?: boolean;
+    }) => {
+      const params: Record<string, string> = {};
+      if (data.chainIds) params.chainIds = data.chainIds.join(',');
+      if (data.limit) params.limit = data.limit.toString();
+      if (data.skipCache) params.skipCache = 'true';
+
+      const response = await api(`/hub/defi/transactions/${data.userServiceConnectionId}`, {
+        params,
         schema: responseSchema(z.any()),
       });
       if (response.status === "FAILED") {
@@ -2031,6 +2155,167 @@ export const useUpdateAITemplateWorkflowMutation = () => {
   });
 };
 
+export const useCreateProfileMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: {
+      name: string;
+      imageUrl?: string;
+    }) => {
+      const response = await api("/users/profiles", {
+        method: "POST",
+        body: data,
+        schema: responseSchema(z.object({
+          id: z.string().uuid(),
+          userId: z.string().uuid(),
+          name: z.string(),
+          imageUrl: z.string().nullable(),
+          createdAt: z.string().datetime(),
+          updatedAt: z.string().datetime(),
+        })),
+      });
+      if (response.status === "FAILED") {
+        throw new Error(response.error);
+      }
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: userQueries.profiles() });
+      toast.success("Profile created successfully");
+    },
+  });
+};
+
+export const useUpdateProfileMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: {
+      profileId: string;
+      name?: string;
+      imageUrl?: string;
+    }) => {
+      const { profileId, ...updateData } = data;
+      const response = await api(`/users/profiles/${profileId}`, {
+        method: "PUT",
+        body: updateData,
+        schema: responseSchema(z.any()),
+      });
+      if (response.status === "FAILED") {
+        throw new Error(response.error);
+      }
+      return response.data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: userQueries.profiles() });
+      queryClient.invalidateQueries({ queryKey: userQueries.profile(variables.profileId) });
+      toast.success("Profile updated successfully");
+    },
+  });
+};
+
+export const useDeleteProfileMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (profileId: string) => {
+      const response = await api(`/users/profiles/${profileId}`, {
+        method: "DELETE",
+      });
+      return response;
+    },
+    onSuccess: (_, profileId) => {
+      queryClient.invalidateQueries({ queryKey: userQueries.profiles() });
+      queryClient.removeQueries({ queryKey: userQueries.profile(profileId) });
+      toast.success("Profile deleted successfully");
+    },
+  });
+};
+
+
+// DeFi Mutations
+export const useGetAssetBalancesMutation = () => {
+  return useMutation({
+    mutationFn: async (data: {
+      userServiceConnectionId: string;
+      chainIds?: number[];
+      skipCache?: boolean;
+    }) => {
+      const params: Record<string, string> = {};
+      if (data.chainIds) params.chainIds = data.chainIds.join(',');
+      if (data.skipCache) params.skipCache = 'true';
+
+      const response = await api(`/hub/defi/balances/${data.userServiceConnectionId}`, {
+        params,
+        schema: responseSchema(z.any()),
+      });
+      if (response.status === "FAILED") {
+        throw new Error(response.error);
+      }
+      return response.data;
+    },
+  });
+};
+
+
+
+export const useGetAssetPricesMutation = () => {
+  return useMutation({
+    mutationFn: async (data: {
+      assets: Array<{
+        chainId: number;
+        address: string;
+      }>;
+      skipCache?: boolean;
+    }) => {
+      const response = await api("/hub/defi/asset-prices", {
+        method: "POST",
+        body: data,
+        schema: responseSchema(z.any()),
+      });
+      if (response.status === "FAILED") {
+        throw new Error(response.error);
+      }
+      return response.data;
+    },
+  });
+};
+
+// DCR Mutations
+export const useRegisterDCRClientMutation = () => {
+  return useMutation({
+    mutationFn: async (data: {
+      client_name: string;
+      redirect_uris: string[];
+      grant_types?: string[];
+      response_types?: string[];
+      token_endpoint_auth_method?: string;
+      scope?: string;
+    }) => {
+      const response = await api("/hub/dcr", {
+        method: "POST",
+        body: data,
+        schema: z.object({
+          client_id: z.string(),
+          client_secret: z.string(),
+          client_secret_expires_at: z.number(),
+          client_name: z.string(),
+          redirect_uris: z.array(z.string()),
+          grant_types: z.array(z.string()),
+          response_types: z.array(z.string()),
+          token_endpoint_auth_method: z.string(),
+          scope: z.string(),
+          registration_client_uri: z.string(),
+          registration_access_token: z.string(),
+          client_id_issued_at: z.number(),
+        }),
+      });
+      return response;
+    },
+  });
+};
+
 
 // export const useWorkflowStreamMutation = () => {
 //   return useMutation({
@@ -2048,3 +2333,4 @@ export const useUpdateAITemplateWorkflowMutation = () => {
 //     },
 //   });
 // };
+

@@ -196,9 +196,10 @@ export const Route = createFileRoute("/_hub/auth/$authId")({
 function RouteComponent() {
   const { authId } = Route.useParams();
   const { isAuthenticated } = useAuth();
+  const { selectedProfileId } = useAppStore();
   const { data: authMethods } = useSuspenseQuery(hubQueries.authMethodsOptions(undefined));
   const { data: userAuth } = useQuery({
-    ...hubQueries.userAuthOptions(isAuthenticated),
+    ...hubQueries.userAuthOptions(isAuthenticated, selectedProfileId || undefined),
     enabled: isAuthenticated,
   });
   const { openEditSidebar, closeEditSidebar } = useAppStore();

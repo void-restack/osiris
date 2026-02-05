@@ -18,6 +18,7 @@ import { toast } from "sonner"
 import { useAuth } from "@/hooks/use-auth"
 import { getScopeDisplayName } from "@/lib/scope-definitions"
 import PolicyBuilder from "@/components/policy-builder"
+import { useAppStore } from "@/lib/store"
 
 interface CloneTemplateDialogProps {
     open: boolean
@@ -315,7 +316,8 @@ export function CloneTemplateDialog({ open, onOpenChange, template }: CloneTempl
     }
 
     // OAuth Configuration Queries
-    const { data: allUserAuth } = useQuery(hubQueries.userAuthOptions(isAuthenticated))
+    const { selectedProfileId } = useAppStore();
+    const { data: allUserAuth } = useQuery(hubQueries.userAuthOptions(isAuthenticated, selectedProfileId || undefined))
     const { data: authMethods } = useQuery(hubQueries.authMethodsOptions())
 
     const { data: authScopes } = useQuery({
@@ -441,6 +443,7 @@ export function CloneTemplateDialog({ open, onOpenChange, template }: CloneTempl
                                 serviceClientName: serviceName,
                                 scopes: permissions.map(permission => permission.id),
                                 name: `${authHubName} - ${serviceName}`,
+                                profileId: selectedProfileId || '',
                                 redirectUri: redirectUri,
                                 preventRedirect: false
                             })

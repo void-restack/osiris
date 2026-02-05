@@ -7,6 +7,7 @@ import {
   useAuthorizeFrontendMutation,
   useLoginMutation
 } from '@/lib/mutations'
+import { useAppStore } from '@/lib/store'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { useState, useCallback, useMemo, useEffect } from 'react'
@@ -447,7 +448,8 @@ function RouteComponent() {
   })
 
   const { data: userInfo, error: userError } = useQuery(userQueries.meOptions(true))
-  const { data: rawUserAuthConnections, error: authError } = useQuery(hubQueries.userAuthOptions(true))
+  const { selectedProfileId } = useAppStore();
+  const { data: rawUserAuthConnections, error: authError } = useQuery(hubQueries.userAuthOptions(true, selectedProfileId || undefined))
   const { data: existingPackageDeploymentsResponse, error: deploymentError } = useQuery({
     ...packageQueries.userDeploymentsForPackageOptions(package_id as string, {
       page: deploymentPage,

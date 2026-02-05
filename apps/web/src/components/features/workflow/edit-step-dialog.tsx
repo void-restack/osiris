@@ -22,6 +22,7 @@ import { toast } from "sonner"
 import { useAuth } from "@/hooks/use-auth"
 import { transformScopeDefinitions } from "@/lib/scope-utils"
 import { getScopeDisplayName } from "@/lib/scope-definitions"
+import { useAppStore } from "@/lib/store"
 
 interface EditStepDialogProps {
     open: boolean
@@ -35,6 +36,7 @@ interface EditStepDialogProps {
 export function EditStepDialog({ open, onOpenChange, onEditStep, step, workflowData, isTemplate = false }: EditStepDialogProps) {
     const queryClient = useQueryClient()
     const { isAuthenticated } = useAuth()
+    const { selectedProfileId } = useAppStore()
 
     const createServiceConnection = useCreateServiceConnectionMutation()
     const createSecretSharing = useCreateSecretSharingMutation()
@@ -220,7 +222,7 @@ export function EditStepDialog({ open, onOpenChange, onEditStep, step, workflowD
     })
 
     const { data: userAuth } = useQuery({
-        ...hubQueries.userAuthOptions(),
+        ...hubQueries.userAuthOptions(isAuthenticated, selectedProfileId || undefined),
         enabled: !!authScopes?.serviceClients && currentStep === '2.1' && isAuthenticated
     })
 
@@ -235,7 +237,7 @@ export function EditStepDialog({ open, onOpenChange, onEditStep, step, workflowD
     })
 
     const { data: deploymentUserAuth } = useQuery({
-        ...hubQueries.userAuthOptions(),
+        ...hubQueries.userAuthOptions(isAuthenticated, selectedProfileId || undefined),
         enabled: !!deploymentAuthScopes?.serviceClients && currentStep === '2.2' && isAuthenticated
     })
 
@@ -413,6 +415,7 @@ export function EditStepDialog({ open, onOpenChange, onEditStep, step, workflowD
                         serviceClientName: serviceName,
                         scopes: selectedPermissions[serviceName]?.map(permission => permission.id) || [],
                         name: authHubName,
+                        profileId: selectedProfileId || '',
                         redirectUri: window.location.href,
                         preventRedirect: true
                     })
@@ -433,6 +436,7 @@ export function EditStepDialog({ open, onOpenChange, onEditStep, step, workflowD
                     }
                     const secretResult = await createSecretSharing.mutateAsync({
                         serviceClientId: serviceClient.clientId,
+                        profileId: selectedProfileId || '',
                         name: authHubName,
                         secret: secretData
                     })
@@ -469,6 +473,7 @@ export function EditStepDialog({ open, onOpenChange, onEditStep, step, workflowD
 
                     const walletResult = await createWallet.mutateAsync({
                         name: authHubName,
+                        profileId: selectedProfileId || '',
                         accounts: processedAccounts
                     })
                     connectionId = walletResult?.[0]?.id || 'created'

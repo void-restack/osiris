@@ -26,6 +26,7 @@ import {
 } from "@/lib/mutations";
 import { getInitials } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
+import { useAppStore } from "@/lib/store";
 import type { ServiceClient } from "@/types/auth";
 import type { Permission } from "@/types";
 import { getScopeDisplayName } from "@/lib/scope-definitions";
@@ -129,6 +130,7 @@ export function AuthMethodDialog({
   const createSecretSharing = useCreateSecretSharingMutation();
   const createWallet = useCreateWalletMutation();
   const { isAuthenticated } = useAuth();
+  const { selectedProfileId } = useAppStore();
   const { data: user } = useQuery(userQueries.meOptions(isAuthenticated));
 
   const { data: connectionData, isLoading: isLoadingConnection, error: _connectionError } = useQuery({
@@ -215,6 +217,7 @@ export function AuthMethodDialog({
             serviceClientName: method?.name || 'oauth',
             scopes: selectedScopes.map(scope => scope.id),
             name: authHubName,
+            profileId: selectedProfileId || '',
             redirectUri: window.location.href
           });
           break;
@@ -232,6 +235,7 @@ export function AuthMethodDialog({
           }
           const secretResult = await createSecretSharing.mutateAsync({
             serviceClientId: method.clientId,
+            profileId: selectedProfileId || '',
             name: authHubName,
             secret: secretData
           });
@@ -279,6 +283,7 @@ export function AuthMethodDialog({
 
           const walletResult = await createWallet.mutateAsync({
             name: authHubName,
+            profileId: selectedProfileId || '',
             accounts: processedAccounts
           });
           const walletConnectionId = walletResult?.[0]?.id || 'created';

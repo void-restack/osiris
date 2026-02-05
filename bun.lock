@@ -1,11 +1,9 @@
 {
   "lockfileVersion": 1,
+  "configVersion": 0,
   "workspaces": {
     "": {
       "name": "osiris",
-      "dependencies": {
-        "rrule": "^2.8.1",
-      },
       "devDependencies": {
         "@biomejs/biome": "^2.0.0",
         "husky": "^9.1.7",

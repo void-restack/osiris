@@ -15,6 +15,8 @@ import { api } from "./api";
 export const userQueries = {
   all: () => ["users"] as const,
   me: () => [...userQueries.all(), "me"] as const,
+  profiles: () => [...userQueries.all(), "profiles"] as const,
+  profile: (id: string) => [...userQueries.profiles(), id] as const,
 
   meOptions: (enabled: boolean = true) =>
     queryOptions({
@@ -32,6 +34,56 @@ export const userQueries = {
       staleTime: 5 * 60 * 1000,
       enabled: enabled,
     }),
+
+    profilesOptions: () =>
+      queryOptions({
+        queryKey: userQueries.profiles(),
+        queryFn: async () => {
+          const response = await api("/users/profiles", {
+            schema: responseSchema(
+              z.array(
+                z.object({
+                  id: z.string().uuid(),
+                  userId: z.string().uuid(),
+                  name: z.string(),
+                  imageUrl: z.string().nullable(),
+                  createdAt: z.string().datetime(),
+                  updatedAt: z.string().datetime(),
+                })
+              )
+            ),
+          });
+          if (response.status === "FAILED") {
+            throw new Error(response.error);
+          }
+          return response.data;
+        },
+        staleTime: 5 * 60 * 1000,
+      }),
+  
+    profileOptions: (id: string) =>
+      queryOptions({
+        queryKey: userQueries.profile(id),
+        queryFn: async () => {
+          const response = await api(`/users/profiles/${id}`, {
+            schema: responseSchema(
+              z.object({
+                id: z.string().uuid(),
+                userId: z.string().uuid(),
+                name: z.string(),
+                imageUrl: z.string().nullable(),
+                createdAt: z.string().datetime(),
+                updatedAt: z.string().datetime(),
+              })
+            ),
+          });
+          if (response.status === "FAILED") {
+            throw new Error(response.error);
+          }
+          return response.data;
+        },
+        staleTime: 5 * 60 * 1000,
+      }),
 
   authProviders: () => [...userQueries.all(), "auth-providers"] as const,
 
@@ -394,6 +446,7 @@ export const packageQueries = {
               id: z.string(),
               name: z.string(),
               email: z.string(),
+              username: z.string().nullable().optional(),
               imageUrl: z.string().nullable(),
               createdAt: z.string(),
               updatedAt: z.string(),
@@ -1279,11 +1332,13 @@ export const knowledgeQueries = {
 export const hubQueries = {
   all: () => ["hub"] as const,
   auth: () => [...hubQueries.all(), "auth"] as const,
-  userAuth: () => [...hubQueries.auth(), "user"] as const,
-  userAuthConnection: (id: string) => [...hubQueries.userAuth(), id] as const,
+  userAuth: (profileId?: string, type?: 'oauth' | 'secret_sharing' | 'embedded_wallet') => 
+    [...hubQueries.auth(), "user", ...(profileId ? [profileId] : []), ...(type ? [type] : [])] as const,
+  userAuthConnection: (id: string) => [...hubQueries.auth(), "user", id] as const,
   oauthClients: () => [...hubQueries.all(), "oauth-clients"] as const,
   oauthClient: (id: string) => [...hubQueries.oauthClients(), id] as const,
   assetBalances: (walletId: string) => [...hubQueries.all(), "asset-balances", walletId],
+  osirisScopes: () => [...hubQueries.all(), "osiris-scopes"] as const,
 
   assetBalancesOptions: (walletId: string) => queryOptions({
     queryKey: hubQueries.assetBalances(walletId),
@@ -1362,11 +1417,16 @@ export const hubQueries = {
     },
   }),
 
-  userAuthOptions: (enabled: boolean = true) =>
+  userAuthOptions: (enabled: boolean = true, profileId?: string, type?: 'oauth' | 'secret_sharing' | 'embedded_wallet') =>
     queryOptions({
-      queryKey: hubQueries.userAuth(),
+      queryKey: hubQueries.userAuth(profileId, type),
       queryFn: async () => {
+        const params: Record<string, string> = {};
+        if (profileId) params.profileId = profileId;
+        if (type) params.type = type;
+
         const response = await api("/hub/auth/user", {
+          params,
           schema: responseSchema(
             z.array(
               z.object({
@@ -1374,6 +1434,7 @@ export const hubQueries = {
                   id: z.string().uuid(),
                   userId: z.string().uuid(),
                   clientId: z.string().uuid(),
+                  profileId: z.string().uuid().nullable(),
                   uniqueId: z.string(),
                   credentials: z.object({
                     hasCredentials: z.boolean(),
@@ -1426,6 +1487,25 @@ export const hubQueries = {
       enabled: enabled,
     }),
 
+    osirisScopesOptions: () =>
+      queryOptions({
+        queryKey: hubQueries.osirisScopes(),
+        queryFn: async () => {
+          const response = await api("/hub/osiris-scopes", {
+            schema: z.object({
+              status: z.literal("SUCCESS"),
+              scopes: z.record(z.string()),
+            }),
+          });
+          if (response.status === "FAILED") {
+            throw new Error(response.error);
+          }
+          return response.data;
+        },
+        staleTime: 10 * 60 * 1000,
+      }),
+  
+
   userAuthConnectionOptions: (id: string, enabled: boolean = true) =>
     queryOptions({
       queryKey: hubQueries.userAuthConnection(id),
@@ -1436,6 +1516,7 @@ export const hubQueries = {
               id: z.string().uuid(),
               userId: z.string().uuid(),
               clientId: z.string().uuid(),
+              profileId: z.string().uuid().nullable(),
               uniqueId: z.string(),
               credentials: z.object({
                 hasCredentials: z.boolean(),
@@ -1508,6 +1589,7 @@ export const hubQueries = {
               clientId: z.string().uuid(),
               developerId: z.string().uuid(),
               name: z.string(),
+              iconUrl: z.string().nullable(),
               redirectUris: z.array(z.string().url()),
               metadata: z.record(z.any()),
               createdAt: z.string().datetime(),
@@ -1552,6 +1634,7 @@ export const hubQueries = {
               userId: z.string().uuid(),
               clientId: z.string().uuid(),
               uniqueId: z.string(),
+              profileId: z.string().uuid().nullable(),
               credentials: z.record(z.any()), // Unencrypted credentials
               metadata: z.record(z.any()),
               scopes: z.array(z.string()),

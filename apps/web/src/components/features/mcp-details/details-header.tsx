@@ -65,7 +65,7 @@ export function McpDetailsHeader() {
                   <Button
                     className="rounded-[6px]"
                   >
-                    Deploy
+                    View URL
                   </Button>
                 }
               />

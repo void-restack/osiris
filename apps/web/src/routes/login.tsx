@@ -18,7 +18,7 @@ function RouteComponent() {
   const handleGoogleLogin = () => {
     setIsGoogleLoading(true)
     loginMutation.mutate(
-      { provider: 'google', redirectUri: "https://app.osirislabs.xyz/auth" },
+      { provider: 'google', redirectUri: "https://osiris-web-git-profile-restacks-projects-1987245d.vercel.app/auth" },
       {
         onSuccess: () => {
           setIsGoogleLoading(false)
@@ -34,7 +34,7 @@ function RouteComponent() {
   const handleGithubLogin = () => {
     setIsGithubLoading(true)
     loginMutation.mutate(
-      { provider: 'github', redirectUri: "https://app.osirislabs.xyz/auth" },
+      { provider: 'github', redirectUri: "https://osiris-web-git-profile-restacks-projects-1987245d.vercel.app/auth" },
       {
         onSuccess: () => {
           setIsGithubLoading(false)
