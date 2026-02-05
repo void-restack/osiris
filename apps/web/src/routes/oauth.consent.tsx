@@ -410,7 +410,7 @@ function ServiceConsentSection({
 }
 
 function RouteComponent() {
-  const { client_id, redirect_uri, state, scopes, response_type, package_id, type } = Route.useSearch()
+  const { client_id, redirect_uri, state, scopes, response_type, package_id, type, resource } = Route.useSearch()
   const { auth } = Route.useLoaderData() as { auth: { isAuthenticated: boolean; user: any | null } }
   const isAuthenticated = auth.isAuthenticated
   const scopesArray = scopes ? scopes.split(' ') : []
@@ -643,6 +643,8 @@ function RouteComponent() {
           responseType: response_type ?? 'code',
           scopes: scopesArray,
           state: String(state) || '',
+          ...(resource != null && { resource: String(resource) }),
+          ...(selectedProfileId != null && { profileId: selectedProfileId }),
         })
 
         const url = new URL(authResultFrontend.url)
@@ -742,6 +744,8 @@ function RouteComponent() {
           scopes: [...scopesArray, "osiris:auth:read", "osiris:auth:action"],
           state: deploymentId || '',
           deploymentId: deploymentId,
+          ...(resource != null && { resource: String(resource) }),
+          ...(selectedProfileId != null && { profileId: selectedProfileId }),
         })
 
         const url = new URL(authResultOsiris.url)
@@ -757,6 +761,8 @@ function RouteComponent() {
         responseType: response_type ?? 'code',
         scopes: scopesArray,
         state: String(state) || '',
+        ...(resource != null && { resource: String(resource) }),
+        ...(selectedProfileId != null && { profileId: selectedProfileId }),
       })
       const url = new URL(authResultFrontend.url)
       url.searchParams.set(
