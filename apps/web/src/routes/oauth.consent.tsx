@@ -55,23 +55,29 @@ function hasAllRequiredScopes(connection: any, requiredScopes: string[], service
   })
 }
 
-function getPermissionsForService(serviceName: string, requiredScopes: string[], authMethods: any[]) {
+function getPermissionsForService(serviceName: string, requiredScopes: string[], authMethods: any[]): Array<{ id: string; label: string; isRequired: boolean }> {
   const serviceAuthMethod = authMethods?.find((m: any) => m.name === serviceName)
   const rawScopeDefinitions = serviceAuthMethod?.scopeDefinitions || {}
 
   const scopeDefinitions = transformScopeDefinitions(serviceName, rawScopeDefinitions);
-
   const required = Array.isArray(requiredScopes) ? requiredScopes : []
-  const entries = Object.entries(scopeDefinitions).filter(([scope]) => {
+
+  const entries = Object.entries(scopeDefinitions).map(([scope, label]) => {
     const scopeWithoutPrefix = scope.startsWith(`${serviceName}:`) ? scope.replace(`${serviceName}:`, '') : scope
     const scopeWithPrefix = `${serviceName}:${scope}`
-    return required.includes(scope) || required.includes(scopeWithoutPrefix) || required.includes(scopeWithPrefix)
+    
+    const isRequired = required.some(requiredScope => 
+      requiredScope === scope || requiredScope === scopeWithoutPrefix || requiredScope === scopeWithPrefix
+    )
+
+    return {
+      id: scope,
+      label: getScopeDisplayName(scope) || String(label),
+      isRequired
+    }
   })
 
-  return entries.map(([id, label]) => ({
-    id,
-    label: getScopeDisplayName(id) || String(label)
-  }));
+  return entries
 }
 
 const BASE_CONNECTION_SCOPES = ['osiris:auth', 'osiris:auth:action']
