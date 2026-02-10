@@ -840,10 +840,12 @@ function RouteComponent() {
         let { connectionIds: agentConnectionIds, connectionScopes: agentConnectionScopes } =
           buildConnectionIdsAndScopes(selectedAuthConnections, selectedPermissions, userAuthConnections)
         if (agentConnectionIds.length === 0 && (rawUserAuthConnections?.length ?? 0) > 0) {
+          const serviceNames = Object.keys(authScopes?.serviceClientMap || {})
           const fromProfile = buildConnectionIdsAndScopesFromProfile(
             authScopes,
             rawUserAuthConnections ?? [],
-            [...scopesArray, 'osiris:auth:read', 'osiris:auth:action']
+            [...scopesArray, 'osiris:auth:read', 'osiris:auth:action'],
+            serviceNames
           )
           agentConnectionIds = fromProfile.connectionIds
           agentConnectionScopes = fromProfile.connectionScopes
@@ -871,10 +873,12 @@ function RouteComponent() {
       let { connectionIds: packageConnectionIds, connectionScopes: packageConnectionScopes } =
         buildConnectionIdsAndScopes(selectedAuthConnections, selectedPermissions, userAuthConnections)
       if (packageConnectionIds.length === 0 && (rawUserAuthConnections?.length ?? 0) > 0) {
+        const serviceNames = Object.keys(authScopes?.serviceClientMap || {})
         const fromProfile = buildConnectionIdsAndScopesFromProfile(
           authScopes,
           rawUserAuthConnections ?? [],
-          scopesArray
+          scopesArray,
+          serviceNames
         )
         packageConnectionIds = fromProfile.connectionIds
         packageConnectionScopes = fromProfile.connectionScopes
