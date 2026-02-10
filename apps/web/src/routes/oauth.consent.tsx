@@ -82,7 +82,7 @@ const BASE_CONNECTION_SCOPES = ['osiris:auth', 'osiris:auth:action']
  */
 type ProfileConnection = {
   user_service_connections: { id: string }
-  service_clients: { clientId: string; name: string }
+  service_clients: { clientId: string; name: string; supportedServices: string[] }
 }
 
 function uniqueScopes(scopes: string[]): string[] {
@@ -131,11 +131,13 @@ function buildConnectionIdsAndScopes(
 /**
  * Build connectionIds (user_service_connections.id) and connectionScopes from profile when the user has not
  * selected connections (e.g. existing deployment). Backend expects connectionIds = user's connection row ids.
+ * @param serviceNames - Array of service names to filter connections by (e.g., ['linear', 'turnkey'])
  */
 function buildConnectionIdsAndScopesFromProfile(
   authScopes: { serviceClients?: Array<{ serviceClientId: string }> } | null | undefined,
   profileConnections: ProfileConnection[],
-  packageScopes: string[] = []
+  packageScopes: string[] = [],
+  serviceNames: string[] = []
 ): { connectionIds: string[]; connectionScopes: Record<string, string[]> } {
   const connectionIds: string[] = []
   const connectionScopes: Record<string, string[]> = {}
@@ -145,7 +147,13 @@ function buildConnectionIdsAndScopesFromProfile(
   const connectionsToUse =
     requiredIds.length > 0
       ? profileConnections.filter((c) => requiredIds.includes(c.service_clients.clientId))
-      : profileConnections
+      : serviceNames.length > 0
+        ? profileConnections.filter((c) =>
+            c.service_clients.supportedServices?.some((s) =>
+              serviceNames.includes(s.toLowerCase())
+            )
+          )
+        : profileConnections
 
   for (const connection of connectionsToUse) {
     const userConnId = connection.user_service_connections.id
