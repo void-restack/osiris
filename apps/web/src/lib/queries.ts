@@ -426,6 +426,8 @@ export const packageQueries = {
       queryKey: packageQueries.authScopes(packageId),
       queryFn: async () => {
         const response = await api(`/packages/${packageId}/auth-scopes`, {
+          method: "GET",
+          body: {},
           schema: responseSchema(z.object({
             packageId: z.string(),
             name: z.string(),
@@ -1426,7 +1428,9 @@ export const hubQueries = {
         if (type) params.type = type;
 
         const response = await api("/hub/auth/user", {
+          method: "GET",
           params,
+          body: {},
           schema: responseSchema(
             z.array(
               z.object({

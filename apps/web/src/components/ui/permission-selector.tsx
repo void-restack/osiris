@@ -1,15 +1,14 @@
-import { Search, X } from "lucide-react";
+import { Search, X, Lock } from "lucide-react";
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { Checkbox } from "./checkbox";
 import { Input } from "./input";
-import { Button } from "./button";
-import { ScrollArea } from "./scroll-area";
 import { extractScopeUrl } from "@/lib/scope-utils";
 import { Separator } from "./separator";
 
 export type Permission = {
   id: string;
   label: string;
+  isRequired?: boolean;  // Optional for backward compatibility
 };
 
 type PermissionSelectorProps = {
@@ -37,8 +36,20 @@ export function PermissionSelector({
   );
 
   useEffect(() => {
-    setSelectedPermissions([...initialSelected]);
-  }, [initialSelectedIds]);
+    // Combine initialSelected with any required permissions from the permissions list
+    const requiredPermissions = permissions.filter(p => p.isRequired);
+    const combined = [...initialSelected];
+    
+    // Add required permissions that aren't already in initialSelected
+    requiredPermissions.forEach(required => {
+      const exists = combined.some(p => p.id === required.id);
+      if (!exists) {
+        combined.push(required);
+      }
+    });
+    
+    setSelectedPermissions(combined);
+  }, [initialSelectedIds, permissions]);
 
   const removeSelectedPermission = useCallback((id: string) => {
     setSelectedPermissions(prev => {
@@ -152,13 +163,15 @@ export function PermissionSelector({
                 className="flex items-center gap-1.5 rounded-md bg-primary-100/50 px-2 py-0.5 text-[13px]"
               >
                 <span className="font-medium text-xs">{permission.label}</span>
-                <button
-                  type="button"
-                  onClick={() => removeSelectedPermission(permission.id)}
-                  className="rounded-full p-0.5 transition-colors hover:bg-muted"
-                >
-                  <X className="h-3 w-3 text-muted-foreground" />
-                </button>
+                {!permission.isRequired && (
+                  <button
+                    type="button"
+                    onClick={() => removeSelectedPermission(permission.id)}
+                    className="rounded-full p-0.5 transition-colors hover:bg-muted"
+                  >
+                    <X className="h-3 w-3 text-muted-foreground" />
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -183,7 +196,12 @@ export function PermissionSelector({
                   htmlFor={checkboxId}
                   className="flex-1 text-[13px] cursor-pointer leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                 >
-                  <span>{permission.label}</span>
+                  <span className="flex items-center gap-2">
+                    {permission.label}
+                    {permission.isRequired && (
+                      <Lock className="h-3 w-3 text-muted-foreground" aria-label="Required permission" />
+                    )}
+                  </span>
                 </label>
               </div>
             );
