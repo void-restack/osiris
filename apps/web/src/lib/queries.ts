@@ -1369,28 +1369,36 @@ export const hubQueries = {
 
         const response = await api(`/hub/auth${searchParams.toString() ? `?${searchParams.toString()}` : ""}`, {
           schema: responseSchema(
-            z.array(
-              z.object({
-                clientId: z.string().uuid(),
-                name: z.string(),
-                description: z.string(),
-                type: z.enum(["oauth", "secret_sharing", "embedded_wallet"]),
-                supportedScopes: z.array(z.string()),
-                scopeDefinitions: z.record(z.string()),
-                supportedServices: z.array(z.string()),
-                metadata: z.record(z.any()),
-                embedding: z.any().nullable(),
-                createdAt: z.string().datetime(),
-                updatedAt: z.string().datetime(),
-                iconUrl: z.string().nullable(),
-              }),
-            ),
+            z.object({
+              data: z.array(
+                z.object({
+                  clientId: z.string().uuid(),
+                  name: z.string(),
+                  description: z.string(),
+                  type: z.enum(["oauth", "secret_sharing", "embedded_wallet"]),
+                  supportedScopes: z.array(z.string()),
+                  scopeDefinitions: z.record(z.string()),
+                  supportedServices: z.array(z.string()),
+                  metadata: z.record(z.any()),
+                  embedding: z.any().nullable(),
+                  createdAt: z.string().datetime(),
+                  updatedAt: z.string().datetime(),
+                  iconUrl: z.string().nullable(),
+                }),
+              ),
+              pagination: z.object({
+                total: z.number(),
+                totalPages: z.number(),
+                page: z.number(),
+                limit: z.number(),
+              }).optional(),
+            }),
           ),
         });
         if (response.status === "FAILED") {
           throw new Error(response.error);
         }
-        return response.data;
+        return response.data.data;
       },
       staleTime: 10 * 60 * 1000, // 10 minutes - rarely changes
     }),
