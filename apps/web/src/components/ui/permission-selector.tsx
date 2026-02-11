@@ -74,7 +74,7 @@ export function PermissionSelector({
       } else {
         newSelection = prev.filter(p => {
           const normalizedSelected = extractScopeUrl(p.id);
-          const normalizedTarget = permission.id;
+          const normalizedTarget = extractScopeUrl(permission.id);
           return normalizedSelected !== normalizedTarget && p.id !== permission.id;
         });
       }
