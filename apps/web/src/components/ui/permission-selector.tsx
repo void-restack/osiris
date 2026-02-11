@@ -66,7 +66,7 @@ export function PermissionSelector({
       if (checked) {
         const alreadyExists = prev.some(p => {
           const normalizedSelected = extractScopeUrl(p.id);
-          const normalizedNew = permission.id;
+          const normalizedNew = extractScopeUrl(permission.id);
           return normalizedSelected === normalizedNew || p.id === permission.id;
         });
 
@@ -85,9 +85,10 @@ export function PermissionSelector({
   }, [onSelectionChange]);
 
   const isPermissionSelected = useCallback((permissionId: string) => {
+    const normalizedTarget = extractScopeUrl(permissionId);
     return selectedPermissions.some(permission => {
       const normalizedSelected = extractScopeUrl(permission.id);
-      return normalizedSelected === permissionId || permission.id === permissionId;
+      return normalizedSelected === normalizedTarget || permission.id === permissionId;
     });
   }, [selectedPermissions]);
 
