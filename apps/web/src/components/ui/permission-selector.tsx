@@ -1,5 +1,5 @@
 import { Search, X, Lock } from "lucide-react";
-import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { Checkbox } from "./checkbox";
 import { Input } from "./input";
 import { extractScopeUrl } from "@/lib/scope-utils";
@@ -8,7 +8,7 @@ import { Separator } from "./separator";
 export type Permission = {
   id: string;
   label: string;
-  isRequired?: boolean;  // Optional for backward compatibility
+  isRequired?: boolean;
 };
 
 type PermissionSelectorProps = {
@@ -26,79 +26,48 @@ export function PermissionSelector({
   onSelectionChange,
   context = "default",
 }: PermissionSelectorProps) {
-  const [selectedPermissions, setSelectedPermissions] = useState<Permission[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => {
+    const ids = new Set(initialSelected.map(p => p.id));
+    permissions.filter(p => p.isRequired).forEach(p => ids.add(p.id));
+    return ids;
+  });
   const [searchQuery, setSearchQuery] = useState("");
-  const selectedsContainerRef = useRef<HTMLDivElement>(null);
 
-  const isInitialized = useRef(false);
-
-  useEffect(() => {
-    if (isInitialized.current) {
-      setSelectedPermissions(prev => {
-        const requiredPermissions = permissions.filter(p => p.isRequired);
-        const newRequired = requiredPermissions.filter(required =>
-          !prev.some(p => p.id === required.id)
-        );
-        if (newRequired.length === 0) return prev;
-        return [...prev, ...newRequired];
-      });
-      return;
-    }
-
-    const requiredPermissions = permissions.filter(p => p.isRequired);
-    const combined = [...initialSelected];
-
-    requiredPermissions.forEach(required => {
-      const exists = combined.some(p => p.id === required.id);
-      if (!exists) {
-        combined.push(required);
-      }
-    });
-
-    setSelectedPermissions(combined);
-    isInitialized.current = true;
-  }, [initialSelected, permissions]);
-
-  const removeSelectedPermission = useCallback((id: string) => {
-    setSelectedPermissions(prev => {
-      const newSelection = prev.filter(permission => permission.id !== id);
-      onSelectionChange?.(newSelection.map(p => ({ ...p })));
-      return newSelection;
-    });
-  }, [onSelectionChange]);
+  const selectedPermissions = useMemo(() => {
+    return permissions.filter(p => selectedIds.has(p.id));
+  }, [permissions, selectedIds]);
 
   const togglePermission = useCallback((permission: Permission, checked: boolean) => {
-    setSelectedPermissions(prev => {
-      let newSelection: Permission[];
-
+    setSelectedIds(prev => {
+      const next = new Set(prev);
       if (checked) {
-        const alreadyExists = prev.some(p => {
-          const normalizedSelected = extractScopeUrl(p.id);
-          const normalizedNew = extractScopeUrl(permission.id);
-          return normalizedSelected === normalizedNew || p.id === permission.id;
-        });
-
-        newSelection = alreadyExists ? prev : [...prev, { ...permission }];
+        next.add(permission.id);
       } else {
-        newSelection = prev.filter(p => {
-          const normalizedSelected = extractScopeUrl(p.id);
-          const normalizedTarget = extractScopeUrl(permission.id);
-          return normalizedSelected !== normalizedTarget && p.id !== permission.id;
-        });
+        next.delete(permission.id);
       }
-
+      
+      const newSelection = permissions.filter(p => next.has(p.id));
       onSelectionChange?.(newSelection.map(p => ({ ...p })));
-      return newSelection;
+      
+      return next;
     });
-  }, [onSelectionChange]);
+  }, [permissions, onSelectionChange]);
+
+  const removeSelectedPermission = useCallback((id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      next.delete(id);
+      
+      const newSelection = permissions.filter(p => next.has(p.id));
+      onSelectionChange?.(newSelection.map(p => ({ ...p })));
+      
+      return next;
+    });
+  }, [permissions, onSelectionChange]);
 
   const isPermissionSelected = useCallback((permissionId: string) => {
-    const normalizedTarget = extractScopeUrl(permissionId);
-    return selectedPermissions.some(permission => {
-      const normalizedSelected = extractScopeUrl(permission.id);
-      return normalizedSelected === normalizedTarget || permission.id === permissionId;
-    });
-  }, [selectedPermissions]);
+    return selectedIds.has(permissionId);
+  }, [selectedIds]);
 
   const filteredPermissions = useMemo(() => {
     if (!searchQuery.trim()) return permissions;
@@ -113,16 +82,6 @@ export function PermissionSelector({
   const sanitizeId = useCallback((id: string) =>
     id.replace(/[^a-zA-Z0-9-_]/g, '-'), []
   );
-
-
-  useEffect(() => {
-    if (selectedsContainerRef.current) {
-      selectedsContainerRef.current.scrollTo({
-        left: selectedsContainerRef.current.scrollWidth,
-        behavior: "smooth",
-      });
-    }
-  }, [selectedPermissions.length]);
 
   if (permissions.length === 0) {
     return (
@@ -161,11 +120,9 @@ export function PermissionSelector({
 
       <Separator className="h-0 border-t border-dashed bg-transparent" />
 
-
-      {/* Selected Permissions */}
       {selectedPermissions.length > 0 && (
         <div className="mb-4 overflow-y-auto hidebar max-h-20 px-2">
-          <div className="flex flex-wrap gap-2 pr-4" ref={selectedsContainerRef}>
+          <div className="flex flex-wrap gap-2 pr-4">
             {selectedPermissions.map((permission, index) => (
               <div
                 key={`selected-${permission.id}-${index}`}
@@ -187,7 +144,6 @@ export function PermissionSelector({
         </div>
       )}
 
-      {/* Available Permissions */}
       <div className="space-y-4 overflow-y-auto hidebar max-h-[180px] px-2">
         {filteredPermissions.length > 0 ? (
           filteredPermissions.map((permission) => {
@@ -224,8 +180,6 @@ export function PermissionSelector({
           </div>
         )}
       </div>
-      {/* </ScrollArea> */}
-      {/* </ScrollArea> */}
     </div>
   );
 }
