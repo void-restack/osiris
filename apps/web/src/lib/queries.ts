@@ -1386,19 +1386,21 @@ export const hubQueries = {
                   iconUrl: z.string().nullable(),
                 }),
               ),
-              pagination: z.object({
-                total: z.number(),
-                totalPages: z.number(),
-                page: z.number(),
-                limit: z.number(),
-              }).optional(),
+              pagination: z
+                .object({
+                  total: z.number(),
+                  totalPages: z.number(),
+                  page: z.number(),
+                  limit: z.number(),
+                })
+                .optional(),
             }),
           ),
         });
         if (response.status === "FAILED") {
           throw new Error(response.error);
         }
-        return response.data.data;
+        return response.data;
       },
       staleTime: 10 * 60 * 1000, // 10 minutes - rarely changes
     }),
