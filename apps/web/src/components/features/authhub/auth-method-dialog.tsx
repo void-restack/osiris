@@ -871,7 +871,7 @@ export function AuthMethodDialog({
 
           <div className="border-t border-t-primary-200 border-dashed my-6" />
 
-          {isLoading ? (
+          {isLoading || (isSuccess && !connectionData) ? (
             <div className="w-full flex flex-col items-center justify-center py-12 text-[18px]">
               <div className="flex flex-col text-center mb-8">
                 <h3 className="flex items-center justify-center gap-2">
