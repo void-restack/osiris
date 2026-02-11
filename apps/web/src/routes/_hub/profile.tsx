@@ -28,6 +28,7 @@ import { formatRelativeTime } from "@/lib/format"
 import { useDeleteOAuthClientMutation, useRegenerateOAuthSecretMutation } from "@/lib/mutations"
 import { useAppStore } from "@/lib/store"
 import type { OAuthClientData } from "@/lib/store"
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 
 export const Route = createFileRoute('/_hub/profile')({
   component: RouteComponent,
@@ -71,6 +72,9 @@ function RouteComponent() {
   const [oauthViewMode, setOauthViewMode] = useState<"table" | "grid">("grid");
 
   const [activeTab, setActiveTab] = useState<string>("oauth-clients");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [regenerateDialogOpen, setRegenerateDialogOpen] = useState(false)
+  const [selectedClient, setSelectedClient] = useState<OAuthClient | null>(null)
 
   const formatCredits = (credits: string) => {
     const numCredits = parseFloat(credits);
@@ -117,16 +121,30 @@ function RouteComponent() {
   const regenerateSecretMutation = useRegenerateOAuthSecretMutation();
 
   const handleDelete = (client: OAuthClient) => {
-    if (confirm(`Are you sure you want to delete "${client.name}"? This action cannot be undone.`)) {
-      deleteClientMutation.mutate(client.clientId);
+    setSelectedClient(client)
+    setDeleteDialogOpen(true)
+  }
+
+  const confirmDelete = () => {
+    if (selectedClient) {
+      deleteClientMutation.mutate(selectedClient.clientId)
+      setDeleteDialogOpen(false)
+      setSelectedClient(null)
     }
-  };
+  }
 
   const handleRegenerateSecret = (client: OAuthClient) => {
-    if (confirm(`Are you sure you want to regenerate the client secret for "${client.name}"? The old secret will stop working.`)) {
-      regenerateSecretMutation.mutate(client.clientId);
+    setSelectedClient(client)
+    setRegenerateDialogOpen(true)
+  }
+
+  const confirmRegenerate = () => {
+    if (selectedClient) {
+      regenerateSecretMutation.mutate(selectedClient.clientId)
+      setRegenerateDialogOpen(false)
+      setSelectedClient(null)
     }
-  };
+  }
 
   const mcpColumns = useMemo<ColumnDef<PackageList>[]>(
     () => [
@@ -719,6 +737,25 @@ function RouteComponent() {
         {activeTab === "mcps" && mcpTable.getRowModel().rows.length > 0 && <DataTablePagination table={mcpTable} />}
         {activeTab === "oauth-clients" && oauthTable.getRowModel().rows.length > 0 && <DataTablePagination table={oauthTable} />}
       </div>
+
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="Delete OAuth Client"
+        description={selectedClient ? `Are you sure you want to delete "${selectedClient.name}"? This action cannot be undone.` : ''}
+        onConfirm={confirmDelete}
+        confirmText="Delete"
+        variant="destructive"
+      />
+
+      <ConfirmDialog
+        open={regenerateDialogOpen}
+        onOpenChange={setRegenerateDialogOpen}
+        title="Regenerate Client Secret"
+        description={selectedClient ? `Are you sure you want to regenerate the client secret for "${selectedClient.name}"? The old secret will stop working.` : ''}
+        onConfirm={confirmRegenerate}
+        confirmText="Regenerate"
+      />
     </div>
   )
 }
