@@ -128,7 +128,7 @@ function buildConnectionIdsAndScopes(
     if (!connection) continue
     const userConnId_ = connection.user_service_connections.id
     connectionIds.push(userConnId_)
-    const serviceScopes = selectedPermissions[serviceName]?.map((p) => p.id) ?? []
+    const serviceScopes = selectedPermissions[serviceName]?.map((p) => `${serviceName}:${p.id}`) ?? []
     connectionScopes[userConnId_] = uniqueScopes([...BASE_CONNECTION_SCOPES, ...serviceScopes])
   }
   return { connectionIds, connectionScopes }
