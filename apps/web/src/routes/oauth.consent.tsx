@@ -920,7 +920,7 @@ function RouteComponent() {
 
   if (!isAuthenticated) {
     return (
-      <div className="flex flex-1 flex-col bg-primary-25 h-full min-h-screen">
+      <div className="flex flex-1 flex-col bg-primary-25 h-full min-h-dvh">
         <div className="mx-auto py-8 max-w-[520px] w-full px-4 space-y-6">
           <div className="text-center py-8">
             <h1 className="text-2xl font-semibold text-gray-900 mb-2">
@@ -1027,7 +1027,7 @@ function RouteComponent() {
   }
 
   return (
-    <div className="flex flex-1 flex-col bg-primary-25 h-full min-h-screen">
+    <div className="flex flex-1 flex-col bg-primary-25 h-full min-h-dvh">
       <div className="mx-auto py-8 max-w-[520px] w-full px-4 space-y-6">
         <div className="text-center py-8">
           <h1 className="text-2xl font-semibold text-gray-900 mb-2">

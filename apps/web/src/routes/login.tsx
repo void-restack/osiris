@@ -48,7 +48,7 @@ function RouteComponent() {
   }
 
   return (
-    <div className='w-full h-screen flex flex-col items-center justify-center'>
+    <div className='w-full h-dvh flex flex-col items-center justify-center'>
       <img src="/user-login.png" alt="logo" className="size-20 mb-3" />
       <h1 className='text-xl font-medium mb-6'>Login to your account</h1>
       <div className="space-y-3">
