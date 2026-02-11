@@ -30,26 +30,34 @@ export function PermissionSelector({
   const [searchQuery, setSearchQuery] = useState("");
   const selectedsContainerRef = useRef<HTMLDivElement>(null);
 
-  const initialSelectedIds = useMemo(
-    () => initialSelected.map(p => p.id).sort().join('|'),
-    [initialSelected]
-  );
+  const isInitialized = useRef(false);
 
   useEffect(() => {
-    // Combine initialSelected with any required permissions from the permissions list
+    if (isInitialized.current) {
+      setSelectedPermissions(prev => {
+        const requiredPermissions = permissions.filter(p => p.isRequired);
+        const newRequired = requiredPermissions.filter(required =>
+          !prev.some(p => p.id === required.id)
+        );
+        if (newRequired.length === 0) return prev;
+        return [...prev, ...newRequired];
+      });
+      return;
+    }
+
     const requiredPermissions = permissions.filter(p => p.isRequired);
     const combined = [...initialSelected];
-    
-    // Add required permissions that aren't already in initialSelected
+
     requiredPermissions.forEach(required => {
       const exists = combined.some(p => p.id === required.id);
       if (!exists) {
         combined.push(required);
       }
     });
-    
+
     setSelectedPermissions(combined);
-  }, [initialSelectedIds, permissions]);
+    isInitialized.current = true;
+  }, [initialSelected, permissions]);
 
   const removeSelectedPermission = useCallback((id: string) => {
     setSelectedPermissions(prev => {
